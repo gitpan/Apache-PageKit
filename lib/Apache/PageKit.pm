@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.90 2001/06/08 13:47:07 tjmather Exp $
+# $Id: PageKit.pm,v 1.94 2001/06/19 16:29:33 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -34,7 +34,7 @@ use Apache::PageKit::Config ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.03';
+$VERSION = '1.04';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -46,7 +46,7 @@ $VERSION = '1.03';
 sub startup ($$$) {
   my ($class, $pkit_root, $server) = @_;
 
-  die 'must specify $server in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)' unless $server;
+  die 'must specify $server variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)' unless $server;
 
   my $s = Apache->server;
 
@@ -79,11 +79,13 @@ sub startup ($$$) {
 
   # delete all cache files, since some of them might be stale
   # and might not be checked for freshness, if reload is off
-  # even is reload is on, PageKit might change, so it should
+  # even if reload is on, PageKit might change, so it should be refreshed
   my $unlink_sub = sub {
     -f && unlink;
   };
   File::Find::find($unlink_sub,$view_cache_dir);
+  $model_base_class->pkit_startup($pkit_root, $server, $config)
+    if $model_base_class->can('pkit_startup');
 }
 
 # object oriented method call, see Eagle p.65
@@ -108,6 +110,7 @@ sub handler ($$){
 	$pk->component_code($component_id);
       }
       $model->pkit_post_common_code if $model->can('pkit_post_common_code');
+      $pk->set_session_cookie;
       $pk->prepare_and_print_view;
     }
     $model->pkit_cleanup_code if $model->can('pkit_cleanup_code');
@@ -161,6 +164,28 @@ sub params_as_string {
     return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} grep !{exists $exclude_param{$_}}, grep !/^pkit_(logout|view|check_cookie|messages|error_messages|lang)$/, keys %$args);
   } else {
     return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} grep !/^pkit_(logout|view|check_cookie|messages|error_messages|lang)$/, keys %$args);
+  }
+}
+
+sub update_session {
+  my ($pk) = @_;
+  # keep recent sessions recent, if user is logged in
+  # that is sessions time out if user hasn't viewed in a page
+  # in recent_login_timeout seconds
+
+  my $session = $pk->{session};
+  return unless defined($session);
+  unless(exists($session->{pkit_inactivity_timeout})){
+    my $recent_login_timeout = $pk->{config}->get_global_attr('recent_login_timeout');
+    my $last_activity = $session->{pkit_last_activity};
+    if(defined($recent_login_timeout) && defined($last_activity) &&
+       $last_activity + $recent_login_timeout < time()){
+      # user has been inactive for recent_login_timeout seconds, timeout
+      $session->{pkit_inactivity_timeout} = 1;
+    } else {
+      # update last_activity timestamp
+      $session->{pkit_last_activity} = time();
+    }
   }
 }
 
@@ -313,6 +338,12 @@ sub prepare_page {
 
   my $auth_user;
 
+  # session handling
+  if($model->can('pkit_session_setup')){
+    $pk->setup_session;
+  }
+  my $session = $pk->{session};
+
   if($apr->param('pkit_login')){
     if ($pk->login){
       # if login is sucessful, redirect to (re)set cookie
@@ -338,27 +369,17 @@ sub prepare_page {
     $auth_user = $pk->authenticate;
   }
 
-  # session handling
-  if($model->can('pkit_session_setup')){
-    # will will use $auth_user in future versions of pagekit to 
-    # association sessions with logins
-    $pk->setup_session($auth_user);
-  }
-  my $session = $pk->{session};
-
   if($auth_user){
     my $pkit_check_cookie = $apr->param('pkit_check_cookie');
     if(defined($pkit_check_cookie) && $pkit_check_cookie eq 'on'){
       $model->pkit_message("You have successfully logged in.");
     }
+    $pk->update_session;
 
     my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
     if(defined($require_login) && $require_login eq 'recent'){
-      my $recent_login_timeout = $config->get_global_attr('recent_login_timeout');
-      my $last_activity = $session->{last_activity};
-      if(defined($recent_login_timeout) && defined($last_activity) &&
-	 $last_activity + $recent_login_timeout < time()){
-	# user is logged in, but has not been active recently
+      if(exists($session->{pkit_inactivity_timeout})){
+	# user is logged in, but has had inactivity period
 
 	# display verify password form
 	$pk->{page_id} = $config->get_global_attr('verify_page') ||
@@ -366,6 +387,8 @@ sub prepare_page {
 	# pkit_done parameter is used to return user to page that they originally requested
 	# after login is finished
 	$output_param_object->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
+
+#	$apr->connection->user(undef);
       }
     }
   } else {
@@ -400,7 +423,7 @@ sub prepare_page {
 
   if($lang = $apr->param('pkit_lang')){
     $session->{'pkit_lang'} = $lang if $session;
-  } elsif ($session){
+  } elsif ($session && ! exists $pk->{is_new_session}){
     $lang = $session->{'pkit_lang'} if exists $session->{'pkit_lang'};
   } else {
     unless ($lang = substr($apr->header_in('Accept-Language'),0,2)){
@@ -445,14 +468,10 @@ sub prepare_page {
 sub open_view {
   my ($pk) = @_;
 
-  my $apr = $pk->{apr};
-  my $view = $pk->{view};
-  my $session = $pk->{session};
-
-  my $pkit_view = $apr->param('pkit_view') || 'Default';
+  my $pkit_view = $pk->{apr}->param('pkit_view') || 'Default';
 
   # open template file
-  $view->open_view($pk->{page_id}, $pkit_view, $pk->{lang});
+  $pk->{view}->open_view($pk->{page_id}, $pkit_view, $pk->{lang});
 }
 
 sub prepare_and_print_view {
@@ -613,10 +632,12 @@ sub new {
 
   # set up contained objects
   my $pkit_root = $r->dir_config('PKIT_ROOT');
+  die "Must specify PerlSetVar PKIT_ROOT in httpd.conf file" unless $pkit_root;
   my $config_dir = $pkit_root . '/Config';
   my $content_dir = $pkit_root . '/Content';
   my $view_dir = $pkit_root . '/View';
   my $server = $r->dir_config('PKIT_SERVER');
+  die "Must specify PerlSetVar PKIT_SERVER in httpd.conf file" unless $server;
   my $config = $self->{config} = Apache::PageKit::Config->new(config_dir => $config_dir,
 						 server => $server);
   my $apr = $self->{apr} = Apache::Request->new($r, POST_MAX => $self->{config}->get_global_attr('post_max'));
@@ -765,10 +786,11 @@ sub login {
 
   $ses_key || return 0;
 
-  # check if user has a saved session_id
-
   # allow user to view pages with require_login eq 'recent'
-  $session->{last_activity} = time();
+  if(exists $pk->{session}){
+    delete $pk->{session}->{pkit_inactivity_timeout};
+    $pk->{session}->{pkit_last_activity} = time();
+  }
 
   # save session
   delete $pk->{session};
@@ -883,9 +905,8 @@ sub setup_session {
     $session_id = $scookie->value;
   }
 
-  my $is_new_session;
-
-  $is_new_session = 1 unless $session_id;
+  # this sets a flag so we know if we should send a cookie later...
+  $pk->{is_new_session} = 1 unless $session_id;
 
   # set up session handler class
   my %session;
@@ -904,10 +925,18 @@ sub setup_session {
   };
 
   $pk->{session} = \%session;
+}
 
-  if($is_new_session){
-    # set cookie in users browser
-    my $session_id = $session{'_session_id'};
+sub set_session_cookie {
+  my ($pk) = @_;
+
+  return unless exists $pk->{is_new_session};
+
+  my $session = $pk->{session};
+  my $apr = $pk->{apr};
+
+  if(my $session_id = tied(%$session)->getid){
+    # something was stored in session
     my $expires = $pk->{config}->get_global_attr('session_expires');
     my @cookie_domains = split(' ',$pk->{config}->get_server_attr('cookie_domain'));
     @cookie_domains = (undef) if @cookie_domains == 0;
@@ -920,21 +949,9 @@ sub setup_session {
       $cookie->expires($expires) if $expires;
       $cookie->bake;
     }
-  } else {
-    # keep recent sessions recent, if user is logged in
-    # that is sessions time out if user hasn't viewed in a page 
-    # in recent_login_timeout seconds
-
-    if($auth_user){
-      my $now = time();
-      $session{last_activity} = $now;
-    }
+    # save for logging purposes (warning, undocumented and might go away)
+    $apr->notes(pkit_session_id => $session_id);
   }
-
-  # save for logging purposes (warning, undocumented and might go away)
-  $apr->notes(pkit_session_id => $session_id);
-
-  return $session_id;
 }
 
 # check to see if page has either template or perl code associated with it
@@ -1079,11 +1096,11 @@ See http://www.pagekit.org/faq.html
 =head1 SEE ALSO
 
 L<Apache::Request>, L<HTML::FillInForm>, L<HTML::Template>,
-L<HTML::FormValidator>
+L<Data::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 1.03
+This document describes Apache::PageKit module version 1.04
 
 =head1 NOTES
 
@@ -1141,8 +1158,10 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Leonardo de Carvalho
   Rob Falcon
   Sheffield Nolan
+  David Raimbault
 
-Thanks!
+Also, thanks to Dan Von Kokorn for helping shape the initial architecture
+and for the invaluable support and advice. 
 
 =head1 COPYRIGHT
 

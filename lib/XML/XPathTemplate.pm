@@ -1,6 +1,6 @@
 package XML::XPathTemplate;
 
-# $Id: XPathTemplate.pm,v 1.9 2001/06/04 18:59:52 tjmather Exp $
+# $Id: XPathTemplate.pm,v 1.10 2001/06/19 02:17:51 tjmather Exp $
 
 use strict;
 use XML::XPath;
@@ -200,26 +200,31 @@ sub _get_document_xpath {
 }
 
 sub _get_xp {
-  my ($xpt, $xml_filename) = @_;
+  my ($xpt, $xml_filename, $context) = @_;
 
   if(exists $xpt->{xp}->{$xml_filename}){
     return $xpt->{xp}->{$xml_filename};
   } else {
-    my $filename = "$xpt->{root_dir}/$xml_filename";
+    my $xp;
+    if($context){
+      $xp = XML::XPath->new(context => $context);
+    } else {
+      my $filename = "$xpt->{root_dir}/$xml_filename";
 #    die "Can't load $filename" unless
 #      (-e "$filename");
 #    die "Can't load content file $filename" unless
 #      (-e "$filename");
-    unless (-e "$filename"){
-      warn "Can't load content file $filename";
-      return;
+      unless (-e "$filename"){
+	warn "Can't load content file $filename";
+	return;
+      }
+      $xp = XML::XPath->new(filename => "$filename");
+
+      # get default context (root XML element)
+      $xpt->{root_element_node}->{$xml_filename} = $xp->findnodes("/*")->[0];
+
+      $xpt->{xp}->{$xml_filename} = $xp;
     }
-    my $xp = XML::XPath->new(filename => "$filename");
-
-    # get default context (root XML element)
-    $xpt->{root_element_node}->{$xml_filename} = $xp->findnodes("/*")->[0];
-
-    $xpt->{xp}->{$xml_filename} = $xp;
     return $xp;
   }
 }
@@ -228,11 +233,12 @@ sub _get_xpath_langs {
   my ($xpt, %arg) = @_;
 
   my $xml_filename = $arg{xml_filename};
-  my $xp = $xpt->_get_xp($xml_filename);
+  my $context = $arg{context} || $xpt->{root_element_node}->{$xml_filename};
+  my $xp = $xpt->_get_xp($xml_filename, $context);
   return [] unless $xp;
 
   my $xpath = $arg{xpath};
-  my $context = $arg{context} || $xpt->{root_element_node}->{$xml_filename};
+  $context ||= $xpt->{root_element_node}->{$xml_filename};
 
   my $nodeset = $xp->find($xpath, $context);
 
@@ -258,11 +264,12 @@ sub _get_xpath_nodeset {
   my $xml_filename = $arg{xml_filename};
 
   my $return_nodeset = XML::XPath::NodeSet->new;
-  my $xp = $xpt->_get_xp($xml_filename);
+  my $context = $arg{context};
+  my $xp = $xpt->_get_xp($xml_filename, $context);
   return $return_nodeset unless $xp;
   my $xpath = $arg{xpath};
   my $lang = $arg{lang};
-  my $context = $arg{context} || $xpt->{root_element_node}->{$xml_filename};
+  $context ||= $xpt->{root_element_node}->{$xml_filename};
 
   my $nodeset = $xp->find($xpath, $context);
   my @nodelist = $nodeset->get_nodelist;

@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 1.03 (Alpha)
+	Version: 1.04 (Alpha)
 
 Description
 -----------
@@ -41,6 +41,7 @@ Requirements
 	- libapreq
 	- Apache::Session 1.5
 	- Compress::Zlib
+	- Data::FormValidator
 	- Digest::MD5
 	- HTML::FillInForm 0.12
 	- HTML::Template 2.2
@@ -166,10 +167,16 @@ Configuration
 
 		SetHandler perl-script
 		PerlSetVar PKIT_ROOT /path/to/pagekit/files
+		PerlSetVar PKIT_SERVER staging
 		PerlHandler +Apache::PageKit
 		<Perl>
-			Apache::PageKit->startup("/path/to/pagekit/files");
+			Apache::PageKit->startup("/path/to/pagekit/files","staging");
 		</Perl>
+
+		# Optional
+		PerlRequire /path/to/startup.pl
+		PerlModule Apache::ErrorReport
+		PerlSetVar ErrorReportHandler display
 
 	and changing the settings in
 
@@ -177,6 +184,9 @@ Configuration
 
 Bugs
 ----
+
+There is a bug in Perl 5.6.1 that causes weirdness with the templates
+are encoded in UTF-8.
 
 Send bug reports and suggestions to tjmather@anidea.com
 

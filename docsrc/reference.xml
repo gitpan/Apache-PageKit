@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.14 2001/06/08 13:47:07 tjmather Exp $
+$Id: reference.xml,v 1.16 2001/06/19 16:29:33 tjmather Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -775,6 +775,37 @@ are on a secure page (the only good use of <literal>pkit_output_filter</literal>
      </para>
     </refsect1>
    </refentry>
+   <refentry id="model.api.pkit_startup">
+    <refnamediv>
+     <refname>pkit_startup</refname>
+     <refpurpose>
+      Class method called at server startup.
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+sub pkit_startup {
+  my ($class, $pkit_root, $server, $config) = @_;
+  my $pic_cache_dir = $config->get_global_attr('my_picture_cache') || '';
+  my $unlink_sub = sub {
+    -f && unlink;
+  };
+  File::Find::find(sub { -f && unlink }, $pic_cache_dir);
+}
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+Called at server startup with PageKit root, server, and configuration
+object passed as parameters.  Note that the configuration API may change.
+     </para>
+     <para>
+In the example above we filter the image links to that they point to the secure site if we
+are on a secure page (the only good use of <literal>pkit_output_filter</literal> that I know of)
+     </para>
+    </refsect1>
+   </refentry>
   </sect2>
   <sect2 id="model.api.api">
    <title>PageKit API</title>
@@ -1164,7 +1195,7 @@ for implementing your own custom constraints.
     <refsect1>
      <title>Description</title>
      <para>
-Takes an hash reference containing a <ulink url="http://perldoc.anidea.com/HTML/FormValidator.html">HTML::FormValidator</ulink> input profile
+Takes an hash reference containing a <ulink url="http://perldoc.anidea.com/Data/FormValidator.html">Data::FormValidator</ulink> input profile
 and returns true if the request parameters are valid.
      </para>
     </refsect1>

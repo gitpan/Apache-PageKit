@@ -1,7 +1,7 @@
 <chapter><?dbhtml filename="features.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: features.xml,v 1.8 2001/06/08 13:47:07 tjmather Exp $
+$Id: features.xml,v 1.9 2001/06/19 16:29:33 tjmather Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Overview of Features</title>
@@ -54,7 +54,7 @@ interfering with each other.
     site.  These class files should be located in the <filename>Model/</filename> directory.  Each URL is translated into a class and method automatically. 
    </para>
    <para>
-It includes support for <ulink url="http://perldoc.anidea.com/HTML/FormValidator.html">HTML::FormValidator</ulink>, making the tedious task of input validation easier.
+It includes support for <ulink url="http://perldoc.anidea.com/Data/FormValidator.html">Data::FormValidator</ulink>, making the tedious task of input validation easier.
 To validate a form, you simply specify required fields and constraints. If there is an error, you
 can return to the input form, and the invalid fields automatically get highlighted in red.
    </para>

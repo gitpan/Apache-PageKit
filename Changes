@@ -2,6 +2,18 @@ Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
 
+1.04
+	- PageKit now uses Data::FormValidator instead of HTML::FormValidator
+		(Mark Stosberg)
+	- Sessions cookies only set when session is actually created
+	- Fixed content handler for case where there is a loop containing
+		and document() func, and vars don't contain document() func,
+		and no other top-level tags without document() func (Boris Zentner)
+	- Fixed recent_login session (Boris Zentner, David Raimbault)
+	- Added pkit_startup class method (Boris Zentner)
+	- Charset fixes, now should deal with PageKit templates
+		and default_input_charset correctly.
+
 1.03
 	- PageKit now supports general charset conversions using Text::Iconv,
 		removed workaround for european charsets in XML::XPathTemplate
@@ -10,6 +22,7 @@ Revision history for Perl extension Apache::PageKit.
 		default_input_charset (Boris Zentner)
 	- Added charset translation support with output_charset method in
 		Model (Boris Zentner)
+	- PageKit Template file cache is now dependant on mtime of Config.xml
 	- fixed bug with pkit_lang (Ben Ausden)
 	- Added pkit_cleanup_code to main request handler (Boris Zentner)
 	- input and pnotes methods in Model now work outside of mod_perl

@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.9 2001/05/19 22:20:36 tjmather Exp $
+# $Id: Common.pm,v 1.10 2001/06/19 16:05:50 tjmather Exp $
 
 use strict;
 
@@ -44,7 +44,7 @@ sub pkit_common_code {
   my $model = shift;
 
   # put code that is common to all pages here
-  my $session = $model->session;
+  my $session = $model->pkit_get_session_id ? $model->session : {};
 
   # for the pagekit.org website, we control the colors based on the
   # values the user selected, stored in the session.

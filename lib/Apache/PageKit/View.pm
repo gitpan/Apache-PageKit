@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.61 2001/06/08 01:59:34 tjmather Exp $
+# $Id: View.pm,v 1.62 2001/06/09 14:13:41 tjmather Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -372,19 +372,18 @@ sub _load_component {
     close TEMPLATE;
 
     my $default_input_charset = $view->{default_input_charset};
-    my $default_output_charset = $view->{default_output_charset};
-    # this MUST be done even if both are the same, to convert $#223; to the native format - (Boris Zentner)
-    my $converter;
-    eval {
-      $converter = Text::Iconv->new($default_input_charset, $default_output_charset);
-    };
-    if ($@) {
-      (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
-      die "one or both charsets ($default_input_charset, $default_output_charset) are not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+    unless($default_input_charset eq 'UTF-8'){
+      my $converter;
+      eval {
+	$converter = Text::Iconv->new($default_input_charset, 'UTF-8');
+      };
+      if ($@) {
+	(my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+	die "charset ($default_input_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+      }
+      $template = $converter->convert($template);
     }
-
-    my $converted_text = $converter->convert($template);
-    $template_ref = \$converted_text;
+    $template_ref = \$template;
 
     my $mtime = (stat(_))[9];
     $view->{include_mtimes}->{$template_file} = $mtime;
@@ -422,27 +421,30 @@ sub _load_page {
   my $template_file = $view->_find_template($pkit_view, $page_id);
   my $template_ref = $view->_load_component($page_id,$page_id,$pkit_view);
 
+  my $default_output_charset = $view->{default_output_charset};
+  my $converter;
+  unless ('UTF-8' eq $default_output_charset) {
+    eval {
+      $converter = Text::Iconv->new( 'UTF-8', $default_output_charset);
+    };
+    if ($@) {
+      (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+      die "The charset ($default_output_charset) is not supported by
+ext::Iconv please check file ${config_dir}/Config.xml";
+    }
+  }
+
 #  my $template_file = $view->_find_template($pkit_view, $page_id);
   my $lang_tmpl = $content->process_template($page_id, $template_ref);
 
   # go through content files (which have had content filled in)
   while (my ($lang, $filtered_html) = each %$lang_tmpl){
+
+    $$filtered_html = $converter->convert($$filtered_html) if ($converter);
     my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
     $view->_html_clean($filtered_html);
 
     my $has_form = ($$filtered_html =~ m!<form!i);
-    my $default_output_charset = $view->{default_output_charset};
-    my $converter;
-    # this MUST be done even if both are the same, to convert $#223; to the native format - (Boris Zentner)
-    eval {
-      $converter = Text::Iconv->new('UTF-8', $default_output_charset);
-    };
-    if ($@) {
-      (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
-      die "The charset ($default_output_charset) is not supported by
-Text::Iconv please check file ${config_dir}/Config.xml";
-    }
-    $$filtered_html = $converter->convert($$filtered_html);
     my $tmpl;
     eval {
       $tmpl = HTML::Template->new(scalarref => $filtered_html,

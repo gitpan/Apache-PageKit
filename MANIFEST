@@ -22,7 +22,6 @@ lib/Apache/PageKit/Model.pm
 lib/Apache/PageKit/Param.pm
 lib/Apache/PageKit/Session.pm
 lib/Apache/PageKit/View.pm
-lib/HTML/FormValidator.pm
 lib/XML/XPathTemplate.pm
 migration/README
 README

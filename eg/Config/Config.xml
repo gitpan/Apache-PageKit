@@ -6,8 +6,9 @@
 	gzip_output = "static"
 	translate_charset = "yes"
 	login_page="login1"
+	model_base_class="MyPageKit::Common"
 	model_dispatch_prefix="MyPageKit::MyModel"
-	reload="yes"
+	recent_login_timeout="10"
 	session_expires="+1y"
 	uri_prefix = "pagekit/"
 />
@@ -26,7 +27,7 @@
 	media="xml"/>
 </VIEWS>
 <PAGES>
-  <PAGE id="customize" request_param_in_tmpl="yes">
-  </PAGE>
+  <PAGE id="customize" request_param_in_tmpl="yes"/>
+  <PAGE id="restricted" require_login="recent"/>
 </PAGES>
 </CONFIG>

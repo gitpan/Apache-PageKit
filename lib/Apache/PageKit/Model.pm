@@ -1,10 +1,10 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.41 2001/06/08 01:59:34 tjmather Exp $
+# $Id: Model.pm,v 1.45 2001/06/19 16:29:33 tjmather Exp $
 
 use integer;
 use strict;
-use HTML::FormValidator;
+use Data::FormValidator;
 
 use Apache::Constants qw(REDIRECT);
 use Apache::PageKit::Param;
@@ -25,9 +25,10 @@ sub new {
 
 sub pkit_get_session_id {
   my $model = shift;
-  return $model->{pkit_pk}->{session}->{_session_id};
+  return tied(%{$model->{pkit_pk}->{session}})->getid;
 }
 
+# returns value of PerlSetVar PKIT_SERVER from httpd.conf
 sub pkit_get_server_id {
   my $model = shift;
   my $apr = $model->{pkit_pk}->{apr};
@@ -75,9 +76,9 @@ sub pkit_set_errorfont {
 sub pkit_validate_input {
   my ($model, $input_profile) = @_;
 
-  my $validator = new HTML::FormValidator({default => $input_profile});
+  my $validator = new Data::FormValidator({default => $input_profile});
 
-  # put the data from input into a %fdat hash so HTML::FormValidator can read it
+  # put the data from input into a %fdat hash so Data::FormValidator can read it
   my $input_hashref = $model->pkit_input_hashref;
 
   # put derived Model object in pkit_model
@@ -182,9 +183,16 @@ sub output_convert {
   my $view = $model->{pkit_pk}->{view};
   my $input_charset = exists $p{input_charset} ? $p{input_charset} : $view->{default_input_charset};
   my $default_output_charset = $view->{default_output_charset};
-  my $converter = Text::Iconv->new($input_charset, $default_output_charset)
-    || die "Charset $input_charset or $default_output_charset not supported by Text::Iconv";
-  &_change_params($converter, $p{output});
+  if ($input_charset ne $default_output_charset) {
+    my $converter;
+    eval {
+      $converter = Text::Iconv->new($input_charset, $default_output_charset);
+    };
+    if ($@) {
+      die "Charset $input_charset or $default_output_charset not supported by Text::Iconv";
+    }
+    &_change_params($converter, %{$p{output}});
+  }
   $model->output($p{output});
 }
 
@@ -318,7 +326,7 @@ Apache::PageKit::Model - Base Model Class
 This class provides a base class for the Modules implementing
 the backend business logic for your web site.
 
-This module also contains a wrapper to L<HTML::FormValidator>.
+This module also contains a wrapper to L<Data::FormValidator>.
 It validates the form data from the L<Apache::Request> object contained
 in the L<Apache::PageKit> object.
 

@@ -45,6 +45,13 @@ sub form_validation_done {
   }
 }
 
+sub index {
+  my $model = shift;
+
+  my $pkit_server_id = $model->pkit_get_server_id;
+  $model->output(pkit_server_id => $pkit_server_id);
+}
+
 sub language {
   my $model = shift;
 
