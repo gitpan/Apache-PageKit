@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.74 2002/03/14 14:41:38 borisz Exp $
+# $Id: Model.pm,v 1.91 2004/01/06 16:31:47 borisz Exp $
 
 use integer;
 use strict;
@@ -108,6 +108,7 @@ sub pkit_set_errorfont {
   $begin_value =~ s/<(!--)?\s*PKIT_ERRORSTR\s*(?(1)--)>/$color_str/gi;
   my $end_name = "PKIT_ERRORSPAN_END_$field";
   my $end_value = $model->pkit_get_config_attr( GLOBAL => 'errorspan_end_tag' ) || q{</font>};
+  
   $model->output($begin_name => $begin_value);
   $model->output($end_name => $end_value);
 }
@@ -270,7 +271,7 @@ sub pkit_internal_execute_redirect {
 # currently input_param is just a wrapper around $apr
 sub input {
   my $model = shift;
-  
+
   if ( @_ > 1 && exists $model->{pkit_input_hashref} ) {
     # insert something, we must update the hashref
     my %params = @_;
@@ -573,7 +574,7 @@ Boris Zentner (borisz@users.sourceforge.net)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002, 2003 AnIdea Corporation.  All rights Reserved.  PageKit is
+Copyright (c) 2000, 2001, 2002, 2003, 2004 AnIdea Corporation.  All rights Reserved.  PageKit is
 a trademark of AnIdea Corporation.
 
 =head1 LICENSE

@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 1.11 (Beta)
+	Version: 1.13
 
 Description
 -----------
@@ -109,6 +109,7 @@ PageKit <= 1.07
 
 	perl Makefile.PL
 	make
+	make test
 	make install
 
 Setting up Included Example PageKit Site
@@ -118,32 +119,35 @@ Setting up Included Example PageKit Site
 	good starting point for building your own website.  See eg/README
 	for more details.
 
+	Make sure httpd is found in your PATH. 
 	To setup and configure, run
+		
+	./t/TEST -start-httpd
 
-	perl setup_eg.pl
-
-	You will be prompted for the location of your mod_perl enabled server.
-	This will be used to configure a PageKit enabled web server on
-	port 8228 that can be started using
-
-	make start_httpd
+	This will be used to configure and start a PageKit enabled 
+	web server on port 8529.
 
 	and killed by
 
-	make kill_httpd
+	./t/TEST -stop-httpd
 
-	To view the site, point your browser to http://localhost:8228/
+	To view the site, point your browser to http://localhost:8529/
 	(Replace localhost with the name of the server, if necessary)
 
-	If this page fails to load, you may find the error in t/error_log.
-	If you get permission denied errors, try changing 'nobody' in
-	t/httpd.conf to the user you are running under.
-
+	If this page fails to load, you may find the error in t/logs/error_log.
+	
 	Note that to test the PDF generation, you will have to download the
-	Apache XML FOP Processor from http://xml.apache.org/fop/ and configure
-	the path to the processor using fop_command configuration directive in
-	Config.xml.
+	Apache XML FOP Processor from http://xml.apache.org/fop/ and 
+	configure the path to the processor using fop_command configuration
+	directive in Config.xml.
 
+	Please note that the above is only for a quick test. 
+	If you like to start on a new application take a look into 
+	./t/conf/httpd.conf.
+	
+	To start a new application read Setup and Configuration in this
+	README
+	
 Upgrading
 ---------
 	To upgrade from an earlier version of PageKit, follow the
@@ -283,7 +287,7 @@ mailing list at http://lists.sourceforge.net/mailman/listinfo/pagekit-users
 Copyright
 ---------
 
-Copyright (c) 2000, 2001, 2002, 2003 AnIdea Corporation.  All rights Reserved.
+Copyright (c) 2000, 2001, 2002, 2003, 2004 AnIdea Corporation.  All rights Reserved.
 PageKit is a trademark of AnIdea Corporation.
 
 License

@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.175 2002/03/13 22:41:15 borisz Exp $
+# $Id: PageKit.pm,v 1.230 2004/03/02 13:34:17 borisz Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -17,6 +17,7 @@ use Compress::Zlib ();
 use File::Find ();
 use HTML::FillInForm ();
 use HTML::Parser ();
+use HTML::Entities ();
 use HTML::Template ();
 use Text::Iconv ();
 use XML::LibXML ();
@@ -34,7 +35,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED HTTP_NOT_MODIFIED);
 
 use vars qw($VERSION);
-$VERSION = '1.12';
+$VERSION = '1.13';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -72,7 +73,7 @@ sub startup {
     unless exists $Apache::PageKit::Config::server_attr->{$config_dir}->{$server};
     
   my $upload_tmp_dir = $config->get_global_attr('upload_tmp_dir');
-  if ( $upload_tmp_dir && -d $upload_tmp_dir ) {
+  if ( $upload_tmp_dir && !-d $upload_tmp_dir ) {
     die "your upload_tmp_dir ($upload_tmp_dir) did not exists";
   }
 
@@ -258,7 +259,6 @@ sub params_as_string {
   } else {
     return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri(defined($args->{$_}) ? $args->{$_} : "")} keys %$args);
   }
-
 }
 
 sub update_session {
@@ -1527,6 +1527,7 @@ Fixes, Bug Reports, Docs have been generously provided by:
   John Robinson
   Paul G. Weiss
   Russell D. Weiss
+  Paul Flinders
   Bill Karwin
   Daniel Gardner
   Andy Massey
@@ -1540,13 +1541,15 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Vladimir Bogdanov
   Eugene Rachinsky
   Erik Günther
+  Bruno Czekay
+  Tony Martin
 
 Also, thanks to Dan Von Kohorn for helping shape the initial architecture
 and for the invaluable support and advice. 
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002, 2003 AnIdea Corporation.  All rights Reserved.  PageKit is a trademark
+Copyright (c) 2000, 2001, 2002, 2003, 2004 AnIdea Corporation.  All rights Reserved.  PageKit is a trademark
 of AnIdea Corporation.
 
 Parts of code Copyright (c) 2000, 2001, 2002 AxKit.com Ltd.

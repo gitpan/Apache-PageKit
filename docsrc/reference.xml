@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.61 2002/10/25 02:55:27 tjmather Exp $
+$Id: reference.xml,v 1.67 2004/03/11 12:49:29 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -2288,6 +2288,35 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
       PageKit tags refer to data that is set by the PageKit controller.  These correspond
       to functionality or utility functions that are common across different web applications.
     </para>
+        <refentry id="pkit.comment">
+     <refnamediv>
+      <refname>PKIT_COMMENT</refname>
+      <refpurpose>
+       Write comments inside your templates. The comments are stripped out of your source. Before it is delivered.
+      </refpurpose>
+     </refnamediv>
+     <refsynopsisdiv>
+      <synopsis>
+       <![CDATA[
+         <PKIT_COMMENT>This is a comment!</PKIT_COMMENT>
+       ]]>
+      </synopsis>
+     </refsynopsisdiv>
+     <refsect1>
+      <title>Description</title>
+      <para>
+       The &lt;PKIT_COMMENT&gt; tag is used to comment the block between
+       &lt;PKIT_COMMENT&gt; and &lt;/PKIT_COMMENT&gt;.
+       This is done in a ballanced manner, so it is possible to have nested blocks of comments.
+       </para>
+      <para>
+       If you have more opening tags than closing ones, the spare opening tags are seen as text in the comment, as long as they are surrounded by any close tag.
+      </para>
+      <para>
+      Close tags are closed as soon as possible, so if your source contains more close tags than open tags, spare close tags are in your delivered source. &lt;/PKIT_COMMENT&gt; is available as of Apache::PageKit 1.13.
+      </para>
+     </refsect1>
+    </refentry>
     <refentry id="pkit.component">
      <refnamediv>
       <refname>PKIT_COMPONENT</refname>

@@ -38,9 +38,9 @@ package main;
 open FH, ">patch_file.diff" || die $!;
 print FH <<'__THIS_IS_THE_END__';
 diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
---- a/lib/Apache/PageKit/Model.pm	2003-11-26 10:11:01.000000000 +0100
-+++ b/lib/Apache/PageKit/Model.pm	2003-11-26 10:11:25.000000000 +0100
-@@ -203,15 +203,8 @@
+--- a/lib/Apache/PageKit/Model.pm	2004-03-12 10:15:16.000000000 +0100
++++ b/lib/Apache/PageKit/Model.pm	2004-03-12 10:15:28.000000000 +0100
+@@ -204,15 +204,8 @@
    # translate from default_input_charset to default_output_charset if needed
    my $view = $model->{pkit_pk}->{view};
    my $input_charset = $view->{default_input_charset};
@@ -58,7 +58,7 @@ diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
    my $default_error_str = $model->pkit_get_config_attr( GLOBAL => 'default_errorstr' ) || "#ff0000";
    $message  =~ s/<(!--)?\s*PKIT_ERRORSTR\s*(?(1)--)>/$default_error_str/gi;
  
-@@ -289,7 +282,12 @@
+@@ -290,7 +283,12 @@
  }
  
  sub fillinform {
@@ -72,7 +72,7 @@ diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
  }
  
  sub ignore_fillinform_fields {
-@@ -312,17 +310,7 @@
+@@ -313,17 +311,7 @@
    my ($model, %p) = @_;
    my $view = $model->{pkit_pk}->{view};
    my $input_charset = exists $p{input_charset} ? $p{input_charset} : $view->{default_input_charset};
@@ -91,7 +91,7 @@ diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
    $model->output( $p{output} || %p );
  }
  
-@@ -483,41 +471,41 @@
+@@ -484,41 +472,41 @@
  sub _change_params {
  
    sub _change_array {
@@ -146,9 +146,9 @@ diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
    }
  }
 diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
---- a/lib/Apache/PageKit/View.pm	2003-11-26 10:11:01.000000000 +0100
-+++ b/lib/Apache/PageKit/View.pm	2003-11-26 10:11:25.000000000 +0100
-@@ -152,11 +152,13 @@
+--- a/lib/Apache/PageKit/View.pm	2004-03-12 10:15:16.000000000 +0100
++++ b/lib/Apache/PageKit/View.pm	2004-03-12 10:15:28.000000000 +0100
+@@ -181,11 +181,13 @@
      my $fif;
      if(@{$view->{fillinform_objects}}){
        $view->{pkit_pk}->{browser_cache} = 'no';
@@ -162,7 +162,7 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
      }
    }
    if($view->{can_edit} eq 'yes'){
-@@ -427,24 +429,12 @@
+@@ -456,24 +458,12 @@
      # currently only XML::LibXSLT is supported
      $template_ref = $view->{content}->generate_template($page_id, $component_id, $pkit_view, $view->{input_param_object}, $component_params);
    } else {
@@ -189,10 +189,11 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
      
      # expand PKIT_MACRO tags
      $template =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$component_params->{uc($+)} || ''!egi;
-@@ -488,18 +478,6 @@
-   my $template_file = $view->_find_template($pkit_view, $page_id);
-   my $template_ref = $view->_load_component($page_id,$page_id,$pkit_view);
- 
+@@ -520,18 +510,6 @@
+   # remove PKIT_COMMENT parts.
+   my $pkit_comment_re = $re_helper{ $view->{relaxed_parser} eq 'yes' ? 'relaxed_parser' : 'std_parser' }->{pkit_comment_re};
+   $$template_ref =~ s/$pkit_comment_re//sgi;
+-  
 -  my $default_output_charset = $view->{default_output_charset};
 -  my $converter;
 -  unless ('UTF-8' eq $default_output_charset) {
@@ -204,11 +205,10 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
 -      die "The charset ($default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
 -    }
 -  }
--
+ 
  #  my $template_file = $view->_find_template($pkit_view, $page_id);
    my $lang_tmpl = $content->process_template($page_id, $template_ref);
- 
-@@ -511,10 +489,6 @@
+@@ -544,10 +522,6 @@
    # go through content files (which have had content filled in)
    while (my ($lang, $filtered_html) = each %$lang_tmpl){
  
@@ -219,7 +219,7 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
      my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
      $view->_html_clean($filtered_html);
  
-@@ -572,7 +546,6 @@
+@@ -605,7 +579,6 @@
  }
  
  sub _preparse_model_tags {
@@ -228,11 +228,11 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
  
    my $exclude_params_set = {};
 diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
---- a/lib/Apache/PageKit.pm	2003-11-26 10:11:01.000000000 +0100
-+++ b/lib/Apache/PageKit.pm	2003-11-26 10:11:25.000000000 +0100
-@@ -18,7 +18,7 @@
- use HTML::FillInForm ();
+--- a/lib/Apache/PageKit.pm	2004-03-12 10:15:16.000000000 +0100
++++ b/lib/Apache/PageKit.pm	2004-03-12 10:15:28.000000000 +0100
+@@ -19,7 +19,7 @@
  use HTML::Parser ();
+ use HTML::Entities ();
  use HTML::Template ();
 -use Text::Iconv ();
 +use Encode ();
@@ -499,7 +499,7 @@ my $prereq_pm = {
                    'HTML::Template'        => 2.2,
                    'HTML::Template::XPath' => 0.10,
                    'Text::Iconv'           => 0,
-                   'XML::LibXML'           => 1.31,
+                   'XML::LibXML'           => 1.53,
                    mod_perl                => 1.2401
   };
 

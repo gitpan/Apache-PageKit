@@ -166,7 +166,7 @@ Boris Zentner (boris@id9.de)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002, 2003 AnIdea Corp.  All rights Reserved.  PageKit is a trademark
+Copyright (c) 2000, 2001, 2002, 2003, 2004 AnIdea Corp.  All rights Reserved.  PageKit is a trademark
 of AnIdea, Corp.
 
 =head1 LICENSE

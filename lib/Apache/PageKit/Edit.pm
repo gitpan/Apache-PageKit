@@ -1,6 +1,6 @@
 package Apache::PageKit::Edit;
 
-# $Id: Edit.pm,v 1.8 2001/12/31 20:05:57 borisz Exp $
+# $Id: Edit.pm,v 1.14 2004/01/12 12:51:04 borisz Exp $
 
 # note that this Model class accesses some of the internals of
 # PageKit and should not be used as an example for writing
@@ -56,7 +56,7 @@ sub open_file {
   # we need to escape all & chars so that for example &nbsp; is
   # &nbsp; and not ' ' 
   #<textarea> holds #PCDATA
-  $content =~ s/&/&amp;/g;
+  HTML::Entities::encode_entities( $content, '<>&"' );
 
   $model->output(content => $content);
 }

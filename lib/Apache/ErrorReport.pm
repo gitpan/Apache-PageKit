@@ -1,11 +1,12 @@
 package Apache::ErrorReport;
 
-# $Id: ErrorReport.pm,v 1.6 2002/01/07 09:51:40 borisz Exp $
+# $Id: ErrorReport.pm,v 1.10 2004/01/12 12:51:04 borisz Exp $
 
 use integer;
 use strict;
 
 use Mail::Mailer;
+use HTML::Entities ();
 
 use Carp;
 
@@ -70,7 +71,7 @@ END
   } elsif ($r->dir_config('ErrorReportHandler') eq 'display') {
     my $color = $_[1] eq 'WARN' ? 'blue' : 'red';
 
-    $stacktrace = Apache::Util::escape_html($stacktrace);
+    HTML::Entities::encode_entities( $stacktrace, '<>&"' );
 
     my $bytes_sent = $r->bytes_sent;
     my $repeat = ( 512 < $bytes_sent ) ? 0 : 512 - $bytes_sent ;
@@ -146,7 +147,7 @@ T.J. Mather (tjmather@anidea.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002, 2003 AnIdea Corporation.  All rights Reserved.
+Copyright (c) 2000, 2001, 2002, 2003, 2004 AnIdea Corporation.  All rights Reserved.
 PageKit is a trademark of AnIdea Corporation.
 
 =head1 LICENSE

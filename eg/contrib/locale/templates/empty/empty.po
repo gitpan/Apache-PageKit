@@ -51,9 +51,6 @@ msgstr ""
 msgid "The login, <b>%%VALUE%%</b>, has already been used."
 msgstr ""
 
-msgid "The E-mail address, <b>%%VALUE%%</b>, is invalid."
-msgstr ""
-
 msgid "The phone number you entered is invalid."
 msgstr ""
 

@@ -1,3 +1,11 @@
+#!/home/ptest/bin/perl
+# WARNING: this file is generated, do not edit
+# 01: /home/ptest/lib/perl5/site_perl/5.8.1/Apache/TestConfig.pm:745
+# 02: /home/ptest/lib/perl5/site_perl/5.8.1/Apache/TestConfig.pm:830
+# 03: /home/ptest/lib/perl5/site_perl/5.8.1/Apache/TestMM.pm:92
+# 04: Makefile.PL:486
+
+BEGIN { eval { require blib; } }
 #!perl
 
 use strict;

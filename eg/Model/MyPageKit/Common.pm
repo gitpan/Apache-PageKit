@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.19 2002/01/08 16:45:12 borisz Exp $
+# $Id: Common.pm,v 1.26 2004/01/06 16:31:47 borisz Exp $
 
 use strict;
 
@@ -167,7 +167,7 @@ Boris Zentner (boris@id9.de)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002, 2003 AnIdea, Corp.  All rights Reserved.  PageKit is a trademark
+Copyright (c) 2000, 2001, 2002, 2003, 2004 AnIdea, Corp.  All rights Reserved.  PageKit is a trademark
 of AnIdea Corp.
 
 =head1 LICENSE

@@ -51,9 +51,6 @@ msgstr "[Sessão não definida]"
 msgid "The login, <b>%%VALUE%%</b>, has already been used."
 msgstr "O login <b>%%VALUE%%</b> já está registrado"
 
-msgid "The E-mail address, <b>%%VALUE%%</b>, is invalid."
-msgstr "O endereço de e-mail <b>%%VALUE%%</b> não é válido"
-
 msgid "The phone number you entered is invalid."
 msgstr "O número de telefone não é válido"
 

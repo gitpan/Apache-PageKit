@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.87 2002/03/22 23:12:04 tjmather Exp $
+# $Id: View.pm,v 1.109 2004/03/03 12:55:59 borisz Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -80,8 +80,37 @@ use vars qw /%replace_start_tags %replace_end_tags $key_value_pattern/;
 #                        --------------------- $1 --------------------------
 #                             $2                  $3         $4       $5
 $key_value_pattern = qr!(\s+(\w+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\w+)))?)!;    #"
-
+    
 $Apache::PageKit::View::cache_component = {};
+
+# precompiled re to parse PKIT_COMMENT tags in a ballanced way.
+my %re_helper;
+%re_helper = (
+  std_parser => {
+    pkit_comment_re => qr%
+      \<PKIT_COMMENT\>
+      (?:
+        (?>[^\<]+) 
+        | \<(?!PKIT_COMMENT\>)(?!\/PKIT_COMMENT\>) #/
+        | (??{$re_helper{std_parser}->{pkit_comment_re}})
+      )*
+      \<\/PKIT_COMMENT\>  #/
+    %isx
+  },
+  relaxed_parser => {
+    pkit_comment_re => qr%
+      \<(!--)?\s*PKIT_COMMENT\s*(?(1)--)\>
+      (?:
+	(?>[^\<]+)
+	| \<
+	  (?!(!--)?\s*PKIT_COMMENT\s*(?(2)--)\>)
+	  (?!(!--)?\s*\/PKIT_COMMENT\s*(?(3)--)\>) #/
+	| (??{$re_helper{relaxed_parser}->{pkit_comment_re}})
+      )*
+      \<(!--)?\/PKIT_COMMENT\s*(?(4)--)\> #/
+    %isx
+  }
+);
 
 sub new {
   my $class = shift;
@@ -488,6 +517,10 @@ sub _load_page {
   my $template_file = $view->_find_template($pkit_view, $page_id);
   my $template_ref = $view->_load_component($page_id,$page_id,$pkit_view);
 
+  # remove PKIT_COMMENT parts.
+  my $pkit_comment_re = $re_helper{ $view->{relaxed_parser} eq 'yes' ? 'relaxed_parser' : 'std_parser' }->{pkit_comment_re};
+  $$template_ref =~ s/$pkit_comment_re//sgi;
+  
   my $default_output_charset = $view->{default_output_charset};
   my $converter;
   unless ('UTF-8' eq $default_output_charset) {

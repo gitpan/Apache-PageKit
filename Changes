@@ -1,7 +1,17 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
-
+1.13
+	- Add scripts/pkit_rename_app.pl it helps to start new applications
+                fast ( Boris Zentner )
+	- Add <PKIT_COMMENT> and </PKIT_COMMENT> tags. ( Boris Zentner )
+	- Fix filetest for upload_tmp_dir ( Boris Zentner )
+	- Fix locale support. One message was twice in the .po files.
+		( Boris Zentner )
+	- Fix Encoding of Apache::PageKit::Edit. Use HTML::Entities
+		and encode only '<>&"' ( Boris Zentner )	
+	- Fix encoding of Apache::ErrorReport stacktrace
+		( Boris Zentner, Paul Flinders )
 1.12
 	- PageKit now install the right version for the installed perl.
 		This requires the patch command if you use perl 5.8.x.
@@ -27,7 +37,7 @@ Revision history for Perl extension Apache::PageKit.
 	- pkit_internal_redirect and pkit_internal_execute_redirect
 		handle page_id's with parameters (Boris Zentner)
 	- Fix: Cache handling on the client side more restrictive
-		( Boris Zentner )
+		(Boris Zentner)
 	- Fixed bug in params_as_string when value is 0 ( TJ Mather )
 	- Improved error message when template not found
 		and XML::LibXSLT not installed ( TJ Mather )
@@ -66,7 +76,7 @@ Revision history for Perl extension Apache::PageKit.
 	- Fix pkit_validate_input to work with Data::FormValidator >= 1.11
 		(Paul G. Weiss, Boris Zentner)
 1.10
-	- Add a note to the docs, that some pages can not be protected
+ 	- Add a note to the docs, that some pages can not be protected
 		(Boris Zentner, Rob Starkey)
 	- Fix some links in the eg site to work in a different
 		location (Boris Zentner)
@@ -76,7 +86,7 @@ Revision history for Perl extension Apache::PageKit.
 	- Prepare PageKit for W32 (Boris Zentner)
 	- Avoid changing apr->filename and apr->path_info
 		(Boris Zentner)
-	- Fix warning, when the clients browser did not send a
+	- Fix warning, when the clients browser did not send a 
 		User-Agent header. (Boris Zentner)
 	- Fix for startup when passed parameter should override
 		PKIT_ROOT and PKIT_SERVER settings (TJ Mather)
@@ -95,14 +105,14 @@ Revision history for Perl extension Apache::PageKit.
 	- Fix pkit_input_hashref for the case where you request the hash,
 		change something and request the hash again. In error
 		you get the old value(s) back. (Glenn Morgan)
-	- Fix call pkit_on_error before the session data is saved.
+	- Fix call pkit_on_error before the session data is saved. 
 		So you can rollback the changes, even if your session
 		data is in the same db with your application.
 		(Boris Zentner)
-	- Fix replace <PKIT_ERRORSTR> even inside pkit_message
+	- Fix replace <PKIT_ERRORSTR> even inside pkit_message 
 		strings. (Boris Zentner)
 	- Use parameters for Apache::PageKit->startup if we can not
-		find PKIT_ROOT and or PKIT_SERVER for
+		find PKIT_ROOT and or PKIT_SERVER for 
 		mod_perl >= 1.06 (Boris Zentner)
 	- Add patch to use <PKIT_ERRORSPAN> and <PKIT_ERRORFONT>
 		without a name attribute. (Boris Zentner)
@@ -111,7 +121,7 @@ Revision history for Perl extension Apache::PageKit.
 		(Boris Zentner)
 	! Component code is called inorder from top to the bottom
 		(Boris Zentner)
-	- Fix: bug, where path relative components are not listed
+	- Fix: bug, where path relative components are not listed 
 		as an edit component. (Boris Zentner, Gabriel Burca)
 	- Fix: A errormessage is fixed, that report file is out of
 		the root_dir even if the file is not found.
@@ -131,7 +141,7 @@ Revision history for Perl extension Apache::PageKit.
 1.09
 	- Fix: case where something.xml was added to the mtimes hash even
 		if it does not exists (only if all your content came from
-		another file via xpath document() function) this result in a
+		another file via xpath document() function) this result in a 
 		slowdown for the page unless reload="no" (Boris Zentner)
 	- Fix: die with the error from the fop command.
         	So the errors show up in your browser or log (Boris Zentner)

@@ -1,10 +1,18 @@
 
-<Location />
-SetHandler perl-script
-PerlSetVar PKIT_ROOT  @DocumentRoot@
-PerlSetVar PKIT_SERVER staging
-PerlHandler +Apache::PageKit
+# Apache::Reload is very very helpfull during development,
+# but it is not required. So install it and uncomment 
+# the following lines 
+#
+# PerlModule Apache::Reload
+# PerlInitHandler Apache::Reload
+# PerlSetVar ReloadAll On
+
+# <Perl >
 <Perl>
+
+# It is not necasary to preload this modules, but it helps
+# to find errors in your instalation.
+
 use Apache::URI ();
 use Apache::Cookie ();
 use Apache::Request ();
@@ -19,5 +27,11 @@ use XML::LibXML ();
 
 use Apache::PageKit();
 Apache::PageKit->startup('@DocumentRoot@','staging');
-</Perl>
+ </Perl>
+
+<Location />
+SetHandler perl-script
+PerlSetVar PKIT_ROOT  @DocumentRoot@
+PerlSetVar PKIT_SERVER staging
+PerlHandler +Apache::PageKit
 </Location>
