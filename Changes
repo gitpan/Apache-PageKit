@@ -2,6 +2,20 @@ Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
 
+1.05
+	- <PKIT_COMPONENT NAME="foo"/> now works (Boris Zentner)
+	- empty uri_prefix works (Boris Zentner)
+	- No more than one cookie is used at all times, pkit_session_id for
+		when user is not logged in and has accessed session,
+		and pkit_id when user has logged in (session gets
+		tied to login)
+	! The pkit_done parameter is no longer filled in on HTML forms.
+		(see migration/README)
+	- Fixed problem with cookie being set when user logged out
+		(Rob Falcon)
+	- Fixed problem with sessions being created when user logged in
+		(David Raimbault)
+
 1.04
 	- PageKit now uses Data::FormValidator instead of HTML::FormValidator
 		(Mark Stosberg)

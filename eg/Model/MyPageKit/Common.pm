@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.10 2001/06/19 16:05:50 tjmather Exp $
+# $Id: Common.pm,v 1.11 2001/07/09 02:42:10 tjmather Exp $
 
 use strict;
 
@@ -108,7 +108,9 @@ sub pkit_auth_session_key {
 
   $model->output('pkit_login',$login);
 
-  return $user_id;
+  # the second variable return is the session_id, which in this application
+  # is the same as the user_id
+  return ($user_id, $user_id);
 }
 
 1;

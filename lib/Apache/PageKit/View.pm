@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.62 2001/06/09 14:13:41 tjmather Exp $
+# $Id: View.pm,v 1.64 2001/07/14 14:32:55 tjmather Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -297,7 +297,7 @@ sub _html_clean {
 sub _include_components {
   my ($view, $page_id, $html_code_ref, $pkit_view) = @_;
 
-  $$html_code_ref =~ s!<PKIT_COMPONENT (NAME=)?"?(.*?)"?>(</PKIT_COMPONENT>)?!&get_component($page_id,$2,$view,$pkit_view)!eig;
+  $$html_code_ref =~ s!<PKIT_COMPONENT (NAME=)?"?(.*?)"?\s*/?>(</PKIT_COMPONENT>)?!&get_component($page_id,$2,$view,$pkit_view)!eig;
 
 #  my @component_ids = keys %component_ids;
 #  return \@component_ids;
@@ -456,7 +456,7 @@ ext::Iconv please check file ${config_dir}/Config.xml";
 					   global_vars=>1);
     };
     if($@){
-      die "Can't load template (postprocessing) for $page_id: $@"
+      die "Can't load template (MODEL TAGS) for $page_id: $@"
     }
     my @component_ids = keys %{$view->{component_ids_hash}};
     my $record = {

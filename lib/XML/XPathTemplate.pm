@@ -1,6 +1,6 @@
 package XML::XPathTemplate;
 
-# $Id: XPathTemplate.pm,v 1.10 2001/06/19 02:17:51 tjmather Exp $
+# $Id: XPathTemplate.pm,v 1.13 2001/07/13 11:58:40 tjmather Exp $
 
 use strict;
 use XML::XPath;
@@ -137,6 +137,7 @@ sub _fill_in_content_loop {
   my @inner_param_names = $tmpl->query(loop => $loops);
   my %inner_param;
   for my $name (@inner_param_names){
+    next if $name =~ m!^__(inner|last|odd|first)__$!;
     my ($xml_filename, $xpath) = $xpt->_get_document_xpath($name,$default_xml_filename);
     $xpt->_add_content_mtime($xml_filename);
     $inner_param{$name} = {type => $tmpl->query(name => [ @$loops, $name ]),
@@ -313,7 +314,7 @@ XML::XPathTemplate - Easy access to XML files using XPath and HTML::Template
 In your perl code:
 
   my $xpt = new XML::XPathTemplate(default_lang => 'en',
-				  root_dir = $root_dir);
+				  root_dir => $root_dir);
 
   my $output = $xpt->process(xpt_filename => $xpt_filename,
 			     xml_filename => $xml_filename,
@@ -393,12 +394,25 @@ It has built-in support for language localization.
 
 =over 4
 
+=item process
+
+Processes an XPathTemplate file and XML file in a specified language.
+
+  my $output = $xpt->process(xpt_filename => $xpt_filename,
+			     xml_filename => $xml_filename,
+			     lang => 'en');
+
+  my $output = $xpt->process(xpt_scalarref => $xpt_scalarref,
+			     xml_filename => $xml_filename,
+			     lang => 'en');
+
 =item process_all_lang
 
 Processes the template and returns a hash reference containing language
 codes as keys and outputs as values.
 
-  my $lang_output = $xpt->process_all_lang(filename => $filename);
+  my $lang_output = $xpt->process_all_lang(xpt_filename => $xpt_filename,
+		                           xml_filename => $xml_filename);
 
   # english output
   my $output_en = $lang_output->{'en'};
@@ -415,10 +429,18 @@ If you use the same XPath query for a CONTENT_LOOP as well as a CONTENT_VAR
 tag, then HTML::Template will croak.  A workaround is to append a "/." at
 the end of the xpath query.
 
+=head1 CREDITS
+
+Fixes, Bug Reports, Docs have been generously provided by:
+
+  Boris Zentner
+  Matt Churchyard
+
+Thanks!
+
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001 AnIdea Corporation.  All rights Reserved.  PageKit is a trademark
-of AnIdea Corporation.
+Copyright (c) 2001 T.J. Mather.  All rights Reserved.
 
 =head1 LICENSE
 

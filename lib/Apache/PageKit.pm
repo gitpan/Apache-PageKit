@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.94 2001/06/19 16:29:33 tjmather Exp $
+# $Id: PageKit.pm,v 1.102 2001/07/14 14:32:55 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -34,14 +34,13 @@ use Apache::PageKit::Config ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.04';
+$VERSION = '1.05';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
 				     wml => 'text/vnd.wap.wml',
 				     xml => 'application/xml');
 
-# typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
 sub startup ($$$) {
   my ($class, $pkit_root, $server) = @_;
@@ -74,7 +73,7 @@ sub startup ($$$) {
   my $model_base_class = $config->get_global_attr('model_base_class') || "MyPageKit::Common";
   eval "require $model_base_class";
   if($@){
-    die "Failed to load $model_base_class - looked in $pkit_root/Model";
+    die "Failed to load $model_base_class - looked in $pkit_root/Model ($@)";
   }
 
   # delete all cache files, since some of them might be stale
@@ -130,6 +129,7 @@ sub handler ($$){
   return $status_code;
 }
 
+# called in case die is trapped by eval
 sub fatal_error {
   my ($pk, $error) = @_;
   delete $pk->{session};
@@ -141,40 +141,39 @@ sub fatal_error {
   die $error;
 }
 
+# utility function, concats parameters from request parameters into string
+# seperated by '&' and '=' - suitable for displaying in a URL
 sub params_as_string {
   my ($apr, $exclude_param) = @_;
 
   my $args;
+  # we cache args in pnotes - i think it is faster this way
+  # especially if you have <PKIT_SELFURL exclude="foo"> tags
   unless ($args = $apr->pnotes('r_args')){
     my %args = $apr->args;
-    delete $args{pkit_login};
-    delete $args{pkit_view};
+    for (qw(login logout view check_cookie messages error_messages lang)){
+      delete $args{"pkit_$_"};
+    }
     $args = \%args;
     $apr->pnotes(r_args => $args);
   }
 
-  my $query_string = join ('&', map {$_ . "=" . $args->{$_}} keys %$args);
-
-  # make available for future use (such as logging stage)
-  # should deleted (now that we have notes(orig_uri)
-  $apr->notes('query_string', $query_string);
-
   if($exclude_param && @$exclude_param){
-    my %exclude_param = map {$_ => 1} @$exclude_param;
-    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} grep !{exists $exclude_param{$_}}, grep !/^pkit_(logout|view|check_cookie|messages|error_messages|lang)$/, keys %$args);
+    my %exclude_param_hash = map {$_ => 1} @$exclude_param;
+    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} grep {!exists $exclude_param_hash{$_}} keys %$args);
   } else {
-    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} grep !/^pkit_(logout|view|check_cookie|messages|error_messages|lang)$/, keys %$args);
+    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} keys %$args);
   }
 }
 
 sub update_session {
-  my ($pk) = @_;
+  my ($pk, $auth_session_id) = @_;
   # keep recent sessions recent, if user is logged in
   # that is sessions time out if user hasn't viewed in a page
   # in recent_login_timeout seconds
-
   my $session = $pk->{session};
   return unless defined($session);
+
   unless(exists($session->{pkit_inactivity_timeout})){
     my $recent_login_timeout = $pk->{config}->get_global_attr('recent_login_timeout');
     my $last_activity = $session->{pkit_last_activity};
@@ -192,7 +191,7 @@ sub update_session {
 sub prepare_page {
   my $pk = shift;
 
-  # $apr is an Apache::Request object
+  # $apr is an Apache::Request object, derived from Apache request object
   my $apr = $pk->{apr};
 
   # $view is an Apache::PageKit::View object
@@ -233,7 +232,7 @@ sub prepare_page {
     $host = $apr->headers_in->{'Host'};
 
     $uri_prefix =~ s!/$!!g;
-    $uri_with_query = (($ENV{HTTPS} eq 'on') ? 'https' : 'http') . '://' . $host . '/' . $uri_prefix . $uri;
+    $uri_with_query = (($ENV{HTTPS} eq 'on') ? 'https' : 'http') . '://' . $host . ($uri_prefix ? '/' . $uri_prefix : '' ) . $uri;
   }
 #  my $pkit_selfurl;
 
@@ -260,7 +259,7 @@ sub prepare_page {
 #  $pkit_done =~ s/&/\%26/g;
 #  $pkit_done =~ s/\?/\%3F/g;
   $output_param_object->param("pkit_done",$pkit_done);
-  $fillinform_object->param("pkit_done",$pkit_done);
+#  $fillinform_object->param("pkit_done",$pkit_done);
 
   $pk->{page_id} = $uri;
 
@@ -268,37 +267,12 @@ sub prepare_page {
   $pk->{page_id} =~ s(^/+)();
 
   # add index for pageid with trailing slash "/"
+  # WARNING - this is undocumented and may go away at anytime
   $pk->{page_id} =~ s!(.+)/$!$1/index!;
 
   # get default page if there is no page specified in url
   if($pk->{page_id} eq ''){
     $pk->{page_id} = $model->pkit_get_default_page;
-  }
-
-  # check Accent-Encoding or if the user_agent field for Unix/Mac Netscape
-  # to see if should gzip output
-  my $gzip_output = $config->get_global_attr("gzip_output") || "";
-  if ($gzip_output =~ m!^(all|static)$!){
-    if(($apr->header_in("Accept-Encoding") || "") =~ /gzip/){
-      $pk->{use_gzip} = $gzip_output;
-    } else {
-      my $user_agent = $apr->header_in("User-Agent");
-      # this regular expression borrowed from Apache::AxKit::ConfigReader::DoZip
-      if ($user_agent =~ m{
-			   ^Mozilla/
-			   \d+
-			   \.
-			   \d+
-			   [\s\[\]\w\-]+
-			   (
-			    \(X11 |
-			    Macint.+PPC,\sNav
-			   )
-			  }x
-	 ) {
-	$pk->{use_gzip} = $gzip_output;
-      }
-    }
   }
 
   # redirect "not found" pages
@@ -336,11 +310,23 @@ sub prepare_page {
     }
   }
 
-  my $auth_user;
+  my ($auth_user, $auth_session_id);
+  if($apr->param('pkit_logout')){
+    $pk->logout;
+    $apr->param('pkit_check_cookie','');
+    # goto home page when user logouts (if from page that requires login) 
+    my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
+    if (defined($require_login) && $require_login =~ m!^(yes|recent)$!){
+      $pk->{page_id} = $config->get_global_attr('default_page');
+    }
+    $model->pkit_message("You have successfully logged out.");
+  } else {
+    ($auth_user, $auth_session_id) = $pk->authenticate;
+  }
 
   # session handling
   if($model->can('pkit_session_setup')){
-    $pk->setup_session;
+    $pk->setup_session($auth_session_id);
   }
   my $session = $pk->{session};
 
@@ -354,19 +340,6 @@ sub prepare_page {
 #      $referer =~ s(http://[^/]*/([^?]*).*?)($1);
       $pk->{page_id} = $apr->param('pkit_login_page') || $config->get_global_attr('login_page');
     }
-  } elsif($apr->param('pkit_logout')){
-    $pk->logout;
-    $apr->param('pkit_check_cookie','');
-    # goto home page when user logouts (if from page that requires login) 
-    my $add_message = "";
-    my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
-    if (defined($require_login) && $require_login =~ m!^(yes|recent)$!){
-      $pk->{page_id} = $config->get_global_attr('default_page');
-      $add_message = "You can log back in again below:";
-    }
-    $model->pkit_message("You have successfully logged out.");
-  } else {
-    $auth_user = $pk->authenticate;
   }
 
   if($auth_user){
@@ -374,7 +347,7 @@ sub prepare_page {
     if(defined($pkit_check_cookie) && $pkit_check_cookie eq 'on'){
       $model->pkit_message("You have successfully logged in.");
     }
-    $pk->update_session;
+    $pk->update_session($auth_session_id);
 
     my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
     if(defined($require_login) && $require_login eq 'recent'){
@@ -441,7 +414,7 @@ sub prepare_page {
   # run the page code!
   my $status_code = $pk->page_code;
   $status_code ||= $pk->{status_code};
-  if(defined($status_code) && $status_code eq REDIRECT){
+  if(defined($status_code) && ($status_code eq REDIRECT || $status_code eq DONE)){
     return $status_code;
   }
 
@@ -463,6 +436,36 @@ sub prepare_page {
   }
 
   return OK;
+}
+
+sub _check_gzip {
+  my $pk = shift;
+  # check Accent-Encoding or if the user_agent field for Unix/Mac Netscape
+  # to see if should gzip output
+  my $gzip_output = $pk->{config}->get_global_attr("gzip_output") || "";
+  my $apr = $pk->{apr};
+  if ($gzip_output =~ m!^(all|static)$!){
+    if(($apr->header_in("Accept-Encoding") || "") =~ /gzip/){
+      $pk->{use_gzip} = $gzip_output;
+    } else {
+      my $user_agent = $apr->header_in("User-Agent");
+      # this regular expression borrowed from Apache::AxKit::ConfigReader::DoZip
+      if ($user_agent =~ m{
+			   ^Mozilla/
+			   \d+
+			   \.
+			   \d+
+			   [\s\[\]\w\-]+
+			   (
+			    \(X11 |
+			    Macint.+PPC,\sNav
+			   )
+			  }x
+	 ) {
+	$pk->{use_gzip} = $gzip_output;
+      }
+    }
+  }
 }
 
 sub open_view {
@@ -535,7 +538,7 @@ sub prepare_and_print_view {
         push @charsets, [ $charset, $score, $pos++ ];
       }
       @charsets = sort {$b->[1] <=> $a->[1] || $a->[2] <=> $b->[2] } @charsets;
-      # set a content-type perhaps we over write this later if we know about the charset for te output pages
+      # set a content-type perhaps we overwrite this later if we know about the charset for the output pages
       $apr->content_type("text/html");
     }
   } elsif ($output_media eq 'application/pdf'){
@@ -788,12 +791,13 @@ sub login {
 
   # allow user to view pages with require_login eq 'recent'
   if(exists $pk->{session}){
-    delete $pk->{session}->{pkit_inactivity_timeout};
-    $pk->{session}->{pkit_last_activity} = time();
+    unless($pk->{is_new_session}){
+      delete $pk->{session}->{pkit_inactivity_timeout};
+      $pk->{session}->{pkit_last_activity} = time();
+      # save session
+      delete $pk->{session};
+    }
   }
-
-  # save session
-  delete $pk->{session};
 
   my $cookie_domain_str = $config->get_server_attr('cookie_domain');
   my @cookie_domains = defined($cookie_domain_str) ? split(' ',$cookie_domain_str) : (undef);
@@ -849,16 +853,19 @@ sub authenticate {
   # is somehow already set
   return unless $model->can('pkit_auth_session_key');
 
-  my $auth_user = $model->pkit_auth_session_key(\%ticket);
+  my ($auth_user, $auth_session_id) = $model->pkit_auth_session_key(\%ticket);
 
   return unless $auth_user;
+
+  $auth_session_id = $auth_user
+    unless defined($auth_session_id);
 
   $apr->connection->user($auth_user);
 #  $apr->param(pkit_user => $auth_user);
 
 #  $pk->{output_param_object}->param(pkit_user => $auth_user);
 
-  return $auth_user;
+  return ($auth_user, $auth_session_id);
 }
 
 sub logout {
@@ -874,6 +881,7 @@ sub logout {
   for my $cookie_domain (@cookie_domains){
     my $tcookie = $cookies{'pkit_id'};
     $tcookie->value("");
+    $tcookie->path("/");
     $tcookie->domain($cookie_domain) if $cookie_domain;
     $tcookie->expires('-5y');
     $tcookie->bake;
@@ -882,7 +890,7 @@ sub logout {
 
 # get session_id from cookie
 sub setup_session {
-  my ($pk, $auth_user) = @_;
+  my ($pk, $auth_session_id) = @_;
 
   my $model = $pk->{model};
 
@@ -905,6 +913,8 @@ sub setup_session {
     $session_id = $scookie->value;
   }
 
+  $session_id ||= $auth_session_id;
+
   # this sets a flag so we know if we should send a cookie later...
   $pk->{is_new_session} = 1 unless $session_id;
 
@@ -924,7 +934,47 @@ sub setup_session {
    %{$ss->{session_args}}
   };
 
-  $pk->{session} = \%session;
+  if(defined($auth_session_id) &&
+     $auth_session_id ne $session_id){
+
+    # permanently remove old session from storage
+    tied(%session)->delete;
+    untie(%session);
+
+    my %auth_session;
+    # get new session assoc with login
+    tie %auth_session, 'Apache::PageKit::Session', $auth_session_id,
+    {
+     Lock => $session_lock_class,
+     Store => $session_store_class,
+     Generate => 'MD5',
+     Serialize => 'Storable',
+     create_unknown => 1,
+     lazy => 1,
+     %{$ss->{session_args}}
+    };
+
+    # user must have just logged in, so we must merge session objects!
+    $pk->{model}->pkit_merge_sessions(\%session,\%auth_session);
+
+    undef(%session);
+
+    # unset cookie for old session
+    my @cookie_domains = split(' ',$pk->{config}->get_server_attr('cookie_domain'));
+    @cookie_domains = (undef) if @cookie_domains == 0;
+    for my $cookie_domain (@cookie_domains){
+      my $cookie = Apache::Cookie->new($apr,
+					 -name => 'pkit_session_id',
+					 -value => "",
+					 -path => "/");
+      $cookie->domain($cookie_domain) if $cookie_domain;
+      $cookie->expires('-5y');
+      $cookie->bake;
+    }
+    $pk->{session} = \%auth_session;
+  } else {
+    $pk->{session} = \%session;
+  }
 }
 
 sub set_session_cookie {
@@ -1100,7 +1150,7 @@ L<Data::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 1.04
+This document describes Apache::PageKit module version 1.05
 
 =head1 NOTES
 

@@ -2,6 +2,19 @@ Please remember to BACK UP YOUR FILES before attempting to run migration
 scripts.
 
 =============================================================
+Migration from 1.04 to 1.05
+
+1. pkit_done parameter is no longer automatically filled in HTML
+	Forms.  So if you have HTML code that looks like this:
+
+	<input type="hidden" name="pkit_done">
+
+	Change to
+
+	<input type="hidden" name="pkit_done"
+		value="<MODEL_VAR NAME="pkit_done">">
+
+=============================================================
 Migration from 1.02 to 1.03
 
 1. XSL files are now located in View/pkit_view directory instead of

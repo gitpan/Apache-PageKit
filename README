@@ -47,7 +47,7 @@ Requirements
 	- HTML::Template 2.2
 	- HTML::Clean
 	- Mail::Mailer
-	- expat library
+	- expat library - download from http://sourceforge.net/projects/expat/
 	- Text::Iconv
 	- XML::Parser
 	- XML::XPath

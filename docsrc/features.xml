@@ -1,7 +1,7 @@
 <chapter><?dbhtml filename="features.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: features.xml,v 1.9 2001/06/19 16:29:33 tjmather Exp $
+$Id: features.xml,v 1.11 2001/07/15 14:20:45 tjmather Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Overview of Features</title>
@@ -54,7 +54,7 @@ interfering with each other.
     site.  These class files should be located in the <filename>Model/</filename> directory.  Each URL is translated into a class and method automatically. 
    </para>
    <para>
-It includes support for <ulink url="http://perldoc.anidea.com/Data/FormValidator.html">Data::FormValidator</ulink>, making the tedious task of input validation easier.
+It includes support for <ulink url="http://search.cpan.org/doc/MARKSTOS/Data-FormValidator-1.5/lib/Data/FormValidator.pm">Data::FormValidator</ulink>, making the tedious task of input validation easier.
 To validate a form, you simply specify required fields and constraints. If there is an error, you
 can return to the input form, and the invalid fields automatically get highlighted in red.
    </para>
@@ -417,7 +417,7 @@ across your Derived Model Classes.
     $session->{'count'} = $count;
    </programlisting>
   </informalexample>
-  PageKit takes care of opening and closing sessions.  Note that sessions
+   PageKit takes care of opening and closing sessions.  Note that sessions
    are only created when something is written to session hash.
   </para>
   <para>
@@ -425,8 +425,14 @@ across your Derived Model Classes.
    <literal><link linkend="model.api.pnotes">pnotes</link></literal> method.
   </para>
   <para>
-   In future versions of PageKit, there will be support for associating
-   sessions with authenticated user IDs, and support for page based
+   As of PageKit 1.05, there is support for associating sessions with
+   authentication.  The associated session ID may be specified by the second
+   argument returned my <link linkend="model.api.pkit_auth_seesion_key">pkit_auth_session_key</link>.  When a user logs in, their current session may be merged with the session
+   stored with their user ID.  To override the default behavior, use the
+    <link linkend="model.api.pkit_merge_sessions">pkit_merge_sessions</link> hook.
+  </para>
+  <para>
+   In future versions of PageKit, there will be support for page based
    sessions.
   </para>
  </sect1>
@@ -466,7 +472,7 @@ seconds.
  <sect1><?dbhtml filename="validation.html"?>
   <title>Form Validation</title>
    <para>
-  PageKit uses <ulink url="http://perldoc.anidea.com/HTML/FormValidator.html">HTML::FormValidator</ulink> to provide easy form validation.  Highlights
+  PageKit uses <ulink url="http://search.cpan.org/doc/MARKSTOS/Data-FormValidator-1.5/lib/Data/FormValidator.pm">Data::FormValidator</ulink> to provide easy form validation.  Highlights
 fields in red that user filled incorrectly by using the
 <link linkend="pkit.errorfont">PKIT_ERRORFONT</link> tag.  In addition,
 error message(s) are displayed using the <link linkend="pkit.messages">PKIT_MESSAGES</link> tag.

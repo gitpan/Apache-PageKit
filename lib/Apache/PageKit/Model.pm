@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.45 2001/06/19 16:29:33 tjmather Exp $
+# $Id: Model.pm,v 1.48 2001/07/14 14:32:55 tjmather Exp $
 
 use integer;
 use strict;
@@ -240,6 +240,7 @@ sub dbh {
 }
 
 sub apr {return shift->{pkit_pk}->{apr};}
+sub config { return shift->{pkit_pk}->{config};}
 sub session {return shift->{pkit_pk}->{session};}
 
 sub pkit_redirect {
@@ -253,6 +254,15 @@ sub pkit_redirect {
   }
   $apr->headers_out->set(Location => $url);
   $pk->{status_code} = REDIRECT;
+}
+
+sub pkit_merge_sessions {
+  my ($model, $old_session, $new_session) = @_;
+  while(my ($k, $v) = each %$old_session){
+    next if $k eq '_session_id';
+    $new_session->{$k} = $v
+      unless exists $new_session->{$v};
+  }
 }
 
 sub pkit_query {

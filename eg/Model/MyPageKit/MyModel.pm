@@ -48,6 +48,9 @@ sub form_validation_done {
 sub index {
   my $model = shift;
 
+  my $session_id = $model->pkit_get_session_id || '[Session not set]';
+  $model->output(session_id => $session_id);
+
   my $pkit_server_id = $model->pkit_get_server_id;
   $model->output(pkit_server_id => $pkit_server_id);
 }
