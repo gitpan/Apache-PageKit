@@ -1,6 +1,6 @@
 package Apache::PageKit::Edit;
 
-# $Id: Edit.pm,v 1.13 2002/08/21 20:21:57 borisz Exp $
+# $Id: Edit.pm,v 1.8 2001/12/31 20:05:57 borisz Exp $
 
 # note that this Model class accesses some of the internals of
 # PageKit and should not be used as an example for writing

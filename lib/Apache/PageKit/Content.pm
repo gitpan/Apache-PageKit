@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.43 2002/08/21 20:21:57 borisz Exp $
+# $Id: Content.pm,v 1.41 2002/03/22 23:12:04 tjmather Exp $
 
 use strict;
 
@@ -17,7 +17,12 @@ sub generate_template {
   my ($content, $page_id, $component_id, $pkit_view, $input_param_obj, $component_params) = @_;
 
   unless(exists $INC{'XML/LibXSLT.pm'}){
-    require XML::LibXSLT;
+    eval {
+      require XML::LibXSLT;
+    };
+    if ($@) {
+      die "Cannot find template file $pkit_view/$component_id.tmpl or XML::LibXSLT is required to process $content->{content_dir}/$component_id.xml";
+    }
   }
 
   $CONTENT = $content;
@@ -43,7 +48,16 @@ sub generate_template {
   $parser->close_callback(\&close_uri);
   $parser->read_callback(\&read_uri);
 
+  $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID} = {};
   my $xp = $parser->parse_file("/$component_id.xml");
+
+  # for caching pages including the params info (that way extrenous parameters
+  # won't be taken into account when counting)
+  # META: do i only need to cache top level params from top level stylesheet?
+  for my $node ($xp->findnodes(q{node()[name() = 'xsl:stylesheet']/node()[name() = 'xsl:param']})->get_nodelist){
+    my $param_name = $node->getAttribute('name');
+    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID}->{$param_name} = 1;
+  }
 
   my @pi_nodes = $xp->findnodes("processing-instruction('xml-stylesheet')");
   my @stylesheet_hrefs;
@@ -158,23 +172,15 @@ sub match_uri {
 sub open_uri {
   my $uri = shift;
   my $abs_uri = _rel2abs($uri);
-  open XML, "$abs_uri" or die "XML file $abs_uri doesn't exist";
-  binmode XML;
+  open my $xml, "$abs_uri" or die "XML file $abs_uri doesn't exist";
+  binmode $xml;
   local($/) = undef;
-  my $xml_str = <XML>;
-  close XML;
+  my $xml_str = <$xml>;
+  close $xml;
   my $mtime = (stat(_))[9];
   $INCLUDE_MTIMES->{$abs_uri} = $mtime;
 
-  # for caching pages including the params info (that way extrenous parameters
-  # won't be taken into account when counting)
-  # META: do i only need to cache top level params from top level stylesheet?
-  my $xp = XML::LibXML->new->parse_string($xml_str);
-  $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID} = {};
-  for my $node ($xp->findnodes(q{node()[name() = 'xsl:stylesheet']/node()[name() = 'xsl:param']})){
-    my $param_name = $node->getAttribute('name');
-    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID}->{$param_name} = 1;
-  }
+  # we avoid to use any XML::LibXML parser inside the callbackroutines.
 
   return $xml_str;
 }

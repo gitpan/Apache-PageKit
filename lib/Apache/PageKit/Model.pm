@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.84 2002/12/12 12:05:33 borisz Exp $
+# $Id: Model.pm,v 1.74 2002/03/14 14:41:38 borisz Exp $
 
 use integer;
 use strict;
@@ -224,19 +224,37 @@ sub pkit_message {
 
 sub pkit_internal_redirect {
   my ($model, $page_id) = @_;
-  $model->{pkit_pk}->{page_id} = $page_id;
+
+  for ( $page_id ) {
+    s!^\w+://+[^/]+!!; # strip proto and host
+    s!\?.*$!!;         # strip parameters
+    s!^/+!!;           # and leading /'s
+  }
+
+  unless ( $page_id =~ m:^\.?\./: ) {
+    $model->{pkit_pk}->{page_id} = $page_id;
+    return;
+  }
+
+  # relative url
+  my @old    = split /\/+/, $model->{pkit_pk}->{page_id};
+  my @new    = split /\/+/, $page_id;
+  pop @old;
+  foreach (@new) {
+    if ( $_ eq '..' ) { pop @old }
+    elsif ( $_ ne '.' ) { push @old, $_ }
+  }
+  $model->{pkit_pk}->{page_id} = join '/', @old;
 }
 
-# undocumented
 sub pkit_internal_execute_redirect {
   my ($model, $page_id) = @_;
+
   my $pk = $model->{pkit_pk};
+  my $old_page_id = $pk->{page_id};
+  $model->pkit_internal_redirect($page_id);
 
-  $page_id =~ s!^/+!!;
-
-  if  ( $pk->{page_id} ne $page_id ) {
-
-    $pk->{page_id} = $page_id;
+  if  ( $old_page_id ne $pk->{page_id} ) {
 
     if ( $pk->{page_session} ) {
       # save session
@@ -274,12 +292,10 @@ sub fillinform {
   return shift->{pkit_pk}->{fillinform_object}->param(@_);
 }
 
-# undocumented
 sub ignore_fillinform_fields {
   my $model = shift;
   push @{$model->{pkit_pk}->{ignore_fillinform_fields}}, @_;
 }
-
 
 sub output {
   return shift->{pkit_pk}->{output_param_object}->param(@_);
@@ -439,7 +455,7 @@ sub pkit_send {
   my $apr = $model->apr;
   $apr->content_type($media_type);
   $apr->content_encoding($content_encoding) if ( $content_encoding && $media_type eq 'text/html' );
-  $apr->send_http_header if $apr->is_initial_req;
+  $apr->send_http_header if $apr->is_main;
   unless ($apr->header_only) {
     # NOT a head request, send the data
     if ( $type eq 'SCALAR' ) {
@@ -557,7 +573,7 @@ Boris Zentner (borisz@users.sourceforge.net)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002 AnIdea Corporation.  All rights Reserved.  PageKit is
+Copyright (c) 2000, 2001, 2002, 2003 AnIdea Corporation.  All rights Reserved.  PageKit is
 a trademark of AnIdea Corporation.
 
 =head1 LICENSE

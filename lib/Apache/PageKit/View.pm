@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.105 2002/10/02 13:57:33 borisz Exp $
+# $Id: View.pm,v 1.87 2002/03/22 23:12:04 tjmather Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -73,7 +73,7 @@ use vars qw /%replace_start_tags %replace_end_tags $key_value_pattern/;
                              IS_ERROR     => '</TMPL_IF>',
                              NOT_ERROR    => '</TMPL_UNLESS>',
                              HAVE_MESSAGES  => '</TMPL_IF>',
-                             HAVE_NOT_MESSGAES => '</TMPL_UNLESS>',
+                             HAVE_NOT_MESSAGES => '</TMPL_UNLESS>',
                              MESSAGES     => '</TMPL_LOOP>'
   );
 
@@ -125,7 +125,11 @@ sub fill_in_view {
       # loops in HTML::Template
       my $type = $tmpl->query(name => $key);
       if ( $type && $type eq 'VAR' ) {
-	$tmpl->param($key,$object->param($key));
+        $view->{pkit_pk}->{browser_cache} = 'no';
+        # we need a separate variable for value to force scalar context
+	# for multivalued params http://www.xx.yy/a?foo=12&foo=13
+        my $value = $object->param($key);
+	$tmpl->param($key, $value);
       }
     }
   }
@@ -136,6 +140,7 @@ sub fill_in_view {
   my $output_param_object = $view->{output_param_object};
   foreach my $key ($output_param_object->param){
     my $value = $output_param_object->param($key);
+    $view->{pkit_pk}->{browser_cache} = 'no';
     $tmpl->param($key, $value);
   }
 
@@ -146,6 +151,7 @@ sub fill_in_view {
     # forms in the template.
     my $fif;
     if(@{$view->{fillinform_objects}}){
+      $view->{pkit_pk}->{browser_cache} = 'no';
       $fif = HTML::FillInForm->new();
       $output = $fif->fill(scalarref => \$output,
                            fobject   => $view->{fillinform_objects},
@@ -154,6 +160,7 @@ sub fill_in_view {
     }
   }
   if($view->{can_edit} eq 'yes'){
+    $view->{pkit_pk}->{browser_cache} = 'no';
     Apache::PageKit::Edit::add_edit_links($view, $record, \$output);
   }
   return \$output;

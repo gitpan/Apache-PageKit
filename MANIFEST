@@ -73,3 +73,6 @@ migration/migrate_pagekit_0.98_to_0.99.pl
 migration/migrate_pagekit_0.99_to_1.00.pl
 migration/migrate_pagekit_1.05_to_1.06.pl
 setup_eg.pl
+t/1_dummy.t
+t/conf/extra.last.conf.in
+t/TEST.PL

@@ -251,7 +251,19 @@ Defaults to <emphasis>no</emphasis>. This value is overridden with
      <term>post_max</term>
      <listitem>
       <para>
-Maximum size of file uploads.  Defaults to 100,000,000 (100 MB).
+Maximum size of file uploads, in bytes.  Defaults to 100,000,000 (100 MB).
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry id="config.global.upload_tmp_dir">
+     <term>upload_tmp_dir</term>
+     <listitem>
+      <para>
+Temporary directory for file uploads. Defaults to whatever libapreq finds usefull. 
+This options is only usefull if you use libapreq &gt;= 1.0. The temporary directory
+usually needs to reside on the same filesystem as the location supplied to the 
+upload object's <programlisting>link</programlisting> method. See the Apache::Request 
+documentation for further information.
       </para>
      </listitem>
     </varlistentry>
@@ -1413,6 +1425,27 @@ when you want to fill an edit form with data from the database.
      </para>
     </refsect1>
    </refentry>
+   
+   <refentry id="model.api.ignore_fillinform_fields">
+    <refnamediv>
+     <refname>ignore_fillinform_fields</refname>
+     <refpurpose>
+      Fills in HTML Forms
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+  $model->ignore_fillinform_fields( qw/email name/ );
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+     All fields named in this call are NOT changed by fillinform.
+    </para>
+    </refsect1>
+   </refentry>
+
    <refentry id="model.api.pnotes">
     <refnamediv>
      <refname>pnotes</refname>
@@ -1743,6 +1776,39 @@ See also <link linkend="model.api.pkit_gettext">pkit_gettext</link> and
     </refsect1>
    </refentry>
 
+   <refentry id="model.api.pkit_internal_execute_redirect">
+    <refnamediv>
+     <refname>pkit_internal_execute_redirect</refname>
+     <refpurpose>
+      Internal redirection to another page inside the PageKit application.
+      Also execute the code for the new destination page.
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+      $model->pkit_internal_execute_redirect('myotherpage');
+      return;
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+Resets the page_id. This is usually used "redirect" to different template inside your application and execute the modelcode for the new page.
+     </para>
+     <para>
+
+From PageKit v1.12 on pkit_internal_redirect handle full url's and strip them.
+Parameters at the end of request are removed.
+This is usefull if you get the url from a pkit_done like parameter.
+
+See also <link linkend="model.api.pkit_redirect">pkit_redirect</link> and
+<link linkend="model.api.pkit_internal_redirect">pkit_internal_redirect</link>
+     </para>
+    </refsect1>
+   </refentry>
+
+
+
    <refentry id="model.api.pkit_internal_redirect">
     <refnamediv>
      <refname>pkit_internal_redirect</refname>
@@ -1764,6 +1830,9 @@ Resets the page_id. This is usually used "redirect" to different template.
      <para>
 Note that you should perform a <link linkend="model.api.pkit_redirect">pkit_redirect</link>
 for <emphasis role="bold">POST</emphasis> requests.
+From PageKit v1.12 on pkit_internal_redirect handle full url's and strip them.
+Parameters at the end of request are removed.
+This is usefull if you get the url from a pkit_done like parameter.
      </para>
     </refsect1>
    </refentry>

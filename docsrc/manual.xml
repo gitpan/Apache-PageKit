@@ -7,7 +7,7 @@
 ]>
 <book><?dbhtml filename="index.html"?>
 <bookinfo>
-<title>PageKit 1.11</title>
+<title>PageKit 1.12</title>
 <subtitle>User's Guide</subtitle>
 <!-- $Id: -->
 <author>
@@ -19,7 +19,7 @@
 	<firstname>Boris</firstname>
 </author>
 <copyright>
-	<year>2002</year>
+	<year>2003</year>
 	<holder>T.J. Mather</holder>
 </copyright>
 </bookinfo>

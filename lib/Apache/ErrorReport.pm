@@ -69,8 +69,23 @@ END
     $mailer->close;
   } elsif ($r->dir_config('ErrorReportHandler') eq 'display') {
     my $color = $_[1] eq 'WARN' ? 'blue' : 'red';
+
     $stacktrace = Apache::Util::escape_html($stacktrace);
-    print qq{<pre><font color="$color">$_[1]: $stacktrace</font></pre><br>};
+
+    my $bytes_sent = $r->bytes_sent;
+    my $repeat = ( 512 < $bytes_sent ) ? 0 : 512 - $bytes_sent ;
+
+    # send a large comment in front of the page so MSIE displays it too.
+    my $html_msg =
+        '<!-- ' . ( ' ' ) x $repeat . " -->\n"
+	. qq{<pre><font color="$color">$_[1]: $stacktrace</font></pre><br>};
+
+    if ( $bytes_sent ) {
+      print $html_msg;
+    }
+    else {
+      $r->custom_response( 500, $html_msg );
+    }
   }
 }
 
@@ -131,7 +146,7 @@ T.J. Mather (tjmather@anidea.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002 AnIdea Corporation.  All rights Reserved.
+Copyright (c) 2000, 2001, 2002, 2003 AnIdea Corporation.  All rights Reserved.
 PageKit is a trademark of AnIdea Corporation.
 
 =head1 LICENSE

@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.215 2002/12/12 12:05:32 borisz Exp $
+# $Id: PageKit.pm,v 1.175 2002/03/13 22:41:15 borisz Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -31,10 +31,10 @@ use Apache::PageKit::Model ();
 use Apache::PageKit::Config ();
 use Apache::PageKit::Edit ();
 
-use Apache::Constants qw(OK DONE REDIRECT DECLINED);
+use Apache::Constants qw(OK DONE REDIRECT DECLINED HTTP_NOT_MODIFIED);
 
 use vars qw($VERSION);
-$VERSION = '1.11';
+$VERSION = '1.12';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -70,6 +70,11 @@ sub startup {
 
   die "No config data for your server '$server' maybe you mistyped something?"
     unless exists $Apache::PageKit::Config::server_attr->{$config_dir}->{$server};
+    
+  my $upload_tmp_dir = $config->get_global_attr('upload_tmp_dir');
+  if ( $upload_tmp_dir && -d $upload_tmp_dir ) {
+    die "your upload_tmp_dir ($upload_tmp_dir) did not exists";
+  }
 
   my $cache_dir = $config->get_global_attr('cache_dir');
   my $view_cache_dir = $cache_dir ? $cache_dir . '/pkit_cache' :
@@ -248,10 +253,12 @@ sub params_as_string {
 
   if($exclude_param && @$exclude_param){
     my %exclude_param_hash = map {$_ => 1} @$exclude_param;
-    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} grep {!exists $exclude_param_hash{$_}} keys %$args);
+    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri(defined($args->{$_}) ? $args->{$_} : "")}
+       grep {!exists $exclude_param_hash{$_}} keys %$args);
   } else {
-    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} keys %$args);
+    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri(defined($args->{$_}) ? $args->{$_} : "")} keys %$args);
   }
+
 }
 
 sub update_session {
@@ -338,7 +345,7 @@ sub prepare_page {
 
   # this is the color, that replaces all <PKIT_ERRORSTR>
   my $default_errorstr = $config->get_global_attr('default_errorstr') || '#ff0000';
-  $output_param_object->param(PKIT_ERRORSTR => $default_errorstr);
+  $output_param_object->param(pkit_errorstr => $default_errorstr);
 
   my $uri_prefix = $config->get_global_attr('uri_prefix') || '';
 
@@ -371,9 +378,9 @@ sub prepare_page {
 #  } else {
 #    $pkit_selfurl = $uri_with_query . '?';
   }
-#  $view->param(PKIT_SELFURL => $pkit_selfurl);
+#  $view->param(pkit_selfurl => $pkit_selfurl);
 
-  $output_param_object->param(PKIT_HOSTNAME => $host);
+  $output_param_object->param(pkit_hostname => $host);
 
 #  my $pkit_done = Apache::Util::escape_uri($apr->param('pkit_done') || $uri_with_query);
   my $pkit_done = $apr->param('pkit_done') || $uri_with_query;
@@ -481,7 +488,7 @@ sub prepare_page {
   $lang ||= $config->get_global_attr('default_lang') || 'en';
 
   # TEMP only for anidea.com site, until fix problems with localization in content
-  $output_param_object->param("PKIT_LANG_$lang" => 1);
+  $output_param_object->param("pkit_lang_$lang" => 1);
 
   $pk->{lang} = $lang;
 
@@ -601,12 +608,23 @@ sub prepare_page {
 sub _send_static_file {
   my ( $pk, $filename )  = @_;
   my $apr = $pk->{apr};
+
+  my $file_mtime = (stat($filename))[9];
+  my $ims = $apr->header_in('If-Modified-Since');
+  if ( $ims ) {
+    my $t = Apache::Util::parsedate($ims);
+    if ( $t && $file_mtime <= $t ) {
+      return HTTP_NOT_MODIFIED;
+    }
+  }
+  $apr->header_out( 'Last-Modified' => Apache::Util::ht_time($file_mtime) );
+
   require MIME::Types;
   my ($media_type) = MIME::Types::by_suffix($filename);
       if (defined $media_type) {
         $apr->content_type($media_type);
         if($media_type eq "text/html" && $pk->{use_gzip} ne 'none') {
-          my $gzipped = $pk->{view}->get_static_gzip($filename); 
+          my $gzipped = $pk->{view}->get_static_gzip($filename);
           if ($gzipped){
             $apr->content_encoding("gzip");
             $apr->send_http_header;
@@ -615,11 +633,12 @@ sub _send_static_file {
           }
         }
       }
-  return $pk->{model}->pkit_send($filename, $media_type);
- #     # set path_info to '', otherwise Apache tacks it on at the end
- #     $apr->path_info('');
- #     $apr->filename($filename);
- #     return DECLINED;
+
+      return $pk->{model}->pkit_send($filename, $media_type);
+      # set path_info to '', otherwise Apache tacks it on at the end
+      ## $apr->path_info('');
+      ## $apr->filename($filename);
+      ## return DECLINED;
 }
 
 sub _check_gzip {
@@ -705,7 +724,7 @@ sub prepare_and_print_view {
   #$apr->no_cache(1) if $apr->param('pkit_logout') || $config->get_page_attr($pk->{page_id},'template_cache') eq 'no';
   # see http://support.microsoft.com/support/kb/articles/Q234/0/67.ASP
   # and http://www.pacificnet.net/~johnr/meta.html
-  my $browser_cache =  $pk->{browser_cache} || $config->get_page_attr($page_id,'browser_cache') || 'yes';
+  my $browser_cache =  $config->get_page_attr($page_id,'browser_cache') || $pk->{browser_cache} || 'yes';
   $apr->header_out('Expires','-1') if $apr->param('pkit_logout') || $browser_cache eq 'no' || $apr->connection->user;
 
   my $default_output_charset = $view->{default_output_charset};
@@ -766,7 +785,7 @@ sub prepare_and_print_view {
 
   # for a head request
   if ($apr->header_only) {
-    $apr->send_http_header if $apr->is_initial_req;
+    $apr->send_http_header if $apr->is_main;
     return;
   }
 
@@ -801,7 +820,7 @@ sub prepare_and_print_view {
   my $send_gzipped = ( $retcharset && $pk->{use_gzip} eq 'all' );
   $apr->content_encoding('gzip') if ($send_gzipped);
 
-  $apr->send_http_header if $apr->is_initial_req;
+  $apr->send_http_header if $apr->is_main;
 
 
   if ($send_gzipped) {
@@ -830,7 +849,13 @@ sub new {
   my $config = $self->{config} = Apache::PageKit::Config->new(config_dir => $config_dir,
                                                               server => $server);
   my $post_max = $self->{config}->get_global_attr('post_max') || 100_000_000;
-  my $apr = $self->{apr} = Apache::Request->new($r, POST_MAX => $post_max);
+  my $upload_tmp_dir = $self->{config}->get_global_attr('upload_tmp_dir');
+
+  # the TEMP_DIR option is only avail since version 1.0 of libapreq
+  # so we set it only on request.
+  my @apr_params = ();
+  push @apr_params, TEMP_DIR => $upload_tmp_dir if $upload_tmp_dir;
+  my $apr = $self->{apr} = Apache::Request->new($r, POST_MAX => $post_max, @apr_params);
   my $model_base_class = $self->{config}->get_global_attr('model_base_class') || "MyPageKit::Common";
 
   $self->_check_gzip;
@@ -878,6 +903,10 @@ sub new {
                                              errorspan_end_tag => $errorspan_end_tag,
                                              default_errorstr => $default_errorstr,
                                              template_class => $template_class,
+					     # used only to set browser_cache = '..' maybe another
+					     # way to set browser_cache is better to leave the View
+					     # independent from pk
+					     pkit_pk => $self,
 					    );
 
   return $self;
@@ -1429,6 +1458,7 @@ the Config and Content XML files and pre-parses the View template files.
 =head1 FREQUENTLY ASKED QUESTIONS
 
 See http://www.pagekit.org/faq.html
+L<Apache::PageKit::FAQ>
 
 =head1 SEE ALSO
 
@@ -1437,7 +1467,7 @@ L<Data::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 1.10
+This document describes Apache::PageKit module version 1.12
 
 =head1 NOTES
 
@@ -1472,7 +1502,7 @@ Add more tests to the test suite.
 
 T.J. Mather (tjmather@tjmather.com)
 
-Boris Zentner (boris@id9.de) has contributed numerous patches and is currently
+Boris Zentner (bzm@2bz.de) has contributed numerous patches and is currently
 maintaining the package.
 
 =head1 CREDITS
@@ -1487,12 +1517,12 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Rob Falcon
   Sheffield Nolan
   David Raimbault
+  Rob Starkey
   Anton Berezin
   Chris Hamilton
   David Christian
-  Rob Starkey
-  Glenn Morgan
   Anton Permyakov
+  Glenn Morgan
   Gabriel Burca
   John Robinson
   Paul G. Weiss
@@ -1516,7 +1546,7 @@ and for the invaluable support and advice.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002 AnIdea Corporation.  All rights Reserved.  PageKit is a trademark
+Copyright (c) 2000, 2001, 2002, 2003 AnIdea Corporation.  All rights Reserved.  PageKit is a trademark
 of AnIdea Corporation.
 
 Parts of code Copyright (c) 2000, 2001, 2002 AxKit.com Ltd.

@@ -1,6 +1,47 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+
+1.12
+	- PageKit now install the right version for the installed perl.
+		This requires the patch command if you use perl 5.8.x.
+		( Boris Zentner )
+	- Replace Apache::test with Apache::Test ( Boris Zentner )
+	- Workaround segfault in XML::LibXML2 in context with findnodes
+		( Boris Zentner )
+	- Add large comments in front of custom response headers for MSIE.
+		( Boris Zentner )
+	- Send full response messages if no data is send to the user.
+		This fix display problems on some browsers.
+		( Boris Zentner, Rob Starkey )
+	- Send headers even if we process a SubRequest
+		( Boris Zentner, Anton Permyakov )
+	- Some case changes in the eg site, to get it working
+		case-sensitive. ( Boris Zentner )
+	- All PageKit vars in the output object like pkit_user, pkit_done
+		and so on are in lowercase now. This is usefull if we use
+		another templating engine where case matters.
+		( Boris Zentner )
+	- Add docs for pkit_internal_execute_redirect
+		( Boris Zentner )
+	- pkit_internal_redirect and pkit_internal_execute_redirect
+		handle page_id's with parameters (Boris Zentner)
+	- Fix: Cache handling on the client side more restrictive
+		( Boris Zentner )
+	- Fixed bug in params_as_string when value is 0 ( TJ Mather )
+	- Improved error message when template not found
+		and XML::LibXSLT not installed ( TJ Mather )
+	- Fix: Expansion of multivalued parameters for HTML::Template
+		( Paul G. Weiss )
+	- FIX: Typo in HAVE_NOT_MESSAGES close tag.
+		( Boris Zentner )
+	- Add new option upload_tmp_dir
+		see Apache::Request TEMP_DIR ( Ben Ausden )
+	- Large speedup for all static pages ( Boris Zentner )
+	- Add docs for the ignore_fillinform_fields methode
+		(Boris Zentner)
+	- Fix: remove again 0xa0 chars from FAQ.pod
+		(Boris Zentner)
 1.11
 	- Fix early delivery of static pages (Paul G. Weiss)
 	- Add Apache::PageKit::FAQ (Boris Zentner)
@@ -25,7 +66,7 @@ Revision history for Perl extension Apache::PageKit.
 	- Fix pkit_validate_input to work with Data::FormValidator >= 1.11
 		(Paul G. Weiss, Boris Zentner)
 1.10
- 	- Add a note to the docs, that some pages can not be protected
+	- Add a note to the docs, that some pages can not be protected
 		(Boris Zentner, Rob Starkey)
 	- Fix some links in the eg site to work in a different
 		location (Boris Zentner)
@@ -35,7 +76,7 @@ Revision history for Perl extension Apache::PageKit.
 	- Prepare PageKit for W32 (Boris Zentner)
 	- Avoid changing apr->filename and apr->path_info
 		(Boris Zentner)
-	- Fix warning, when the clients browser did not send a 
+	- Fix warning, when the clients browser did not send a
 		User-Agent header. (Boris Zentner)
 	- Fix for startup when passed parameter should override
 		PKIT_ROOT and PKIT_SERVER settings (TJ Mather)
@@ -54,14 +95,14 @@ Revision history for Perl extension Apache::PageKit.
 	- Fix pkit_input_hashref for the case where you request the hash,
 		change something and request the hash again. In error
 		you get the old value(s) back. (Glenn Morgan)
-	- Fix call pkit_on_error before the session data is saved. 
+	- Fix call pkit_on_error before the session data is saved.
 		So you can rollback the changes, even if your session
 		data is in the same db with your application.
 		(Boris Zentner)
-	- Fix replace <PKIT_ERRORSTR> even inside pkit_message 
+	- Fix replace <PKIT_ERRORSTR> even inside pkit_message
 		strings. (Boris Zentner)
 	- Use parameters for Apache::PageKit->startup if we can not
-		find PKIT_ROOT and or PKIT_SERVER for 
+		find PKIT_ROOT and or PKIT_SERVER for
 		mod_perl >= 1.06 (Boris Zentner)
 	- Add patch to use <PKIT_ERRORSPAN> and <PKIT_ERRORFONT>
 		without a name attribute. (Boris Zentner)
@@ -70,7 +111,7 @@ Revision history for Perl extension Apache::PageKit.
 		(Boris Zentner)
 	! Component code is called inorder from top to the bottom
 		(Boris Zentner)
-	- Fix: bug, where path relative components are not listed 
+	- Fix: bug, where path relative components are not listed
 		as an edit component. (Boris Zentner, Gabriel Burca)
 	- Fix: A errormessage is fixed, that report file is out of
 		the root_dir even if the file is not found.
@@ -90,7 +131,7 @@ Revision history for Perl extension Apache::PageKit.
 1.09
 	- Fix: case where something.xml was added to the mtimes hash even
 		if it does not exists (only if all your content came from
-		another file via xpath document() function) this result in a 
+		another file via xpath document() function) this result in a
 		slowdown for the page unless reload="no" (Boris Zentner)
 	- Fix: die with the error from the fop command.
         	So the errors show up in your browser or log (Boris Zentner)

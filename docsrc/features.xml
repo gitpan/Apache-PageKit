@@ -352,8 +352,8 @@ across your Derived Model Classes.
     <link linkend="config.global.default_input_charset">default_input_charset</link>.
    </para>
    <para>
-    In addition, if the client's browser doesn't support <link linkend="config.global.default_output_charset">default_output_charset</link>, then PageKit attempts to translate the output from <link linkend="config.global.default_output_charset">default_output_charset</link>
-    to a character set that is specified in the <literal>Accept-Charset</literal> header and supported by your system's <literal>iconv</literal> library.
+    PageKit attempts to translate the output to a character set that is specified in the <literal>Accept-Charset</literal> header. If this is not possible,
+    PageKit delivers the page in the <link linkend="config.global.default_output_charset">default_output_charset</link>.
    </para>
   </sect2>
  </sect1>

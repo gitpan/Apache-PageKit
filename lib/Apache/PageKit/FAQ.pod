@@ -3,11 +3,11 @@
 <BODY BGCOLOR="#ffffff" TEXT="#000000" LINK="#4020ff" ALINK="#ff0000" VLINK="#ff2530">
 <CENTER>
 <FONT SIZE="+2">
-Apache::PageKit Frequently Asked Questions $Id: FAQ.pod,v 1.3 2002/12/12 10:34:21 borisz Exp $
+Apache::PageKit Frequently Asked Questions $Id: FAQ.pod,v 1.2 2002/10/26 01:07:30 tjmather Exp $
 </FONT>
 <BR>
 <FONT SIZE="-1">
-<I>Last updated: Sep 2th, 2002</I>
+<I>Last updated: Sep 26th, 2003</I>
 </FONT>
 </CENTER>
 <P>
@@ -114,6 +114,38 @@ Apache from source. http://perl.apache.org/guide/
 
 No, if you use I<Apache::PageKit E<gt>= 1.08> and promise to never use C<XML::Parser>. Else yes, you must recompile Apache.
 
+=head2 2.3 perl Makefile.PL result in Can't locate Apache/test.pm in @INC ...
+
+You use I<mod_perl-1.28> or higher. I<Apache::test> is obsolete and renamed to
+Apache::testold. The future is I<Apache::Test>. To get around the error type
+
+  perl -i -pe 's/Apache::test\b/Apache::testold/g' Makefile.PL
+
+Or even better upgrade I<Apache::Pagekit> to a version > 1.11. There we use
+I<Apache::Test>.
+
+=head2 2.4 I can not build libapreq or it stops working after a reboot.
+
+You use perl >= 5.8.1 which includes a new version of ExtUtils::MakeMaker.
+Read more here:
+  http://marc.theaimsgroup.com/?l=perl5-porters&m=105981649201380&w=2
+  http://marc.theaimsgroup.com/?l=apreq-dev&m=106146287323705&w=2
+
+To fix the problem apply this patch from Steve Hay or use I<libapreq-1.3>
+
+
+  --- c/Makefile.PL.orig    2001-04-03 20:24:12.000000000 +0100
+  +++ c/Makefile.PL 2003-08-21 11:31:42.000000000 +0100
+  @@ -34,7 +34,8 @@
+   sub MY::dynamic {
+       my $self = shift;
+       my $string = $self->MM::dynamic;
+  -    $string =~ s/(Makefile\s+).*/$1/g;
+  +    $string =~ s{ \$\(INST_DYNAMIC\)}{}g;
+  +    $string =~ s{ \$\(INST_BOOT\)}{}g;
+       $string;
+   }
+
 =head1 Migrating to I<Apache::PageKit> from...
 
 =head2 3.1 I already have a website and I want to extend it with Apache::PageKit. Where can I put my data?
@@ -174,7 +206,7 @@ __FIRST__, __LAST__, __INNER__, __ODD__ to  __first__, __last__, __inner__, __od
 
 If you call C<< $model->apr->upload; >> Then this will return a single
 Apache::Upload object in a scalar context or all Apache::Upload
-objects in an array context. This is because C<< $model->apr >> 
+objects in an array context. This is because C<< $model->apr >>
 returns a Apache::Request object.
 
 =head2 5.4 My Database busted after some time - What is wrong?
@@ -196,21 +228,22 @@ something like this will do:
 
 Pagekit is known to run at least on the following systems:
 
-  FreeBSD 4.3
-  FreeBSD 4.4
-  FreeBSD 4.5
-  FreeBSD 4.6
-  HP UX 10
-  HP UX 11
-  Linux 2.2
-  Linux 2.4
-  Solaris 7 x86
-  Solaris 8 sparc
-  Solaris 8 x86
-  Solaris 9 sparc
-  Win 2000
-  Win ME
-  Win NT
+  Darwin 6.4 powerpc
+  FreeBSD 4.3
+  FreeBSD 4.4
+  FreeBSD 4.5
+  FreeBSD 4.6
+  HP UX 10
+  HP UX 11
+  Linux 2.2
+  Linux 2.4
+  Solaris 7 x86
+  Solaris 8 sparc
+  Solaris 8 x86
+  Solaris 9 sparc
+  Win 2000
+  Win ME
+  Win NT
 
 =head2 6.3 My OS did not support flock, what can i do?
 
@@ -238,34 +271,34 @@ Install MD5. It is not part of perl core anymore. Or install this patch:
   --- SessionX/Generate/MD5.pm.orig	2002-11-11 08:35:54.000000000 +0100
   +++ SessionX/Generate/MD5.pm	2002-11-11 08:37:44.000000000 +0100
   @@ -12,12 +12,12 @@
-   
+
    use strict;
    use vars qw($VERSION);
   -use MD5;
   +use Digest::MD5;
-   
+
    $VERSION = '2.1';
-   
+
    sub generate {
   -    my $session = shift;
   +    my $session = shift;
        my $arg = shift;
        my $length = 32;
-       
+
   @@ -26,7 +26,7 @@
        }
-       
-       $session->{data}->{_session_id} = 
+
+       $session->{data}->{_session_id} =
   -        substr(MD5->hexhash(MD5->hexhash($arg || (time(). {}. rand(). $$))), 0, $length);
   +        substr(Digest::MD5::md5_hex(Digest::MD5::md5_hex($arg || (time(). {}. rand(). $$))), 0, $length);
-       
-   
+
+
    }
 
 
 =head1 VERSION
 
-This document is currently at version I<0.02>, as of I<Sep 2th, 2002>.
+This document is currently at version I<0.03>, as of I<Feb 10th, 2003>.
 
 =head1 AUTHORS
 
@@ -284,12 +317,12 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Eugene Rachinsky
 
 Parts of this FAQ are taken from the Apache::PageKit distribution and
-the website at http://www.pagekit.org.
+the website at http://www.pagekit.org/.
 
 =head1 COPYRIGHT
 
 Copyright (c) 2001 TJ Mather
-Copyright (c) 2002 Boris Zentner
+Copyright (c) 2002, 2003 Boris Zentner
 
 =head1 LICENSE
 

@@ -1,0 +1,23 @@
+
+<Location />
+SetHandler perl-script
+PerlSetVar PKIT_ROOT  @DocumentRoot@
+PerlSetVar PKIT_SERVER staging
+PerlHandler +Apache::PageKit
+<Perl>
+use Apache::URI ();
+use Apache::Cookie ();
+use Apache::Request ();
+use Apache::SessionX ();
+use Apache::Util ();
+use Compress::Zlib ();
+use File::Find ();
+use HTML::FillInForm ();
+use HTML::Parser ();
+use HTML::Template ();
+use XML::LibXML ();
+
+use Apache::PageKit();
+Apache::PageKit->startup('@DocumentRoot@','staging');
+</Perl>
+</Location>

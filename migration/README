@@ -1,6 +1,15 @@
 Please remember to BACK UP YOUR FILES before attempting to run migration
 scripts.
 =============================================================
+Migration from 1.11 to 1.12
+
+1. It is important to note that if PageKit runs in a perl 5.6.x environment
+	all internal pages are in default_output_charset. For perl 5.8.x
+	all these pages are in perl's own unicode format. This change should
+	be transparent to the user but many libraries do not support perl's
+	new character handling.
+
+=============================================================
 Migration from 1.10 to 1.11
 
 =============================================================
