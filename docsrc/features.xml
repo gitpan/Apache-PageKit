@@ -1,7 +1,7 @@
 <chapter><?dbhtml filename="features.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: features.xml,v 1.13 2001/10/01 10:02:12 borisz Exp $
+$Id: features.xml,v 1.17 2002/03/22 23:12:04 tjmather Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Overview of Features</title>
@@ -70,7 +70,7 @@ can return to the input form, and the invalid fields automatically get highlight
     Alternatively, you can provide a set of XSLT files that will generate PageKit Templates.
    </para>
    <para>
-    PageKit Template is based on <ulink url="http://perldoc.anidea.com/HTML/Template.html">HTML::Template</ulink>.
+    PageKit Template is based on <ulink url="http://kobesearch.cpan.org/search?dist=HTML-Template">HTML::Template</ulink>.
 There are different sets of tags, depending on
 where the data is being pulled from.
    </para>
@@ -98,7 +98,7 @@ override. That is all views inherit from the default set of templates.
    <title>Content</title>
    <para>
 Content is stored in an XML files.  It is accessed either through XPath queries from
-PageKit Template using <ulink url="http://perldoc.anidea.com/XML/XPathTemplate.html">XML::XPathTemplate</ulink> or by applying XSLT stylesheets to transform the XML into a
+PageKit Template using <ulink url="http://kobesearch.cpan.org/search?dist=HTML-Template-XPath">HTML::Template::XPath</ulink> or by applying XSLT stylesheets to transform the XML into a
 PageKit Template.
    </para>
    <para>
@@ -181,16 +181,16 @@ across your Derived Model Classes.
    </sect2>
  </sect1>
  <sect1><?dbhtml filename="xslt_xpathtemplate.html"?>
-  <title>XSLT and XPathTemplate</title>
+  <title>XSLT and HTML::Template::XPath</title>
   <para>
-   PageKit Templates use XPathTemplate to include Content from the XML
+   PageKit Templates use HTML::Template::XPath to include Content from the XML
    files.  In addition,
    PageKit Templates themselves can be generated from the XML using XSLT
    stylesheets.  Currently the only supported XSLT processer is
-   <ulink url="http://perldoc.anidea.com/XML/LibXSLT.html">XML::LibXSLT</ulink> which uses Gnome libxslt library.
+   <ulink url="http://kobesearch.cpan.org/search?dist=XML-LibXSLT">XML::LibXSLT</ulink> which uses Gnome libxslt library.
   </para>
   <para>
-   You should use XPathTemplate when you would like to separate
+   You should use HTML::Template::XPath when you would like to separate
    some Content from the View, but do not want to go the full route
    of using XSLT.
   </para>
@@ -230,9 +230,9 @@ across your Derived Model Classes.
    </para>
   </sect2>
   <sect2>
-   <title>XPathTemplate</title>
+   <title>HTML::Template::XPath</title>
    <para>
-    Using XPathTemplate is easy with PageKit, it is build into the
+    Using HTML::Template::XPath is easy with PageKit, it is build into the
     PageKit Template by using
     &lt;CONTENT_VAR&gt; and &lt;CONTENT_LOOP&gt; tags, which contain
     XPath queries to the Content XML data.
@@ -270,9 +270,9 @@ across your Derived Model Classes.
    </listitem>
   </itemizedlist>
   <sect2>
-   <title>Applying to Content: XPathTemplate</title>
+   <title>Applying to Content: HTML::Template::XPath</title>
    <para>
-    XPathTemplate supports language localization through the use of the
+    HTML::Template::XPath supports language localization through the use of the
     <literal>xml:lang</literal> attribute.  In PageKit 1.01 and above, the
     algorithm for
     selecting the node(s) for the selected languages is as follows:
@@ -348,6 +348,10 @@ across your Derived Model Classes.
     <link linkend="config.global.default_output_charset">default_output_charset</link>.
    </para>
    <para>
+    Note: This also applies also to the message catalog if any. So write your message catalog files in
+    <link linkend="config.global.default_input_charset">default_input_charset</link>.
+   </para>
+   <para>
     In addition, if the client's browser doesn't support <link linkend="config.global.default_output_charset">default_output_charset</link>, then PageKit attempts to translate the output from <link linkend="config.global.default_output_charset">default_output_charset</link>
     to a character set that is specified in the <literal>Accept-Charset</literal> header and supported by your system's <literal>iconv</literal> library.
    </para>
@@ -400,7 +404,7 @@ across your Derived Model Classes.
  <sect1><?dbhtml filename="session.html"?>
   <title>Sessions</title>
   <para>
-   PageKit uses a subclass of <ulink url="http://perldoc.anidea.com/Apache/PageKit/Session.html">Apache::PageKit::Session</ulink> to provide sessions.
+   PageKit uses a subclass of <ulink url="http://kobesearch.cpan.org/search?dist=Apache-SessionX">Apache::SessionX</ulink> to provide sessions.
    It sets a cookie named <literal>pkit_session_id</literal> with an
    expiration of <literal><link linkend="config.global.session_expires">session_expires</link></literal>, if applicable.
   </para>
@@ -432,8 +436,7 @@ across your Derived Model Classes.
     <link linkend="model.api.pkit_merge_sessions">pkit_merge_sessions</link> hook.
   </para>
   <para>
-   In future versions of PageKit, there will be support for page based
-   sessions.
+   As of PageKit 1.08, there is support for page based sessions.
   </para>
  </sect1>
  <sect1><?dbhtml filename="authentication.html"?>
@@ -486,7 +489,7 @@ To use, pass an input profile to the
  <sect1><?dbhtml filename="fillinform.html"?>
   <title>Sticky HTML Forms</title>
   <para>
-   PageKit uses <ulink url="http://perldoc.anidea.com/HTML/FillInForm.html">HTML::FillInForm</ulink> to fill in HTML Forms with the request parameters.  You
+   PageKit uses <ulink url="http://kobesearch.cpan.org/search?dist=HTML-FillInForm">HTML::FillInForm</ulink> to fill in HTML Forms with the request parameters.  You
    can turn this feature off by setting <literal><link linkend="config.page.fill_in_form">fill_in_form</link></literal> to <emphasis>no</emphasis>.
   </para>
   <para>
@@ -534,7 +537,7 @@ in <filename>View/Default</filename> directory.
  <sect1><?dbhtml filename="errorreport.html"?>
   <title>Error Reporting</title>
   <para>
-   PageKit uses <ulink url="http://perldoc.anidea.com/Apache/ErrorReport.html">Apache::ErrorReport</ulink> to report errors.
+   PageKit uses Apache::ErrorReport to report errors.
    It reports warnings and fatal errors to screen or e-mail. Includes detailed information including error message, call
 stack, uri, host, remote host, remote user, referrer, and Apache handler.
   </para>

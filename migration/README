@@ -1,16 +1,36 @@
 Please remember to BACK UP YOUR FILES before attempting to run migration
 scripts.
 =============================================================
+Migration from 1.07 to 1.08
+
+1. Remember that you need libxml2 >= 2.4.10, libxslt >= 1.0.9,
+	XML::LibXML >= 1.31 and XML::LibXSLT >= 1.31
+
+2. Apache::SessionX replaces Apache::PageKit::Session.
+	For now you can also choose your Session-Toolkit with
+        the global config options:
+
+        session_class = 'Apache::PageKit::Session' and
+        page_session_class = 'Apache::PageKit::Session'
+
+	this setings choose the old Session class, but the old class
+	might go away in the future.
+
+3. inside the hook pkit_cleanup_code it is impossible to use $model->session
+	and $model->page_session. They are already deleted. If you have to use
+        one of the session objects that late, use pkit_post_common_code. 
+
+=============================================================
 Migration from 1.06 to 1.07
 
-1. the returncode from your pagecode is now ignored. If you have to set such
+1. The returncode from your pagecode is now ignored. If you have to set such
 	a code, see $model->pkit_status_code;.
 
 =============================================================
 Migration from 1.05 to 1.06
 
 1. __PACKAGE__ is not interpolated run
-2. the PKIT_COMPONENT tag did NOT support a single unnamed parameter anymore.
+2. The PKIT_COMPONENT tag did NOT support a single unnamed parameter anymore.
 
 	<PKIT_COMPONENT filexx>
 

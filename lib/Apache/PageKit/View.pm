@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.75 2001/10/17 21:58:15 borisz Exp $
+# $Id: View.pm,v 1.87 2002/03/22 23:12:04 tjmather Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -12,7 +12,7 @@ use File::Find ();
 use File::Path ();
 use HTML::Clean ();
 
-use XML::XPathTemplate ();
+use HTML::Template::XPath ();
 
 use Storable ();
 
@@ -28,7 +28,7 @@ use Data::Dumper;
 # a hash containing fields from the following set:
 #    * exclude_params - array ref of lists of params to be excluded from <PKIT_SELFURL> tags
 #    * html_template - HTML::Template object
-#    * template_toolkit - Template-Tookit object
+#    * template_toolkit - Template-Tookit object (NOT USED NOW)
 #    * filename - filename of template source
 #    * include_mtimes - a hash ref with file names as keys and mtimes as values
 #        (contains all of the files included by the <PKIT_COMPONENT> tags
@@ -60,17 +60,20 @@ use Data::Dumper;
 use vars qw /%replace_start_tags %replace_end_tags $key_value_pattern/;
 
 %replace_start_tags = (
-                               MESSAGES => '<TMPL_LOOP NAME="PKIT_MESSAGES">',
-                               IS_ERROR => '<TMPL_IF NAME="PKIT_IS_ERROR">',
-                               HOSTNAME => '<TMPL_VAR NAME="PKIT_HOSTNAME">',
-                               MESSAGE  => '<TMPL_VAR NAME="PKIT_MESSAGE">',
-                               REALURL  => '<TMPL_VAR NAME="PKIT_REALURL">',
+                               MESSAGES  => '<TMPL_LOOP NAME="PKIT_MESSAGES">',
+                               IS_ERROR  => '<TMPL_IF NAME="PKIT_IS_ERROR">',
+                               NOT_ERROR => '<TMPL_UNLESS NAME="PKIT_IS_ERROR">',
+                               HOSTNAME  => '<TMPL_VAR NAME="PKIT_HOSTNAME">',
+                               MESSAGE   => '<TMPL_VAR NAME="PKIT_MESSAGE">',
+                               ERRORSTR  => '<TMPL_VAR NAME="PKIT_ERRORSTR">',
+                               REALURL   => '<TMPL_VAR NAME="PKIT_REALURL">',
   );
 
 %replace_end_tags = (
-                             VIEW     => '</TMPL_IF>',
-                             IS_ERROR => '</TMPL_IF>',
-                             MESSAGES => '</TMPL_LOOP>'
+                             VIEW      => '</TMPL_IF>',
+                             IS_ERROR  => '</TMPL_IF>',
+                             NOT_ERROR => '</TMPL_UNLESS>',
+                             MESSAGES  => '</TMPL_LOOP>'
   );
 
 #                        --------------------- $1 --------------------------
@@ -143,12 +146,12 @@ sub fill_in_view {
     my $fif;
     if(@{$view->{fillinform_objects}}){
       $fif = HTML::FillInForm->new();
-      $output = $fif->fill(scalarref=>\$output,
-			   fobject => $view->{fillinform_objects} );
+      $output = $fif->fill(scalarref => \$output,
+                           fobject   => $view->{fillinform_objects} );
     }
   }
-  if(exists $INC{'Apache/PKCMS/View.pm'}){
-    Apache::PKCMS::View::add_edit_links($view, $record, \$output);
+  if($view->{can_edit} eq 'yes'){
+    Apache::PageKit::Edit::add_edit_links($view, $record, \$output);
   }
   return \$output;
 }
@@ -162,7 +165,7 @@ sub get_static_gzip {
   my $gzipped_filename = "$view->{cache_dir}/$relative_filename.gz";
 
   # is the cache entry valid or changed on disc?
-  if(-e "$gzipped_filename"){
+  if(-f "$gzipped_filename"){
     open FH, "<$gzipped_filename" || return undef;
     # read mtime from first line
     chomp($gzip_mtime = <FH>);
@@ -271,14 +274,17 @@ sub _create_static_zip {
 sub _fetch_from_file_cache {
   my ($view, $page_id, $pkit_view, $lang) = @_;
 
-  my ($extra_param, $param_hash) = ("","");
-  if (my @xml_params = sort keys %{$Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id}}){
-    my $param_obj = $view->{input_param_object};
-    for my $xml_param (@xml_params){
-      $extra_param .= "&$xml_param=" . $param_obj->param($xml_param);
+    my ($extra_param, $param_hash) = ("", "");
+    
+    # get a list of requested params in the *.xsl file
+    if (my @xml_params = sort keys %{$Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id}}) {
+      my $param_obj = $view->{input_param_object};
+      for my $xml_param (@xml_params){
+        my $value = $param_obj->param($xml_param) || next;
+	$extra_param .= "&$xml_param=" . $value;
+      }
+      $param_hash = Digest::MD5::md5_hex($extra_param) if $extra_param ne '';
     }
-    $param_hash = Digest::MD5::md5_hex($extra_param);
-  }
 
   my $cache_filename = "$view->{cache_dir}/$page_id.$pkit_view.$lang$param_hash";
 
@@ -299,11 +305,11 @@ sub _fetch_from_file_cache {
 sub _find_template {
   my ($view, $pkit_view, $id) = @_;
   my $template_file = "$view->{view_dir}/$pkit_view/$id.tmpl";
-  if(-e "$template_file"){
+  if(-f "$template_file"){
     return $template_file;
   } else {
     $template_file = "$view->{view_dir}/Default/$id.tmpl";
-    if(-e "$template_file"){
+    if(-f "$template_file"){
       return $template_file;
     } else {
       return undef;
@@ -320,7 +326,7 @@ sub _html_clean {
   return unless $html_clean_level > 0;
 
   my $h = new HTML::Clean($html_code_ref,$html_clean_level) || die("can't open HTML::Clean object: $!");
-  $h->strip if $html_clean_level > 0;
+  $h->strip;
   $$html_code_ref = ${$h->data()};
 }
 
@@ -369,7 +375,7 @@ sub _is_record_uptodate {
   my $include_mtimes = $record->{include_mtimes};
   while (my ($filename, $cache_mtime) = each %$include_mtimes){
     # check if file still exists
-    unless(-e "$filename"){
+    unless(-f "$filename"){
       return 0;
     }
 
@@ -383,7 +389,7 @@ sub _is_record_uptodate {
     if($filename =~ m!^$view->{view_dir}/Default/! && $pkit_view ne 'Default'){
       # check to see if any new files have been uploaded to the $pkit_view dir
       (my $check_filename = $filename) =~ s!^$view->{view_dir}/Default/!$view->{view_dir}/$pkit_view/!;
-      if (-e "$check_filename"){
+      if (-f "$check_filename"){
 	return 0;
       }
     }
@@ -405,7 +411,7 @@ sub _load_component {
     # currently only XML::LibXSLT is supported
     $template_ref = $view->{content}->generate_template($page_id, $component_id, $pkit_view, $view->{input_param_object}, $component_params);
   } else {
-    open TEMPLATE, "$template_file";
+    open TEMPLATE, "<$template_file" or die "can not read $template_file";
     local($/) = undef;
     my $template = <TEMPLATE>;
     close TEMPLATE;
@@ -429,9 +435,7 @@ sub _load_component {
   }
 
   if($view->{can_edit} eq 'yes'){
-    if(exists $INC{'Apache/PKCMS/View.pm'}){
-      Apache::PKCMS::View::add_component_edit_stubs($template_ref);
-    }
+    Apache::PageKit::Edit::add_component_edit_stubs($view, $template_ref, $pkit_view);
   }
 
   $view->_include_components($page_id,$template_ref,$pkit_view);
@@ -446,7 +450,9 @@ sub _load_page {
 						     content_dir => $view->{content_dir},
 						     view_dir => $view->{view_dir},
 						     default_lang => $view->{default_lang},
-                                                     relaxed_parser => $view->{relaxed_parser});
+                                                     relaxed_parser => $view->{relaxed_parser},
+                                                     template_class => $view->{template_class},
+                                                     );
 
   $view->{lang_tmpl} = $content->{lang_tmpl} = {};
   $content->{include_mtimes} = {};
@@ -476,6 +482,11 @@ sub _load_page {
 #  my $template_file = $view->_find_template($pkit_view, $page_id);
   my $lang_tmpl = $content->process_template($page_id, $template_ref);
 
+  # add used content file(s) to the mtimes hash
+  while( my ( $file, $mtime ) = each( %{ $content->{include_mtimes} } ) ) {
+    $view->{include_mtimes}->{$file} = $mtime;
+  }
+
   # go through content files (which have had content filled in)
   while (my ($lang, $filtered_html) = each %$lang_tmpl){
 
@@ -486,7 +497,7 @@ sub _load_page {
     my $has_form = ($$filtered_html =~ m!<form!i);
     my $tmpl;
     eval {
-      $tmpl = HTML::Template->new(scalarref => $filtered_html,
+      $tmpl =  $view->{template_class}->new(scalarref => $filtered_html,
 					   # don't die when we set a parameter that is not in the template
 					   die_on_bad_params=>0,
 					   # built in __FIRST__, __LAST__, etc vars
@@ -515,12 +526,15 @@ sub _load_page {
     }
 
     my ($extra_param, $param_hash) = ("", "");
-    if (my @xml_params = sort keys %{$Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id}}){
+    # get a list of requested params in the *.xsl file
+    if (my @xml_params = sort keys %{$Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id}}) {
       my $param_obj = $view->{input_param_object};
+
       for my $xml_param (@xml_params){
-	$extra_param .= "&$xml_param=" . $param_obj->param($xml_param);
+        my $value = $param_obj->param($xml_param) || next;
+	$extra_param .= "&$xml_param=" . $value;
       }
-      $param_hash = Digest::MD5::md5_hex($extra_param);
+      $param_hash = Digest::MD5::md5_hex($extra_param) if $extra_param ne '';
     }
 
     # Store record
@@ -557,7 +571,7 @@ sub _preparse_model_tags {
     # all these are valid and expanded. it is slower than the old one but if it works relaible
 
     if ( $$html_code_ref =~ m%<(!--)?\s*PKIT_(?:VAR|LOOP|IF|UNLESS)(?:$key_value_pattern)*\s*/?(?(1)--)>%i ) {
-      warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, or PKIT_MESSAGE instead";
+      warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, PKIT_NOT_ERROR or PKIT_MESSAGE instead";
     }
 
     # remove tags
@@ -573,20 +587,20 @@ sub _preparse_model_tags {
     $$html_code_ref =~
       s%<(!--)?\s*PKIT_SELFURL$key_value_pattern?\s*/?(?(1)--)>% &process_selfurl_tag($exclude_params_set, $4 || $5 || $6 || $3 ) %seig;
 
-    $$html_code_ref =~ s%<(!--)?\s*/PKIT_(VIEW|IS_ERROR|MESSAGES)\s*(?(1)--)>%    $replace_end_tags{uc($2)}   %seig;
-    $$html_code_ref =~ s%<(!--)?\s*PKIT_(MESSAGES|IS_ERROR)\s*(?(1)--)>%          $replace_start_tags{uc($2)} %seig;
-    $$html_code_ref =~ s%<(!--)?\s*PKIT_(HOSTNAME|MESSAGE|REALURL)\s*/?(?(1)--)>% $replace_start_tags{uc($2)} %seig;
+    $$html_code_ref =~ s%<(!--)?\s*/PKIT_(VIEW|IS_ERROR|NOT_ERROR|MESSAGES)\s*(?(1)--)>%     $replace_end_tags{uc($2)}   %seig;
+    $$html_code_ref =~ s%<(!--)?\s*PKIT_(MESSAGES|IS_ERROR|NOT_ERROR)\s*(?(1)--)>%           $replace_start_tags{uc($2)} %seig;
+    $$html_code_ref =~ s%<(!--)?\s*PKIT_(HOSTNAME|MESSAGE|ERRORSTR|REALURL)\s*/?(?(1)--)>% $replace_start_tags{uc($2)} %seig;
 
     $$html_code_ref =~
       s^<(!--)?\s*PKIT_VIEW$key_value_pattern\s*/?(?(1)--)>^ sprintf '<TMPL_IF NAME="PKIT_VIEW:%s">', $4 || $5 || $6 || $3; ^sieg; #"
-    $$html_code_ref =~
-      s^<(!--)?\s*PKIT_ERRORFONT$key_value_pattern(?(1)--)\s*>(.*?)<(!--)?\s*/PKIT_ERRORFONT\s*(?(8)--)>^ my $font = $4 || $5 || $6 || $3; qq{<TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_$font">$7<TMPL_VAR NAME="PKIT_ERRORFONT_END_$font">}; ^seig;
 
+    $$html_code_ref =~
+      s^<(!--)?\s*PKIT_ERROR(?:FONT|SPAN)$key_value_pattern(?(1)--)\s*>(.*?)<(!--)?\s*/PKIT_ERROR(?:FONT|SPAN)\s*(?(8)--)>^ my $font = $4 || $5 || $6 || $3; qq{<TMPL_VAR NAME="PKIT_ERRORSPAN_BEGIN_$font">$7<TMPL_VAR NAME="PKIT_ERRORSPAN_END_$font">}; ^seig;
   }
   else {
 
       if ( $$html_code_ref =~ m%<PKIT_(?:VAR|LOOP|IF|UNLESS)(?:$key_value_pattern)*/?>%i ) {
-      warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, or PKIT_MESSAGE instead";
+      warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, PKIT_NOT_ERROR or PKIT_MESSAGE instead";
     }
 
     # remove tags
@@ -602,15 +616,14 @@ sub _preparse_model_tags {
     $$html_code_ref =~
       s%<PKIT_SELFURL$key_value_pattern?/?>% &process_selfurl_tag($exclude_params_set, $3 || $4 || $5 || $2 ) %seig;
 
-    $$html_code_ref =~ s%</PKIT_(VIEW|IS_ERROR|MESSAGES)>%    $replace_end_tags{uc($1)}   %seig;
-    $$html_code_ref =~ s%<PKIT_(MESSAGES|IS_ERROR)>%          $replace_start_tags{uc($1)} %seig;
-    $$html_code_ref =~ s%<PKIT_(HOSTNAME|MESSAGE|REALURL)/?>% $replace_start_tags{uc($1)} %seig;
+    $$html_code_ref =~ s%</PKIT_(VIEW|IS_ERROR|NOT_ERROR|MESSAGES)>%    $replace_end_tags{uc($1)}   %seig;
+    $$html_code_ref =~ s%<PKIT_(MESSAGES|IS_ERROR|NOT_ERROR)>%          $replace_start_tags{uc($1)}%seig;
+    $$html_code_ref =~ s%<PKIT_(HOSTNAME|MESSAGE|ERRORSTR|REALURL)/?>%$replace_start_tags{uc($1)}%seig;
 
     $$html_code_ref =~
       s^<PKIT_VIEW$key_value_pattern/?>^ sprintf '<TMPL_IF NAME="PKIT_VIEW:%s">', $3 || $4 || $5 || $2; ^sieg; #"
     $$html_code_ref =~
-      s^<PKIT_ERRORFONT$key_value_pattern>(.*?)</PKIT_ERRORFONT>^ my $font = $3 || $4 || $5 || $2; qq{<TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_$font">$6<TMPL_VAR NAME="PKIT_ERRORFONT_END_$font">}; ^seig;
-
+      s^<PKIT_ERROR(?:FONT|SPAN)$key_value_pattern>(.*?)</PKIT_ERROR(?:FONT|SPAN)>^ my $font = $3 || $4 || $5 || $2; qq{<TMPL_VAR NAME="PKIT_ERRORSPAN_BEGIN_$font">$6<TMPL_VAR NAME="PKIT_ERRORSPAN_END_$font">}; ^seig;
   }
 
   my @a = keys %$exclude_params_set;

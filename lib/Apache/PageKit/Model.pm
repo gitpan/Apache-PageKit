@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.57 2001/10/31 09:53:49 borisz Exp $
+# $Id: Model.pm,v 1.74 2002/03/14 14:41:38 borisz Exp $
 
 use integer;
 use strict;
@@ -23,9 +23,45 @@ sub new {
   return $self;
 }
 
+sub pkit_get_config_attr {
+  my ( $model, $section, $page_or_view_id, $key ) = @_;
+  return unless $section;
+
+  my $config     = $model->{pkit_pk}->{config};
+  my $config_dir = $config->{config_dir};
+
+  my $href =
+    ( $section eq 'USER' )       ? $Apache::PageKit::Config::user_attr->{$config_dir}
+    : ( $section eq 'GLOBAL' )   ? $Apache::PageKit::Config::global_attr->{$config_dir}
+    : ( $section eq 'SERVER' )   ? $Apache::PageKit::Config::server_attr->{$config_dir}->{$config->{server}}
+    : ( $section =~ /^PAGES?$/ ) ? $Apache::PageKit::Config::page_attr->{$config_dir}
+    : ( $section =~ /^SECTIONS?$/ ) ? $Apache::PageKit::Config::section_attr->{$config_dir}
+    : ( $section =~ /^VIEWS?$/ ) ? $Apache::PageKit::Config::view_attr->{$config_dir}
+    : undef;
+
+  return $href if ( $section =~ /^(?:PAGE|VIEW|SECTION)S$/ );
+  
+  if ( $section =~ /^(?:PAGE|VIEW|SECTION)$/ ) {
+    return undef unless $page_or_view_id;
+    unless ( exists $href->{$page_or_view_id} ) {
+      $href->{$page_or_view_id} = {};
+    }
+    $href = $href->{$page_or_view_id};
+  } else {
+    $key = $page_or_view_id;
+  }
+  return ( $key and $href ) ? $href->{$key} : $href;
+}
+
 sub pkit_get_session_id {
   my $model = shift;
   return tied(%{$model->{pkit_pk}->{session}})->getid;
+}
+
+sub pkit_get_page_session_id {
+  my $model = shift;
+  my $page_session = $model->{pkit_pk}->{page_session};
+  return tied(%$page_session)->getid if $page_session;
 }
 
 # returns value of PerlSetVar PKIT_SERVER from httpd.conf
@@ -62,16 +98,20 @@ sub pkit_user {
 }
 
 sub pkit_set_errorfont {
-  my ($model, $field) = @_;
-
-  my $begin_name = "PKIT_ERRORFONT_BEGIN_$field";
-  # should change color to be user configurable...
-  my $begin_value = qq{<font color="#ff0000">};
-  my $end_name = "PKIT_ERRORFONT_END_$field";
-  my $end_value = qq{</font>};
+  my ( $model, $field, $color_str) = @_;
+  $color_str ||= $model->pkit_get_config_attr( GLOBAL => 'default_errorstr' ) || "#ff0000";
+  my $begin_name = "PKIT_ERRORSPAN_BEGIN_$field";
+  my $begin_value = $model->pkit_get_config_attr( GLOBAL => 'errorspan_begin_tag' ) || qq{<font color="$color_str">};
+  $begin_value =~ s/<(!--)?\s*PKIT_ERRORSTR\s*(?(1)--)>/$color_str/gi;
+  my $end_name = "PKIT_ERRORSPAN_END_$field";
+  my $end_value = $model->pkit_get_config_attr( GLOBAL => 'errorspan_end_tag' ) || q{</font>};
   $model->output($begin_name => $begin_value);
   $model->output($end_name => $end_value);
 }
+
+# for now both are the same this may change.
+# but only pkit_set_errorspan should change.
+*pkit_set_errorspan = \&pkit_set_errorfont;
 
 sub pkit_validate_input {
   my ($model, $input_profile) = @_;
@@ -100,26 +140,26 @@ sub pkit_validate_input {
   }
 
   for my $field (@$missings, @$invalids){
-    $model->pkit_set_errorfont($field);
+    $model->pkit_set_errorspan($field);
   }
   if(@$invalids || @$missings){
-     if(@$invalids){
+    if(@$invalids){
       foreach my $field (@$invalids){
 	next unless exists $input_profile->{messages}->{$field};
 	my $value = $input_hashref->{$field};
 	# gets error message for that field which was filled in incorrectly
 	my $msg = $input_profile->{messages}->{$field};
 
+        $msg = $model->pkit_gettext($msg);
+
 	# substitutes the value the user entered in the error message
 	$msg =~ s/\%\%VALUE\%\%/$value/g;
-	$model->pkit_message($msg,
-			is_error => 1);
+	$model->pkit_message($msg, is_error => 1);
       }
-      $model->pkit_message("Please try again.",
-		  is_error => 1);
+      $model->pkit_gettext_message('Please try again.', is_error => 1);
     } else {
       # no invalid data, just missing fields
-      $model->pkit_message(qq{You did not fill out all the required fields.  Please fill the <font color="#ff0000">red</font> fields.});
+      $model->pkit_gettext_message(qq{You did not fill out all the required fields. Please fill the <font color="<PKIT_ERRORSTR>">red</font> fields.});
     }
     return;
   }
@@ -147,15 +187,50 @@ sub pkit_message {
 
   my $options = {@_};
 
+  # translate from default_input_charset to default_output_charset if needed
+  my $view = $model->{pkit_pk}->{view};
+  my $input_charset = $view->{default_input_charset};
+  my $default_output_charset = $view->{default_output_charset};
+  if ($input_charset ne $default_output_charset) {
+    my $converter = eval { Text::Iconv->new($input_charset, $default_output_charset) };
+    if ($@) {
+      die "Charset $input_charset or $default_output_charset not supported by Text::Iconv";
+    }
+    $message = $converter->convert($message);
+  }
+
   my $array_ref = $model->output('pkit_messages') || [];
-  push @$array_ref, {pkit_message => $message,
-		    pkit_is_error => $options->{'is_error'}};
+  push @$array_ref, {pkit_message  => $message,
+		    pkit_is_error  => $options->{'is_error'}};
+
   $model->output('pkit_messages',$array_ref);
 }
 
 sub pkit_internal_redirect {
   my ($model, $page_id) = @_;
   $model->{pkit_pk}->{page_id} = $page_id;
+}
+
+# undocumented
+sub pkit_internal_execute_redirect {
+  my ($model, $page_id) = @_;
+  my $pk = $model->{pkit_pk};
+
+  $page_id =~ s!^/+!!;
+
+  if  ( $pk->{page_id} ne $page_id ) {
+
+    $pk->{page_id} = $page_id;
+
+    if ( $pk->{page_session} ) {
+      # save session
+      delete $pk->{page_session};
+    }
+
+    # load the page session if needed
+    $pk->load_page_session;
+  }
+  $pk->page_code;
 }
 
 # currently input_param is just a wrapper around $apr
@@ -251,6 +326,7 @@ sub apr {return shift->{pkit_pk}->{apr};}
 # undocumented
 sub config {return shift->{pkit_pk}->{config};}
 sub session {return shift->{pkit_pk}->{session};}
+sub page_session { return shift->{pkit_pk}->{page_session}; }
 
 sub pkit_redirect {
   my ($model, $url) = @_;
@@ -273,6 +349,31 @@ sub pkit_merge_sessions {
   }
 }
 
+sub pkit_gettext_message {
+  my ( $model, $text ) = splice(@_, 0, 2);
+  return $model->pkit_message($model->pkit_gettext($text), @_);
+}
+
+sub pkit_gettext {
+  my ( $model, $text ) = @_;
+  my $config = $model->config;
+  my $use_locale = $config->get_global_attr('use_locale') || 'no';
+  return $text if ( !exists &Locale::gettext::gettext || $use_locale ne 'yes' );
+  unless ( $model->pnotes('pkit_env_lang_is_set') ) {
+    $model->pnotes('pkit_env_lang_is_set' => 1);
+    $ENV{LC_MESSAGES} = $model->{pkit_pk}->{lang} || 'en';
+
+    # notice changes in the .mo file if reload eq 'yes'
+    my $reload = $config->get_server_attr('reload') || 'no';
+    if ( $reload eq 'yes' ) {
+      #my ( $textdomain ) = $config->get_global_attr('model_base_class') =~ m/^([^:]+)/;
+      my $textdomain = 'PageKit';
+      Locale::gettext::textdomain($textdomain);
+    }
+  }
+  return Locale::gettext::gettext($text);
+}
+
 sub pkit_query {
   my ($model, @p) = @_;
   my $pk = $model->{pkit_pk};
@@ -286,34 +387,40 @@ sub pkit_query {
   return $view->{record}->{html_template}->query(@p);
 }
 
-# undocumented
+# $media_type and $content_encoding is optional
+# $ref_or_fname can be a ref to a filenhandle, a ref to a scalar or a scalar,
+# that holds the filename
 sub pkit_send {
-  my ($model, $dataref_or_fname, $media_type, $content_encoding) = @_;
+  my ($model, $ref_or_fname, $media_type, $content_encoding) = @_;
+
+  my $type = ref $ref_or_fname;
 
   unless ( $media_type ) {
-    unless ( ref $dataref_or_fname ) {
+    unless ( $type ) {
+      # is filename
       require MIME::Types;
-      ($media_type, $content_encoding) = MIME::Types::by_suffix($dataref_or_fname);
+      ( $media_type ) = MIME::Types::by_suffix($ref_or_fname);
     }
    $media_type ||= 'application/octet-stream';
   }
 
   my $apr = $model->apr;
   $apr->content_type($media_type);
-  $apr->content_encoding($content_encoding) if $content_encoding;
+  $apr->content_encoding($content_encoding) if ( $content_encoding && $media_type eq 'text/html' );
   $apr->send_http_header if $apr->is_initial_req;
   unless ($apr->header_only) {
-    # NOT a head request
-    if ( ref $dataref_or_fname ) {
-      $apr->print($$dataref_or_fname);
-    }
-    else {
-      if ( open FH, "<$dataref_or_fname" ) {
-        $apr->send_fd(\*FH);
-        close FH;
+    # NOT a head request, send the data
+    if ( $type eq 'SCALAR' ) {
+      $apr->print($$ref_or_fname);
+    } elsif ( $type eq 'GLOB' ) {
+      $apr->send_fd($ref_or_fname);
+    } else {
+      if ( open SENDFH, "<$ref_or_fname" ) {
+        $apr->send_fd(\*SENDFH);
+        close SENDFH;
       }
       else {
-        warn "can't open file $!";
+        warn "can not open file: $ref_or_fname ($!)";
         return NOT_FOUND;
       }
     }
@@ -409,13 +516,15 @@ Method in derived class.
     $model->output(result => $result);
   }
 
-=head1 AUTHOR
+=head1 AUTHORS
 
 T.J. Mather (tjmather@anidea.com)
 
+Boris Zentner (boris@m2b.de)
+
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001 AnIdea Corporation.  All rights Reserved.  PageKit is
+Copyright (c) 2000, 2001, 2002 AnIdea Corporation.  All rights Reserved.  PageKit is
 a trademark of AnIdea Corporation.
 
 =head1 LICENSE

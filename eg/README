@@ -35,3 +35,7 @@ This directory contains PageKit Template files that override the templates
 View/xml/ View/wml View/pdf
 These directories contain XSLT and PageKit Template files that are used
 	to provide different media outputs.
+
+contrib/
+This directory contains Templates for locale support and script(s) that do your work.
+	See contrib/locale/README

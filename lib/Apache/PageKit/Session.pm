@@ -61,7 +61,7 @@ Defaults to Storable.
 
 =back
 
-Example using attrubtes to specfiy store and object classes instead of
+Example using attributes to specfiy store and object classes instead of
 a derived class:
 
  use Apache::PageKit::Session;
@@ -400,6 +400,7 @@ sub populate
     $self->{object_store} = new $store $self if ($store) ;
     $self->{lock_manager} = new $lock $self if ($lock);
     $self->{generate}     = \&{$gen . '::generate'} if ($gen);
+    $self->{validate}     = \&{$gen . '::validate'} if ($gen);
     $self->{serialize}    = \&{$ser . '::serialize'} if ($ser);
     $self->{unserialize}  = \&{$ser . '::unserialize'} if ($ser) ;
 

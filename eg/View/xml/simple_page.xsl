@@ -6,7 +6,8 @@
  </xsl:template>
  <xsl:template match="page|body|para|MODEL_VAR">
   <xsl:copy>
-   <xsl:apply-templates select="@*|node()"/>
+   <xsl:copy-of select="@*"/>
+   <xsl:apply-templates/>
   </xsl:copy>
  </xsl:template>
 </xsl:stylesheet>

@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.32 2001/10/23 21:49:55 borisz Exp $
+# $Id: Content.pm,v 1.41 2002/03/22 23:12:04 tjmather Exp $
 
 use strict;
 
@@ -16,15 +16,8 @@ sub new {
 sub generate_template {
   my ($content, $page_id, $component_id, $pkit_view, $input_param_obj, $component_params) = @_;
 
-  unless(exists $INC{'XML/LibXML.pm'}){
-    require XML::LibXML;
+  unless(exists $INC{'XML/LibXSLT.pm'}){
     require XML::LibXSLT;
-
-    # call backs so that we can note the mtimes of dependant files
-    XML::LibXML->match_callback(\&match_uri);
-    XML::LibXML->open_callback(\&open_uri);
-    XML::LibXML->close_callback(\&close_uri);
-    XML::LibXML->read_callback(\&read_uri);
   }
 
   $CONTENT = $content;
@@ -35,7 +28,7 @@ sub generate_template {
 
   # XSLT file
   my $xml_file = "$content->{content_dir}/$component_id.xml";
-  unless(-e "$xml_file"){
+  unless(-f $xml_file){
     die "Cannot find xml file $content->{content_dir}/$component_id.xml or
       template file $pkit_view/$component_id.tmpl";
   }
@@ -43,7 +36,15 @@ sub generate_template {
 #  my $xml_mtime = (stat($xml_file))[9];
 #  $INCLUDE_MTIMES->{$xml_file} = $xml_mtime;
 
-  my $xp = XML::XPath->new(filename => $xml_file);
+  my $parser = XML::LibXML->new( ext_ent_handler => \&open_uri );
+  # call backs so that we can note the mtimes of dependant files
+  $parser->match_callback(\&match_uri);
+  $parser->open_callback(\&open_uri);
+  $parser->close_callback(\&close_uri);
+  $parser->read_callback(\&read_uri);
+
+  my $xp = $parser->parse_file("/$component_id.xml");
+
   my @pi_nodes = $xp->findnodes("processing-instruction('xml-stylesheet')");
   my @stylesheet_hrefs;
   for my $pi_node (@pi_nodes){
@@ -61,16 +62,15 @@ sub generate_template {
 #  my $stylesheet_mtime = (stat(_))[9];
 #  $INCLUDE_MTIMES->{$stylesheet_file} = $stylesheet_mtime;
 
-  my $parser = XML::LibXML->new(ext_ent_handler => \&open_uri);
   my $xslt = XML::LibXSLT->new();
-  my $source = $parser->parse_file("/$component_id.xml");
+  my $source = $xp; # we parsed the source xmlfile already
   my $style_doc = $parser->parse_file($stylesheet_file);
 
   my $stylesheet = $xslt->parse_stylesheet($style_doc);
 
-  my @params = map { $_, $input_param_obj->param($_) } $input_param_obj->param ;
+  my @params = map { $_, $input_param_obj->param($_) } $input_param_obj->param;
 
-  my $results = $stylesheet->transform($source, @params, %$component_params);
+  my $results = $stylesheet->transform($source, XML::LibXSLT::xpath_to_string( @params, %$component_params ));
 
 #  my $content_type = $stylesheet->media_type;
 #  my $encoding = $stylesheet->output_encoding;
@@ -91,9 +91,11 @@ sub process_template {
   if($$template_ref =~ m!$content_pattern!i){
     # XPathTemplate template
 
-    my $xpt = XML::XPathTemplate->new(default_lang   => $content->{default_lang},
-				      root_dir       => $content->{content_dir},
-                                      relaxed_parser => $content->{relaxed_parser});
+    my $xpt = HTML::Template::XPath->new( default_lang   => $content->{default_lang},
+				       root_dir       => $content->{content_dir},
+                                       relaxed_parser => $content->{relaxed_parser},
+                                       template_class => $content->{template_class},
+                                      );
 
     $lang_tmpl = $xpt->process_all_lang(xpt_scalarref => $template_ref,
 					xml_filename  => "$component_id.xml");
@@ -107,7 +109,7 @@ sub process_template {
   return $lang_tmpl;
 }
 
-sub rel2abs {
+sub _rel2abs {
   my ($rel_uri) = @_;
   if($rel_uri =~ m!\.xml!){
     my $content_dir = $CONTENT->{content_dir};
@@ -124,28 +126,19 @@ sub rel2abs {
     my $stylesheet_file;
     if($rel_uri =~ m!^/!){
       $stylesheet_file = "$view_dir/$PKIT_VIEW$rel_uri";
-      unless (-e "$stylesheet_file"){
+      unless( -f $stylesheet_file){
 	$stylesheet_file = "$view_dir/Default$rel_uri";
       }
     } else {
       # return relative to component_id_dir
       $stylesheet_file = "$view_dir/$PKIT_VIEW/$COMPONENT_ID_DIR$rel_uri";
       while ($stylesheet_file =~ s![^/]*/\.\./!!) {};
-      unless (-e "$stylesheet_file"){
+      unless( -f $stylesheet_file){
 	$stylesheet_file = "$view_dir/Default/$COMPONENT_ID_DIR$rel_uri";
 	while ($stylesheet_file =~ s![^/]*/\.\./!!) {};
       }
     }
-    die "Stylesheet $stylesheet_file doesn't exist" unless (-e $stylesheet_file);
-    # for caching pages including the params info (that way extrenous parameters
-    # won't be taken into account when counting)
-    # META: do i only need to cache top level params from top level stylesheet?
-    my $xp = XML::XPath->new(filename => "$stylesheet_file");
-    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID} = {};
-    for my $node ($xp->findnodes(q{xsl:stylesheet/xsl:param})){
-      my $param_name = $node->getAttribute('name');
-      $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID}->{$param_name} = 1;
-    }
+    die "Stylesheet $stylesheet_file doesn't exist" unless ( -f $stylesheet_file );
     return $stylesheet_file;
   } else {
     die "$rel_uri does not end in .xml or .xsl.  All Content XML files must have
@@ -155,19 +148,29 @@ sub rel2abs {
 
 sub match_uri {
   my $uri = shift;
-  return $uri !~ /^\w+:/;
+  return $uri !~ /(^\w+:)|(catalog$)/;
 }
 
 sub open_uri {
   my $uri = shift;
-  my $abs_uri = &rel2abs($uri);
-  die "XML file $abs_uri doesn't exist" unless (-e $abs_uri);
-  open XML, "$abs_uri";
+  my $abs_uri = _rel2abs($uri);
+  open XML, "$abs_uri" or die "XML file $abs_uri doesn't exist";
   local($/) = undef;
   my $xml_str = <XML>;
   close XML;
   my $mtime = (stat(_))[9];
   $INCLUDE_MTIMES->{$abs_uri} = $mtime;
+
+  # for caching pages including the params info (that way extrenous parameters
+  # won't be taken into account when counting)
+  # META: do i only need to cache top level params from top level stylesheet?
+  my $xp = XML::LibXML->new->parse_string($xml_str);
+  $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID} = {};
+  for my $node ($xp->findnodes(q{node()[name() = 'xsl:stylesheet']/node()[name() = 'xsl:param']})){
+    my $param_name = $node->getAttribute('name');
+    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID}->{$param_name} = 1;
+  }
+
   return $xml_str;
 }
 

@@ -5,7 +5,7 @@
  <xsl:template match="/">
   <wml>
    <card id="Card1">
-    <xsl:attribute name="title"><xsl:value-of select="/page/header/"/> WML</xsl:attribute>
+    <xsl:attribute name="title"><xsl:value-of select="//page/header/text()"/> WML</xsl:attribute>
     <xsl:apply-templates select="//para"/>
    </card>
   </wml>
@@ -17,7 +17,8 @@
  </xsl:template>
  <xsl:template match="MODEL_VAR">
   <xsl:copy>
-   <xsl:apply-templates select="@*|node()"/>
+   <xsl:copy-of select="@*"/>
+   <xsl:apply-templates/>
   </xsl:copy>
  </xsl:template>
 </xsl:stylesheet>

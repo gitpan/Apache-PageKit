@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 1.07 (Beta)
+	Version: 1.08 (Beta)
 
 Description
 -----------
@@ -32,30 +32,33 @@ Description
 		- Co-branding and XML,WML, and PDF output
 		- Automatic Dispatching of URIs
 		- Easy Error Handling
+		- Online Editing Tools
+		- Page based sessions
+		- Localized error/messages
+
 
 Requirements
 ------------
 	- perl 5.005 or greater
 	- mod_perl 1.24_01 (lastest version requir'd for make test only)
-	- Apache 1.3.x compiled _without_ expat (1.3.21 or higher recommended)
-	- libapreq
-	- Apache::Session 1.5
+	- Apache 1.3.x (at best compiled _without_ expat (1.3.21 or higher recommended))
+	- Apache::libapreq
+
+	- Apache::SessionX
 	- Compress::Zlib
 	- Data::FormValidator
 	- Digest::MD5
 	- HTML::FillInForm 0.12
 	- HTML::Template 2.2
+	- HTML::Template::XPath
 	- HTML::Clean
-	- Mail::Mailer
-	- expat library - download from http://sourceforge.net/projects/expat/
 	- Text::Iconv
-	- XML::Parser
-	- XML::XPath
+        - libxml2 library - download from http://www.xmlsoft.org
+	- XML::LibXML 1.31
 
 Required for example web site located in eg/ directory
 ----------------------
 	- DBD::CSV
-	- Digest::MD5
 	- HTTP::Headers
 	- SQL::Statement
 	- Text::CSV_XS
@@ -63,16 +66,25 @@ Required for example web site located in eg/ directory
 
 Recommended
 -----------
+	- Mail::Mailer (needed if you use Apache::ErrorReport)
 	- Apache::DBI (*strongly* recommended if you use DBI)
 	- MIME::Types (needed if you want to serve static files from
 		View/Default directory)
-	- XML::LibXML 0.92
-	- XML::LibXSLT 1.04 (needed if you want to use XSLT tranformations)
+	- XML::LibXSLT 1.31 (needed if you want to use XSLT tranformations)
 	- Apache XML FOP - need for generating PDF
+        - Locale::gettext 1.01 (needed if you want to localize pkit messages)
 
 Installation
 ------------
-	First you must have a mod_perl enabled apache server _without_
+PageKit 1.08
+	You must have a mod_perl enabled apache server. That's all.
+
+        PageKit avoids the expat conflict by not using XML::Parser anymore.
+        If your application relies on XML::Parser, follow the instructions
+        for installation PageKit <= 1.07.
+
+PageKit <= 1.07
+        First you must have a mod_perl enabled apache server _without_
 	expat compiled in.  Apache 1.3.21 and above do not include
 	expat if you already have expat installed.
 
@@ -143,7 +155,7 @@ Setup
 -----
 	You should use the directories and files contained in the eg/
 	directory of the distribution as a starting point for your own
-	application. 
+	application.
 
 	Note that the example application uses DBD::CSV to store the
 	login data.  This is choosen because it will work on any platform.
@@ -154,14 +166,56 @@ Setup
 	my $dbh = DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
 	$dbh->do("CREATE TABLE pkit_user (user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255))");
 
+	For the example application to work on a real database you must
+	create the above table on it as well.
+
 	For sessions to work, you will have
 	to manually create a database 'sessions', and include a table (this
-	example is for MySQL, adjust as needed for your target database)
+	example is for MySQL/PostgreSQL, adjust as needed for your target
+	database)
 
 		CREATE TABLE sessions (
 			id char(32) not null primary key,
 			a_session text
 		);
+
+        A MySQL configuration inside Common.pm might look like:
+		sub pkit_session_setup {
+		  my $model = shift;
+		  my $dbh = $model->dbh;
+
+		  my %session_setup = (
+			session_store_class => 'MySQL',
+			session_lock_class => 'MySQL',
+			session_args => {
+					 Handle => $dbh,
+					 LockHandle => $dbh,
+                                        }
+		  );
+		  return \%session_setup;
+		}
+
+
+	A PostgreSQL configuration inside Common.pm might look like:
+		sub pkit_session_setup {
+		  my $model = shift;
+		  my $dbh = $model->dbh;
+
+		  my %session_setup = (
+			session_store_class => 'Postgres',
+			session_lock_class => 'Null',
+			session_serialize_class => 'Base64',
+			session_args => {
+					 Handle => $dbh,
+                                         IDLength => 32,
+                                         Commit => 0,
+                                        }
+		  );
+		  return \%session_setup;
+		}
+
+	Postgres user MUST use the Commit parameter in the session_args no matter if it is on or off.
+        Look in Apache::Session::Postgres and Apache::Session
 
 Configuration
 -------------
@@ -192,13 +246,14 @@ Bugs
 There is a bug in Perl 5.6.1 that causes weirdness with the templates
 are encoded in UTF-8.
 
-Send bug reports and suggestions to tjmather@anidea.com
+Please submit any bug reports, comments, or suggestions to the Apache::PageKit
+mailing list at http://lists.sourceforge.net/mailman/listinfo/pagekit-users
 
 Copyright
 ---------
 
-Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.
-PageKit is a trademark of AnIdea Corporation. 
+Copyright (c) 2000, 2001, 2002 AnIdea Corporation.  All rights Reserved.
+PageKit is a trademark of AnIdea Corporation.
 
 License
 -------
@@ -206,10 +261,10 @@ License
 This program is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-Ricoh Source Code Public License for more details. 
+Ricoh Source Code Public License for more details.
 
 You can redistribute this module and/or modify it only under the
-terms of the Ricoh Source Code Public License. 
+terms of the Ricoh Source Code Public License.
 
 You should have received a copy of the Ricoh Source Code Public
 License along with this program; if not, obtain one at

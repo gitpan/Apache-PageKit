@@ -9,21 +9,18 @@
 	model_dispatch_prefix="MyPageKit::MyModel"
 	recent_login_timeout="10"
 	session_expires="+1y"
-	uri_prefix = "pagekit/"
 />
 <SERVERS>
    <SERVER id="production"
 	reload="no"/>
    <SERVER id="staging"
+	can_edit="yes"
 	reload="yes"/>
 </SERVERS>
 <VIEWS>
-   <VIEW id="pdf"
-	media="pdf"/>
-   <VIEW id="wml"
-	media="wml"/>
-   <VIEW id="xml"
-	media="xml"/>
+   <VIEW id="pdf"/>
+   <VIEW id="wml"/>
+   <VIEW id="xml"/>
 </VIEWS>
 <PAGES>
   <PAGE id="customize" request_param_in_tmpl="yes"/>

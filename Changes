@@ -1,6 +1,60 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.08
+	- Added on-line editing tools
+	- Add Postgres support (Chris Hamilton)
+        - Add support for page based sessions (Boris Zentner)
+        - Add support for localized messages of pkit (Boris Zentner)
+        - Add fr message catalog (David Raimbault)
+        - Add pt message catalog (Leonardo T. de Carvalho)
+        - Add de message catalog (Boris Zentner)
+        ! Change default for html_clean_level to 0 (Boris Zentner)
+        - Add <PKIT_NOT_ERROR> directive to seperate errors
+		from messages (David Christian)
+        ! Catch up with new interface in XML::LibXML 1.31 (Anton Berezin)
+        - Fix eg/View/(xml|wml|pdf)/simple_page.xsl (Boris Zentner)
+        - Add pkit_get_config_attr function to get config options from your
+		Config.xml (Boris Zentner, Leonardo T. de Carvalho)
+	- Add new <USER> section in Config/Config.xml where your own
+		config data takes place (Boris Zentner)
+	- Add a optional second argument for pkit_set_errorfont (Boris Zentner)
+	- Add new global config option default_errorstr (Boris Zentner)
+        - Add new pkit tag <PKIT_ERRORSTR> (Boris Zentner)
+        - Fix _load_component to die if we can not read the
+        	component file (Anton Permyakov)
+        - Add new function pkit_set_errorspan. It replaced pkit_set_errorfont
+		which is obsolete and should not be used anymore. (Boris Zentner)
+	- Add new pkit tag <PKIT_ERRORSPAN> as replacement for
+        	<PKIT_ERRORFONT> (Boris Zentner)
+ 	- Add new global config option 'errorspan_begin_tag' and
+        	'errorspan_end_tag' (Boris Zentner)
+	- Add new tags SECTIONS and SECTION for use in Config/Config.xml
+        	they allow to set defaults for groups of pages
+                (Boris Zentner, Ben Ausden)
+        - Fix view tag attribute 'output_media' to the documented
+        	'content_type'. Also test the page tag attribute
+                'content_type' first. (Boris Zentner)
+        - Do not use autovivification for file and dirhandles, to be
+        	compatible with perl 5.005 (Boris Zentner)
+        - Remove unused attrs from Config.xml View tags (Boris Zentner)
+        - Add global config options session_class and page_session_class
+        	both defaults to Apache::SessionX (Boris Zentner)
+        - Remove XML::Parser and prefer XML::LibXML (Boris Zentner)
+        - Replace Apache::PageKit::Session with Apache::SessionX (Boris Zentner)
+	- Fix: clear all global config attrs before (re)parsing the
+		config (Boris Zentner)
+        - Fix case where the DBI connection is terminated in pkit_cleanup_code
+        	before the session is written back (Anton Berezin)
+        - Remove usage of XML::XPath and XML::Parser in flavor of XML::LibXML
+        	this change involves also XML::XPathTemplate (Boris Zentner)
+        - Fix: add used Content files to the mtimes hash. (Boris Zentner)
+        - Add new global option template_class, to choose the module to process
+		our tempaltes. Must be HTML::Template compatible
+                for now. (Boris Zentner)
+	- Add and document new method $model->pkit_send used to send data or files
+        	to the client (Boris Zentner)
+
 1.07
 	- Fixed language localisation (Boris Zentner)
         - More Warnings fixed (Boris Zentner)

@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.15 2001/09/08 15:59:14 borisz Exp $
+# $Id: Common.pm,v 1.19 2002/01/08 16:45:12 borisz Exp $
 
 use strict;
 
@@ -47,7 +47,12 @@ sub pkit_common_code {
   my $model = shift;
 
   # put code that is common to all pages here
-  my $session = $model->pkit_get_session_id ? $model->session : {};
+  my $session = {};
+
+  # only create new session if pkit_admin is set
+  if ($model->pkit_get_session_id || $model->input('pkit_admin')) {
+    $session = $model->session;
+  }
 
   # for the pagekit.org website, we control the colors based on the
   # values the user selected, stored in the session.
@@ -55,6 +60,12 @@ sub pkit_common_code {
   $model->output(text_color => $session->{'text_color'} || '000000');
   $model->output(bgcolor => $session->{'bgcolor'} || 'dddddd');
   $model->output(mod_color => $session->{'mod_color'} || 'ffffff');
+
+  # toggle on-line editing tools
+  if($model->input('pkit_admin')) {
+    $session->{'pkit_admin'} = $model->input('pkit_admin') eq 'on' ? 1 : 0;
+  }
+  $model->output(pkit_admin => $session->{'pkit_admin'});
 }
 
 sub pkit_auth_credential {
@@ -64,7 +75,7 @@ sub pkit_auth_credential {
   my $passwd = $model->input('passwd');
 
   unless ( $login && $passwd ){
-    $model->pkit_message("You did not fill all of the fields.  Please try again.",
+    $model->pkit_gettext_message("You did not fill all of the fields.  Please try again.",
 		 is_error => 1);
     return;
   }
@@ -75,7 +86,7 @@ sub pkit_auth_credential {
   my ($user_id, $dbpasswd) = $dbh->selectrow_array($sql_str, {}, $login);
 
   unless ($user_id && $dbpasswd && $epasswd eq crypt($dbpasswd,$epasswd)){
-    $model->pkit_message("Your login/password is invalid. Please try again.",
+    $model->pkit_gettext_message("Your login/password is invalid. Please try again.",
 		is_error => 1);
     return;
   }
@@ -139,13 +150,15 @@ the Model classes for the pagekit.org site.
 It is a good starting point for building your own base class for your
 Model classes.
 
-=head1 AUTHOR
+=head1 AUTHORS
 
 T.J. Mather (tjmather@anidea.com)
 
+Boris Zentner (boris@m2b.de)
+
 =head1 COPYRIGHT
 
-Copyright (c) 2000, AnIdea, Corp.  All rights Reserved.  PageKit is a trademark
+Copyright (c) 2000, 2001, 2002 AnIdea, Corp.  All rights Reserved.  PageKit is a trademark
 of AnIdea Corp.
 
 =head1 LICENSE

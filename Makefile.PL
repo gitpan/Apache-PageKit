@@ -10,26 +10,26 @@ use vars qw( %Requirements %Recommended %Example );
 # version is the minimum version required to run
 
 %Requirements = (
-  'Apache::Session'  => { version => 1.50 },
+  'Apache::SessionX' => {},
   'Compress::Zlib'   => {},
   'Data::FormValidator' => {},
   'Digest::MD5'      => {},
   'HTML::FillInForm' => { version => 0.12 },
   'HTML::Template'   => { version => 2.2 },
+  'HTML::Template::XPath' => {version => 0.08 },
   'HTML::Clean'      => {},
-  'Mail::Mailer'     => {},
   'Text::Iconv'      => {},
-  'XML::Parser'      => {},
-  'XML::XPath'       => { version => 1.08 },
+  'XML::LibXML'      => { version => 1.31, comment => '(you need libxml2 >= 2.4.10 and libxslt >= 1.0.9)' },
 );
 
 %Recommended = (
-  'Apache::DBI' => { comment => '(*strongly* recommended if you use DBI)' },
-  'MIME::Types' =>
+  'Mail::Mailer'     => {comment => '(only needed if you use Apache::ErrorReport)' },
+  'Apache::DBI'     => { comment => '(*strongly* recommended if you use DBI)' },
+  'MIME::Types'     =>
   { comment => '(needed if you want to serve static files from View/Default directory)' },
-  'XML::LibXML'  => { version => 0.92 },
-  'XML::LibXSLT' => { version => 1.04, comment => '(needed if you want to use XSLT tranformations)' },
-  'Storable'     => { version => 1.013, comment => '(needed for heavy loaded servers)' },
+  'XML::LibXSLT'    => { version => 1.31, comment => '(needed if you want to use XSLT tranformations)' },
+  'Storable'        => { version => 1.013, comment => '(needed for heavy loaded servers)' },
+  'Locale::gettext' => { version => 1.01, comment => '(needed if you want to localize pkit messages)' },
 );
 
 %Example = (
@@ -145,7 +145,7 @@ my $section = Apache::test->MM_test(%params);
 
 #HACK to remove start_httpd from make test
 $section =~ s!test :: pure_all start_httpd run_tests   kill_httpd!test :: run_tests!;
- 
+
 *MY::test = sub { $section };
 
 WriteMakefile(
@@ -156,17 +156,16 @@ WriteMakefile(
     'PREREQ_PM'		=> {Apache::URI => 0,
 				Apache::Cookie => 0,
 				Apache::Request => 0,
-				Apache::Session => 1.5,
+                                Apache::SessionX => 0,
 				Apache::Util => 0,
 			        Compress::Zlib => 0,
 				Data::FormValidator => 0,
 				HTML::Clean => 0,
 				HTML::FillInForm => 0.12,
 				HTML::Template => 2.2,
-				Mail::Mailer => 0,
+				HTML::Template::XPath => 0.08,
 			        Text::Iconv => 0,
-				XML::Parser => 0,
-				XML::XPath => 1.08,
+				XML::LibXML => 1.31,
 				mod_perl => 1.2401},
 );
 

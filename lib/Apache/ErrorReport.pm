@@ -1,6 +1,6 @@
 package Apache::ErrorReport;
 
-# $Id: ErrorReport.pm,v 1.5 2001/05/13 03:42:36 tjmather Exp $
+# $Id: ErrorReport.pm,v 1.6 2002/01/07 09:51:40 borisz Exp $
 
 use integer;
 use strict;
@@ -131,7 +131,7 @@ T.J. Mather (tjmather@anidea.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.
+Copyright (c) 2000, 2001, 2002 AnIdea Corporation.  All rights Reserved.
 PageKit is a trademark of AnIdea Corporation.
 
 =head1 LICENSE

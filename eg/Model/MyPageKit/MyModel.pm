@@ -17,7 +17,7 @@ sub customize {
     $model->output($_ => $model->input($_));
     $change_flag = 1;
   }
-  $model->pkit_message("Your changes have been made.") if $change_flag;
+  $model->pkit_gettext_message("Your changes have been made.") if $change_flag;
 }
 
 sub error_report {
@@ -130,10 +130,10 @@ sub newacct2 {
 				$login, $passwd);
 
   # example of pkit_message being passed along with pkit_redirect
-  $model->pkit_message("This message was passed throught pkit_redirect");
-  $model->pkit_message("Another message passed throught pkit_redirect");
+  $model->pkit_gettext_message("This message was passed throught pkit_redirect");
+  $model->pkit_gettext_message("Another message passed throught pkit_redirect");
 
-  $model->pkit_message("This ERROR message was passed throught pkit_redirect",
+  $model->pkit_gettext_message("This ERROR message was passed throught pkit_redirect",
 		      is_error => 1);
 
   $model->pkit_redirect("/?login=$login&passwd=$passwd&pkit_done=$pkit_done&pkit_login=1");
@@ -158,13 +158,15 @@ another for processing new account sign ups.
 
 It is a good starting point for building your backend for your PageKit website.
 
-=head1 AUTHOR
+=head1 AUTHORS
 
 T.J. Mather (tjmather@thoughtstore.com)
 
+Boris Zentner (boris@m2b.de)
+
 =head1 COPYRIGHT
 
-Copyright (c) 2000, AnIdea Corp.  All rights Reserved.  PageKit is a trademark
+Copyright (c) 2000, 2001, 2002 AnIdea Corp.  All rights Reserved.  PageKit is a trademark
 of AnIdea, Corp.
 
 =head1 LICENSE
