@@ -1,6 +1,6 @@
 package Apache::PageKit::Error;
 
-# $Id: Error.pm,v 1.1 2000/08/29 19:01:11 tjmather Exp $
+# $Id: Error.pm,v 1.3 2000/10/31 22:51:23 tjmather Exp $
 
 use integer;
 use strict;
@@ -58,7 +58,10 @@ END
     $mailer->close;
   } elsif ($r->dir_config('PKIT_ERROR_HANDLER') eq 'display') {
     my $color = $_[1] eq 'WARN' ? 'blue' : 'red';
-    print qq{<pre><font color="$color">$_[1]: $_[0]};
+    my $message = $_[0];
+    $message =~ s/</&lt;/g;
+    $message =~ s/>/&gt;/g;
+    print qq{<pre><font color="$color">$_[1]: $message};
     my $i = 0;
     while (my ($package, $filename, $line, $subr) = caller($i)){
       print "stack $i: $package $subr line $line\n";
@@ -127,3 +130,5 @@ See the Ricoh Source Code Public License for more details.
 You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
 
 You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license
+
+=cut

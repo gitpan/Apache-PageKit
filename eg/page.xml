@@ -2,7 +2,6 @@
 <!DOCTYPE pagekit SYSTEM "./pagekit.dtd">
 <SITE>
   <PAGE page_id = "customize"
-    view = "std"
     use_nav = "yes"
     is_popup = "no"
     nav_title = "Customize"
@@ -20,7 +19,6 @@
     </TMPL_LOOP>
   </PAGE>
   <PAGE page_id = "examples"
-    view = "std"
     use_nav = "yes"
     is_popup = "no"
     nav_title = "Examples"
@@ -28,9 +26,15 @@
     parent_id = "index"
     new_credential = "no">
     <TMPL_VAR NAME = "html_title">PageKit.org | Examples</TMPL_VAR>
+    <TMPL_LOOP NAME = "demo_desc">
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "feature">Built-in Navigation</TMPL_VAR>
+	<TMPL_VAR NAME = "description">Navigation object is created by using the PKIT_NAME tag in the template, and the use_nav, nav_title, and parent_id 
+		attributes in the XML file.</TMPL_VAR>
+      </TMPL_ITEM>
+    </TMPL_LOOP>
   </PAGE>
   <PAGE page_id = "index"
-    view = "std"
     use_nav = "no"
     is_popup = "no"
     nav_title = "Home"
@@ -38,7 +42,18 @@
     cache = "normal"
     new_credential = "no">
     <TMPL_VAR NAME = "html_title">Welcome to PageKit.org</TMPL_VAR>
+    <TMPL_LOOP NAME = "demo_desc">
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "feature"></TMPL_VAR>
+	<TMPL_VAR NAME = "description"></TMPL_VAR>
+      </TMPL_ITEM>
+    </TMPL_LOOP>
     <TMPL_LOOP NAME = "news">
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "date">October 31th, 2000</TMPL_VAR>
+	<TMPL_VAR NAME = "title">Release of PageKit 0.05</TMPL_VAR>
+	<TMPL_VAR NAME = "description">Added language localization support, replaced views and modules with includes</TMPL_VAR>
+      </TMPL_ITEM>
       <TMPL_ITEM>
 	<TMPL_VAR NAME = "date">August 29th, 2000</TMPL_VAR>
 	<TMPL_VAR NAME = "title">Release of PageKit 0.04</TMPL_VAR>
@@ -62,7 +77,6 @@
     </TMPL_LOOP>
   </PAGE>
   <PAGE page_id = "license"
-    view = "std"
     use_nav = "no"
     is_popup = "no"
     require_login = "no"
@@ -71,7 +85,6 @@
     <TMPL_VAR NAME = "html_title">RICOH SOURCE CODE PUBLIC LICENSE 1.0 - PageKit Application Framework</TMPL_VAR>
   </PAGE>
   <PAGE page_id = "login1"
-    view = "std"
     use_nav = "yes"
     is_popup = "no"
     nav_title = "Login"
@@ -79,9 +92,14 @@
     parent_id = "examples"
     new_credential = "no">
     <TMPL_VAR NAME = "html_title">PageKit.org | Login</TMPL_VAR>
+    <TMPL_LOOP NAME = "demo_desc">
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "feature">Authentication</TMPL_VAR>
+	<TMPL_VAR NAME = "description">This login form logs a user in.</TMPL_VAR>
+      </TMPL_ITEM>
+    </TMPL_LOOP>
   </PAGE>
   <PAGE page_id = "login2"
-    view = "std"
     use_nav = "no"
     is_popup = "no"
     require_login = "no"
@@ -90,7 +108,6 @@
     new_credential = "yes">
   </PAGE>
   <PAGE page_id = "newacct1"
-    view = "std"
     use_nav = "yes"
     is_popup = "no"
     nav_title = "New Account"
@@ -98,9 +115,14 @@
     parent_id = "examples"
     new_credential = "no">
     <TMPL_VAR NAME = "html_title">PageKit.org | New Account</TMPL_VAR>
+    <TMPL_LOOP NAME = "demo_desc">
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "feature">Form Validation</TMPL_VAR>
+	<TMPL_VAR NAME = "description">Validates fields to make sure that they are filled in correctly.  If there is an error, highlights field in red.</TMPL_VAR>
+      </TMPL_ITEM>
+    </TMPL_LOOP>
   </PAGE>
   <PAGE page_id = "newacct2"
-    view = "std"
     use_nav = "yes"
     is_popup = "no"
     nav_title = "Account Created"

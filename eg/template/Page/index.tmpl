@@ -1,11 +1,10 @@
+<PKIT_INCLUDE NAME="top">
 <h1><font color="<TMPL_VAR NAME="link_color">">page</font>kit.org: Website for Apache::PageKit</h1>
 
-PageKit<SUP>TM</SUP> is a set of Perl modules that provides an application framework
-and uses <a href="http://perl.apache.org">mod_perl</a>
-and HTML::Template.  
-It employs a Model/View/Content/Controller approach to design, with complete separation of
-Perl from HTML. PageKit includes session management, authentication, form validation,
-sticky HTML forms, multiple views/co-branding, modules and a simple content
+PageKit<SUP>TM</SUP> is an <a href="http://perl.apache.org">mod_perl</a> based
+application framework that uses HTML::Template and XML to
+separate the design from the content.  Includes session management,
+authentication, form validation, co-branding, and a content
 management system.
 <p>
 Documentation and downloads are available from
@@ -15,7 +14,7 @@ To browse the <a href="http://sourceforge.net/cvs/?group_id=9597">CVS</a> or joi
 <a href="http://sourceforge.net/mail/?group_id=9597">mailing list</a>, visit
 <a href="http://sourceforge.net/projects/pagekit/">Sourceforge</a>.
 <p>
-For PageKit services, including commercial support, contact <a href="mailto:pagekit@thoughtstore.com">pagekit@thoughtstore.com</a>.
+For PageKit services, including commercial support, contact <a href="mailto:pagekit@anidea.com">pagekit@thoughtstore.com</a>.
 <p>
 This site serves as a demo of some of the features of PageKit.  The complete source
 code for pagekit.org is located in the eg/ directory of the distribution.
@@ -45,4 +44,12 @@ code for pagekit.org is located in the eg/ directory of the distribution.
 <br>
 <PKIT_LINK PAGE="customize">Customize Site Page</PKIT_LINK>
 <TMPL_INCLUDE NAME="../Include/end_cell.tmpl">
+<p>
+<TMPL_IF NAME="PKIT_NETSCAPE">
+You are running a Netscape Browser
+</TMPL_IF>
 
+<TMPL_IF NAME="PKIT_INTERNET_EXPLORER">
+You are running a Microsoft Internet Explorer browser
+</TMPL_IF>
+<PKIT_INCLUDE NAME="bottom">

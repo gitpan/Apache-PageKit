@@ -1,6 +1,6 @@
 package Apache::PageKit::FormValidator;
 
-# $Id: FormValidator.pm,v 1.1 2000/08/29 19:01:11 tjmather Exp $
+# $Id: FormValidator.pm,v 1.3 2000/09/23 22:33:40 tjmather Exp $
 
 use integer;
 use strict;
@@ -115,8 +115,9 @@ from the L<Apache::Request> object contained in the L<Apache::PageKit> object.
   my $ok = $validator->validate($pk);
 
   if($ok){
-    # get validated, filter form data
-    $fdat = $pk->{fdat};
+    # get validated, filtered form data
+    my $apr = $pk->{apr};
+    $fdat = map { $_ => $apr->param($_) } $apr->param;
   } else {
     # not valid, check to see error fields
     if($validator->is_error_field('name'));
@@ -145,3 +146,5 @@ See the Ricoh Source Code Public License for more details.
 You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
 
 You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license
+
+=cut

@@ -25,7 +25,7 @@ use strict;
 use vars qw( $VERSION );
 
 BEGIN {
-    ($VERSION) = '$Revision: 1.1 $' =~ /Revision: ([\d.]+)/;
+    ($VERSION) = '$Revision: 1.2 $' =~ /Revision: ([\d.]+)/;
 }
 
 =pod
@@ -310,10 +310,10 @@ sub validate {
      # Apply inconditional filters
     foreach my $filter ( @{$profile->{filters}} ) {
 	# Qualify symbolic references
-	$filter = ref $filter ? $filter : "filter_" . $filter;
+	my $f = ref $filter ? $filter : "filter_" . $filter;
 	foreach my $field ( keys %valid ) {
 	    no strict 'refs';
-	    $valid{$field} = $filter->( $valid{$field} );
+	    $valid{$field} = $f->( $valid{$field} );
 	}
     }
 
@@ -322,10 +322,10 @@ sub validate {
 	my @f = ref $filters eq "ARRAY" ? @$filters : ( $filters );
 	foreach my $filter ( @f ) {
 	    # Qualify symbolic references
-	    $filter = ref $filter ? $filter : "filter_" . $filter;
+	    my $f = ref $filter ? $filter : "filter_" . $filter;
 	    no strict 'refs';
 
-	    $valid{$field} = $filter->( $valid{$field} );
+	    $valid{$field} = $f->( $valid{$field} );
 	}
     }
 

@@ -1,12 +1,12 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.1 2000/08/29 19:01:11 tjmather Exp $
+# $Id: View.pm,v 1.5 2000/10/31 22:51:23 tjmather Exp $
 
 use integer;
 use strict;
 
-# stores modules that are cached so we can we can pass cached=>1 to HTML::Template
-$Apache::PageKit::View::cache_module = {};
+# stores includes that are cached so we can we can pass cached=>1 to HTML::Template
+$Apache::PageKit::View::cache_include = {};
 
 sub new($$) {
   my $class = shift;
@@ -20,7 +20,10 @@ sub _init {
   my ($view, $pk) = @_;
   $view->{pk} = $pk;
 
-  $view->{template_root} = $pk->{apr}->dir_config('PKIT_TEMPLATE_ROOT') || $pk->{apr}->document_root;
+  my $apr = $pk->{apr};
+  my $session = $pk->{session};
+
+  $view->{template_root} = $apr->dir_config('PKIT_TEMPLATE_ROOT') || $apr->document_root;
 
   $view->{templateOptions} = {
 			      # don't die when we set a parameter that is not in the template
@@ -29,39 +32,107 @@ sub _init {
 			      loop_context_vars=>1,
 			      global_vars=>1,
 			     };
+
+  # set PKIT_NETSCAPE or PKIT_INTERNET_EXPLORER tag
+  my $agent = $apr->header_in('User-Agent');
+  if($agent =~ /MSIE/){
+    $view->param(PKIT_INTERNET_EXPLORER => 1);
+  } elsif ($agent =~ /Mozilla/){
+    $view->param(PKIT_NETSCAPE => 1);
+  }
+
+  # get Locale settings
+  # only supports one langauge, should entend to more languages later...
+  my @accept_language = map {substr($_,0,2) } split(", ",$apr->header_in('Accept-Language'));
+
+  if(my $lang = $apr->param('pkit_lang')){
+    $session->{'pkit_lang'} = $lang;
+    unshift @accept_language, $lang;
+  } elsif ($session){
+    unshift @accept_language, $session->{'pkit_lang'} if exists $session->{'pkit_lang'};
+  }
+
+  $view->{lang} = [ @accept_language ];
 }
 
-sub prepare_module {
-  my ($view, $module_id) = shift;
+sub prepare_include {
+  my ($view, $include_id) = @_;
   my $pk = $view->{pk};
   my $info = $pk->{info};
 
-  $pk->module_code($module_id);
+#  print "template_name_2 -> $include_id<br>";
 
-  my $template_name = "/Module/" . $module_id;
+  $pk->include_code($include_id);
+
+  my $template_name = "/Include/" . $include_id;
+
+  my $pk = $view->{pk};
 
   my $options = {};
   my $template_cache = $info->get_attr('template_cache');
   if($template_cache eq 'shared'){
     $options->{shared_cache} = 1;
+    $Apache::PageKit::View::cache_include->{$include_id} = 'shared';
   } elsif ($template_cache eq 'normal'){
     $options->{cache} = 1;
-    $Apache::PageKit::View::cache_module->{$module_id} = 1;
-  } elsif (exists $Apache::PageKit::View::cache_module->{$module_id}){
+    $Apache::PageKit::View::cache_include->{$include_id} = 'normal';
+  } elsif ($Apache::PageKit::View::cache_include->{$include_id} eq 'normal'){
     $options->{cache} = 1;
+  } elsif ($Apache::PageKit::View::cache_include->{$include_id} eq 'shared'){
+    $options->{shared_cache} = 1;
   }
 
   my $output = $view->prepare_template($template_name,
 				       $options);
-  $view->param("PKIT_MODULE:$module_id" => $output);
+#  $view->param("PKIT_INCLUDE:$include_id" => $output);
+  return $output;
 }
 
-sub prepare_page {
+sub template_file_exists {
+  my ($view, $page_id) = @_;
+  my $template_file = $view->{template_root} . "/Page/" . $page_id . '.tmpl';
+  return 1 if (-e "$template_file");
+  return 0;
+}
+
+
+#  my $pkit_link_ref = sub {
+sub pkit_link {
+  my ($view, $page_id, $query_string) = @_;
+  my $pk = $view->{pk};
+  my $apr = $pk->{apr};
+  my $info = $pk->{info};
+
+  my $orig_page_id = $page_id;
+  
+  # resolve page_id from url in link, if necessary
+  $page_id = $info->page_id_match($page_id)
+    unless $info->page_exists($page_id);
+  
+  my $protocal = ($info->get_attr('is_secure',$page_id) eq 'yes') ? 'https://' : 'http://';
+  
+  if($info->get_attr('is_popup',$page_id) eq 'yes'){
+    $view->param(pkit_java_script_code => 1);
+    my $domain = (split(':',$apr->headers_in->{'Host'}))[0];
+    my $popup_height = $info->get_attr('popup_height',$page_id);
+    my $popup_width = $info->get_attr('popup_width',$page_id);
+    return qq{javascript:openWindow('http://} . $domain . qq{/} . $orig_page_id . $query_string . qq{',$popup_width,$popup_height)};
+  } elsif ($apr->dir_config('PKIT_PAGE_DOMAIN') eq 'on' && (my $domain = $info->get_attr('domain',$page_id))){
+    return qq{$protocal$domain/$orig_page_id$query_string};
+  } else {
+    return qq{/$orig_page_id$query_string};
+  }
+}
+
+sub prepare_output {
   my $view = shift;
   my $pk = $view->{pk};
   my $info = $pk->{info};
+  my $apr = $pk->{apr};
 
   my $page_id = $pk->{page_id};
+
+#  $info->get_content;
 
   my $template_name = "/Page/" . $page_id;
 
@@ -75,136 +146,15 @@ sub prepare_page {
 
   my $output = $view->prepare_template($template_name,
 				       $options);
-  $view->param(PKIT_PAGE => $output);
-}
 
-sub prepare_template {
-  my $view = shift;
-  my $template_name = shift;
-  my $options = shift;
+#  $output =~ s/<PKIT_INCLUDE (NAME=)?"?([^"]*)"?>/$2/eig;
 
-  my $pk = $view->{pk};
-
-  my $filename;
-  if(my $pkit_view = $pk->{apr}->param('pkit_view')){
-    if(-e "$view->{template_root}$template_name.$pkit_view.tmpl"){
-      $filename = "$view->{template_root}$template_name.$pkit_view.tmpl";
-    } else {
-      $filename = "$view->{template_root}$template_name.tmpl";
-    }
-  } else {
-    $filename = "$view->{template_root}$template_name.tmpl";
-  }
-
-  if($view->param('pkit_admin')){
-    # add edit link for pkit_admins
-    my $array_ref = $view->param('pkit_edit');
-    my ($template_id) = ($template_name =~ m(^/(.*).tmpl$));
-    push @$array_ref, {template => $template_id};
-
-    # also add links for TMPL_INCLUDES
-    open TEMPLATE, $filename;
-    local $/ = undef;
-    my $template = <TEMPLATE>;
-    close TEMPLATE;
-
-    my $pkit_done = $view->param("pkit_done");
-
-    while ($template =~ m(<TMPL_INCLUDE NAME="\.\./(.*?)\.tmpl">)g){
-      push @$array_ref, {template => $1};
-    }
-    $view->param('pkit_edit',$array_ref);
-  }
-
-  my $template = HTML::Template->new_file($filename,
-					  %{$view->{templateOptions}},
-					  %$options);
-
-  my @modules = map { m/^PKIT_MODULE:(.*?)$/ } $template->param;
-
-  for (@modules){
-    $view->prepare_module($_);
-  }
-  $view->_apply_param($template);
-  return $template->output;
-}
-
-sub _apply_param {
-  my ($view, $template) = @_;
-
-  my $pk = $view->{pk};
-
-  my $page_id = $pk->{page_id};
-
-  # get params from XML file
-  my $param_hashref = $pk->{info}->get_param_hashref;
-  while (my ($key, $value) = each %$param_hashref){
-    $template->param($key,$value);
-#      if $template->query(name => $key) eq 'VAR';
-  }
-  foreach my $key ($view->{pk}->{apr}->param){
-    $template->param($key,$pk->{apr}->param($key))
-      if $template->query(name => $key) eq 'VAR';
-  }
-  foreach my $key ($view->param){
-    $template->param($key,$view->param($key));
-  }
-}
-
-# prepare whole page
-sub prepare_entire_page {
-  my ($view) = @_;
-  my $pk = $view->{pk};
-  my $apr = $pk->{apr};
-  my $info = $pk->{info};
-
-  my $page_view = $info->get_attr('view');
-
-  my $template_name = "/View/" . $page_view;
-
-  my $options = {};
-  if($pk->{view_cache} eq 'shared'){
-    $options->{shared_cache} = 1;
-  } elsif ($pk->{view_cache} eq 'normal'){
-    $options->{cache} = 1;
-  }
-
-  my $output = $view->prepare_template($template_name,
-				       $options);
-
-  # put something in $html
-
-#  return $$html;
-
-  if ($apr->dir_config('PKIT_PRODUCTION') eq 'on'){
-#    $output =~ s/<!--.*?-->//sg;
-#    $output =~ s/[ \t]+/ /g;
-  }
-
-  my $pkit_link_ref = sub {
-    my ($page_id, $query_string) = @_;
-
-    my $protocal = ($info->get_attr('is_secure',$page_id) eq 'yes') ? 'https://' : 'http://';
-
-    if($info->get_attr('is_popup',$page_id) eq 'yes'){
-      $view->param(java_script_code => 1);
-      my $domain = (split(':',$apr->headers_in->{'Host'}))[0];
-      my $popup_height = $info->get_attr('popup_height',$page_id);
-      my $popup_width = $info->get_attr('popup_width',$page_id);
-      return qq{<a href="javascript:openWindow('http://} . $domain . qq{/} . $page_id . $query_string . qq{',$popup_width,$popup_height)">};
-    } elsif ($apr->dir_config('PKIT_PAGE_DOMAIN') eq 'on' && (my $domain = $info->get_attr('domain',$page_id))){
-      return qq{<a href="$protocal$domain/$page_id$query_string">};
-    } else {
-      return qq{<a href="/$page_id$query_string">};
-    }
-  };
-
-  $output =~ s/<PKIT_LINK (PAGE=)?"?(.*?)(\?[^"]*?)?"?>/&$pkit_link_ref($2, $3)/eig;
+  $output =~ s/<PKIT_LINK (PAGE=)?"?(.*?)(\?.*?)?"?>/qq{<a href="} . $view->pkit_link($2, $3) . qq{">}/eig;
   $output =~ s/<\/PKIT_LINK>/<\/a>/ig;
 
   my @params = $apr->param;
 
-  if($view->param('java_script_code')){
+  if($view->param('pkit_java_script_code')){
     # add javascipt code
     my $java_script_code = <<END;
 <script language="JavaScript">
@@ -242,7 +192,7 @@ END
     }
   };
 
-  $output =~ s/<PKIT_ERRORFONT (NAME=)?"?([^"]*?)"?>(.*?)<\/PKIT_ERRORFONT>/&$pkit_errorfont_ref($2,$3)/egs;
+  $output =~ s/<PKIT_ERRORFONT (NAME=)?"?([^"]*?)"?>(.*?)<\/PKIT_ERRORFONT>/&$pkit_errorfont_ref($2,$3)/eigs;
 
   # make html forms "sticky"
   if ($pk->{fill_in_form} && @params && $output =~ m/<form/i){
@@ -252,6 +202,130 @@ END
   }
 
   $view->{output} = \$output;
+}
+
+# common code for page, view and include templates
+sub prepare_template {
+  my $view = shift;
+  my $template_name = shift;
+  my $options = shift;
+
+  my $pk = $view->{pk};
+
+#  print "template_name -> $template_name<br>";
+
+  my $filename;
+  my $pkit_view = $pk->{apr}->param('pkit_view');
+  if($pkit_view && -e "$view->{template_root}$template_name.$pkit_view.tmpl"){
+    $filename = "$view->{template_root}$template_name.$pkit_view.tmpl";
+#  } elsif ($pkit_view && -e "$view->{template_root}$pkit_view/$template_name.tmpl"){
+#    $filename = "$view->{template_root}$pkit_view/$template_name.tmpl";
+  } else {
+    $filename = "$view->{template_root}$template_name.tmpl";
+  }
+
+  if($view->param('pkit_admin')){
+    # add edit link for pkit_admins
+    my $array_ref = $view->param('pkit_edit');
+    my ($template_id) = ($template_name =~ m(^/(.*)$));
+    push @$array_ref, {template => $template_id};
+
+    # also add links for TMPL_INCLUDES
+#    open TEMPLATE, $filename;
+#    local $/ = undef;
+#    my $template = <TEMPLATE>;
+#    close TEMPLATE;
+
+#    my $pkit_done = $view->param("pkit_done");
+
+#    while ($template =~ m(<PKIT_INCLUDE NAME="(.*?)">)ig){
+#      push @$array_ref, {template => "Include/$1"};
+#    }
+
+    $view->param('pkit_edit',$array_ref);
+  }
+
+  my $template = HTML::Template->new_file($filename,
+					  %{$view->{templateOptions}},
+					  %$options);
+
+  # process <TMPL_VAR NAME="PKIT_INCLUDE:include_id"> tags
+#  my @includes = map { m/^PKIT_INCLUDE:(.*?)$/i } $template->param;
+
+#  for (@includes){
+#    $view->prepare_include($_);
+#  }
+  $view->_apply_param($template);
+
+  my $output = $template->output;
+
+  $output =~ s/<PKIT_INCLUDE (NAME=)?"?([^"]*)"?>/$view->prepare_include($2)/eig;
+
+  return $output;
+}
+
+sub _apply_param {
+  my ($view, $template) = @_;
+
+  my $pk = $view->{pk};
+
+  my $page_id = $pk->{page_id};
+
+  # get params from XML file
+  my $param_hashref = $pk->{info}->get_param_hashref;
+  while (my ($key, $value) = each %$param_hashref){
+    $template->param($key,$value);
+  }
+
+  # get params from GET/POST request
+  foreach my $key ($pk->{apr}->param){
+    $template->param($key,$pk->{apr}->param($key))
+      if $template->query(name => $key) eq 'VAR';
+  }
+
+  # get params from $view object
+  foreach my $key ($view->param){
+    my $value = $view->param($key);
+    unless (ref($value) eq 'ARRAY' && $template->query(name => $key) ne 'LOOP'){
+      $template->param($key, $value);
+    } else {
+      # avoid attempt to set parameter 'portfolio' with an array ref - parameter is not a TMPL_LOOP!
+      # error in HTML::Template
+      $template->param($key, scalar @$value);
+    }
+  }
+
+  # set laugauge localization, if applicable
+  while(my $lang = shift @{$view->{lang}}){
+    if ($template->query(name => "PKIT_LANG_$lang")){
+      $template->param("PKIT_LANG_$lang" => 1);
+      last;
+    }
+  }
+}
+
+# prepare whole page, starting with view
+sub prepare_entire_page {
+  my ($view) = @_;
+  my $pk = $view->{pk};
+  my $apr = $pk->{apr};
+  my $info = $pk->{info};
+
+#  my $page_view = $info->get_attr('view');
+
+#  my $template_name = "/View/" . $page_view;
+
+#  my $options = {};
+#  if($pk->{view_cache} eq 'shared'){
+#    $options->{shared_cache} = 1;
+#  } elsif ($pk->{view_cache} eq 'normal'){
+#    $options->{cache} = 1;
+#  }
+
+#  my $output = $view->prepare_template($template_name,
+#				       $options);
+
+  my $output = $view->param('PKIT_PAGE');
 }
 
 # param method - can be called in two forms
@@ -273,9 +347,6 @@ sub param {
     while(($name, $value) = splice(@p, 0, 2)){
       $view->_add_parameter($name);
       $view->{param}->{$name} = $value;
-      if ($name eq 'boardID'){
-	warn "$name -> $value";
-      }
     }
   } else {
     $name = $p[0];
@@ -337,19 +408,13 @@ It can also be used to set multiple parameters at once:
   $view->param(firstname => $firstname,
                lastname => $lastname);
 
-=item prepare_module
+=item prepare_include
 
-  $view->prepare_module(34);
+  $view->prepare_include(34);
 
-Calles the code for the module with id 34 and fills in the module template.
+Calles the code for the include with id 34 and fills in the include template.
 
-=item prepare_page
-
-  $view->prepare_page;
-
-Calles the code for the page and fills in the page template.
-
-=item prepare_entire_page
+=item prepare_output
 
 Resolves C<E<lt>PKIT_*E<gt>> tags and fills in HTML forms using L<HTML::FillInForm>.
 
@@ -381,3 +446,5 @@ See the Ricoh Source Code Public License for more details.
 You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
 
 You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license
+
+=cut

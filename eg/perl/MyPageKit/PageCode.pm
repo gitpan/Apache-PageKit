@@ -1,6 +1,6 @@
 package MyPageKit::PageCode;
 
-# $Id: PageCode.pm,v 1.3 2000/08/29 04:18:31 tjmather Exp $
+# $Id: PageCode.pm,v 1.4 2000/10/31 22:51:23 tjmather Exp $
 
 use strict;
 
@@ -9,10 +9,12 @@ sub page_customize {
   my $pk = shift;
   my $apr = $pk->{apr};
   my $session = $pk->{session};
+  my $change_flag;
   for ($apr->param){
     $session->{$_} = $apr->param($_);
+    $change_flag = 1;
   }
-  $pk->message("Your changes have been made.");
+  $pk->message("Your changes have been made.") if $change_flag;
 }
 
 sub page_newacct2 {

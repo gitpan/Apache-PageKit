@@ -1,11 +1,11 @@
 package Apache::PageKit::Info;
 
-# $Id: Info.pm,v 1.1 2000/08/29 19:01:11 tjmather Exp $
+# $Id: Info.pm,v 1.3 2000/10/31 22:51:23 tjmather Exp $
 
 use integer;
 use strict;
 
-use vars qw($page_id $ATTR_NAME $VAR_NAME
+use vars qw($page_id $ATTR_NAME $VAR_NAME $VAR_NEW
 	    @LOOP_NAME_STACK @ITEM_HASH_REF_STACK @LOOP_ARRAY_REF_STACK %info_hash);
 
 sub new {
@@ -20,6 +20,7 @@ sub _init {
 
   # delete current init
   $info->{page_id_match} = {};
+  $info->{attr} = {};
 
   my $r = Apache->request;
 
@@ -27,13 +28,38 @@ sub _init {
 
   die "no page info file" unless $page_info_file;
 
-  my $p = XML::Parser->new(Style => 'Subs');
+  my $p = XML::Parser->new(Style => 'Subs',
+			   ParseParamEnt => 1,
+			   NoLWP => 1);
 
   $p->setHandlers(Default => \&Default);
 
   $p->parsefile($page_info_file);
 
   Apache::PageKit->call_plugins($info, 'info_init_handler');
+}
+
+sub get_content {
+  my $info = shift;
+  my $pk = $info->{pk};
+
+  my $apr = $pk->{apr};
+  my $view = $pk->{view};
+
+  # check xml dir for content
+#  my $xml_file = $apr->dir_config('XML_ROOT') . '/xml/' . $pk->{page_id} . '.xml';
+  my $xml_file = '/home/tjmather/site/xml/' . $pk->{page_id} . '.xml';
+#  print "$xml_file<br>";
+  if (-e "$xml_file"){
+    my $p = XML::Parser->new(Style => 'Subs',
+			     ParseParamEnt => 1,
+			     NoLWP => 1);
+    
+    $p->setHandlers(Default => \&Default);
+    
+    $p->parsefile($xml_file);
+#    print "found $xml_file!";
+  }
 }
 
 sub get_info {
@@ -55,7 +81,8 @@ sub get_info {
   return $info if $r->dir_config('PKIT_PRODUCTION') eq 'on';
 
   my $mtime = (stat $page_info_file)[9];
-  if($mtime > $Apache::PageKit::Info::pageMtime{$r->dir_config("PKIT_PAGE_INFO_FILE")}){
+
+  if($mtime>$Apache::PageKit::Info::pageMtime{$r->dir_config("PKIT_PAGE_INFO_FILE")}){
     $info->_init;
     $Apache::PageKit::Info::pageMtime{$r->dir_config("PKIT_PAGE_INFO_FILE")} = $mtime;
   }
@@ -67,7 +94,8 @@ sub page_exists {
   if (exists $info->{attr}->{$page_id}){
     return 1;
   } else {
-    return 0;
+    my $view = $info->{pk}->{view};
+    return $view->template_file_exists($page_id);
   }
 }
 
@@ -123,6 +151,14 @@ sub page_id_match {
 sub SITE {}
 sub SITE_ {}
 
+# called at begining of <CONTENT> tag in XML file
+#sub CONTENT {
+#  my ($p, $edtype, %attr) = @_;
+#  $page_id = $attr{page_id};
+#}
+
+#sub CONTENT_ {}
+
 # called at begining <PAGE> tag in XML file
 sub PAGE {
   my ($p, $edtype, %attr) = @_;
@@ -156,7 +192,11 @@ sub PAGE_ {}
 sub ATTR {
   my ($p, $edtype, %attr) = @_;
 
+  my $r = Apache->request;
+  my $info = $info_hash{$r->dir_config("PKIT_PAGE_INFO_FILE")};
+
   $ATTR_NAME = $attr{NAME};
+  $info->{attr}->{$page_id}->{$ATTR_NAME} = "";
 }
 
 sub ATTR_ {
@@ -167,26 +207,49 @@ sub TMPL_VAR {
   my ($p, $edtype, %attr) = @_;
 
   $VAR_NAME = $attr{NAME};
+
+#  $xml_lang = $attr{'xml:lang'};
+
+#  print $VAR_NAME;
 }
 
 sub TMPL_VAR_ {
+  my $r = Apache->request;
+  my $info = $info_hash{$r->dir_config("PKIT_PAGE_INFO_FILE")};
+#  if($xml_lang){
+#    $info->{lang_param}->{$page_id}->{$VAR_NAME}->{$xml_lang} =~ s/^<!\[CDATA\[//g;
+#    $info->{lang_param}->{$page_id}->{$VAR_NAME}->{$xml_lang} =~ s/\]\]>$//g;
+#  } else {
+    $info->{param}->{$page_id}->{$VAR_NAME} =~ s/^<!\[CDATA\[//g;
+    $info->{param}->{$page_id}->{$VAR_NAME} =~ s/\]\]>$//g;
+#  }
+#  $info->{param}->{$page_id}->{$VAR_NAME} =~ s/de //g;
   $VAR_NAME = undef;
+#  $xml_lang = undef;
+  $VAR_NEW = 1;
 }
 
 sub TMPL_LOOP {
   my ($p, $edtype, %attr) = @_;
 
+  # set language iff top level loop
+#  $xml_lang = $attr{'xml:lang'} unless @LOOP_NAME_STACK;
   push @LOOP_NAME_STACK, $attr{NAME};
   push @LOOP_ARRAY_REF_STACK, [];
   push @ITEM_HASH_REF_STACK, {};
 }
 
-sub TMPL_LOOP_ { 
+sub TMPL_LOOP_ {
   my $r = Apache->request;
   my $info = $info_hash{$r->dir_config("PKIT_PAGE_INFO_FILE")};
   if(scalar @LOOP_NAME_STACK == 1){
     # top LOOP element
+#    if($xml_lang){
+#      $info->{lang_param}->{$page_id}->{$LOOP_NAME_STACK[0]}->{$xml_lang} = $LOOP_ARRAY_REF_STACK[-1];
+#      $xml_lang = undef;
+#    } else {
     $info->{param}->{$page_id}->{$LOOP_NAME_STACK[0]} = $LOOP_ARRAY_REF_STACK[-1];
+#    }
   } else {
     # nested LOOP element
     $ITEM_HASH_REF_STACK[-2]->{$LOOP_NAME_STACK[-1]} = $LOOP_ARRAY_REF_STACK[-1];
@@ -214,7 +277,20 @@ sub Default {
     if($ATTR_NAME){
       $info->{attr}->{$page_id}->{$ATTR_NAME} .= $string;
     } elsif($VAR_NAME){
-      $info->{param}->{$page_id}->{$VAR_NAME} .= $string;
+      if($VAR_NEW){
+#	if($xml_lang){
+#	  $info->{lang_param}->{$page_id}->{$VAR_NAME}->{$xml_lang} = $string;
+#	} else {
+	  $info->{param}->{$page_id}->{$VAR_NAME} = $string;
+#	}
+	$VAR_NEW = 0;
+      } else {
+#	if($xml_lang){
+#	  $info->{lang_param}->{$page_id}->{$VAR_NAME}->{$xml_lang} .= $string;
+#	} else {
+	  $info->{param}->{$page_id}->{$VAR_NAME} .= $string;
+#	}
+      }
     }
   }
 }
@@ -273,3 +349,5 @@ See the Ricoh Source Code Public License for more details.
 You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
 
 You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license
+
+=cut
