@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 1.14
+	Version: 1.15
 
 Description
 -----------
@@ -159,14 +159,27 @@ Setup
 	directory of the distribution as a starting point for your own
 	application.
 
-	Note that the example application uses DBD::CSV to store the
-	login data.  This is choosen because it will work on any platform.
-	However, when building your own application
-	you should rip this out and put in a real database.  But in case
-	you still want to use DBD::CSV, you'll have to run something like
+	Note that the example application uses DBD::SQLite to store the
+	login data.  This is choosen because it will work on any platform
+	and support a resonable part of SQL.
+	However, when building your own application you can change to 
+	whartever database you like.
 
-	my $dbh = DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
-	$dbh->do("CREATE TABLE pkit_user (user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255))");
+        Just provide a database with the tables 'pkit_user' and 'session'
+
+        CREATE 
+          TABLE pkit_user (
+             user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255)
+        );
+        
+        CREATE 
+          TABLE sessions (
+            id char(32) not null primary key, a_session text
+        );
+
+	You can adjust or remove database fields from these tables as you like,
+        just supply the fields you use. My pkit_user table is typical larger and I
+        like to use VARCHAR on some fields.
 	
 	Note for Win32 user: 
 	  On Win32 you should use a session_lock_class => 'Null'

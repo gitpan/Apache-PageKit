@@ -54,28 +54,29 @@ use Storable ();
 
 # these global vars are initialised and then they are readonly!
 # this is done here mainly for speed.
-use vars qw /%replace_start_tags %replace_end_tags $key_value_pattern/;
-
+#use vars qw /%replace_start_tags %replace_end_tags $key_value_pattern/;
+our (%replace_start_tags, %replace_end_tags, $key_value_pattern);
+  
 %replace_start_tags = (
-                               MESSAGES     => '<TMPL_LOOP NAME="PKIT_MESSAGES">',
-                               IS_ERROR     => '<TMPL_IF NAME="PKIT_IS_ERROR">',
-                               NOT_ERROR    => '<TMPL_UNLESS NAME="PKIT_IS_ERROR">',
-                               HAVE_MESSAGES  => '<TMPL_IF NAME="PKIT_MESSAGES">',
-                               HAVE_NOT_MESSAGES => '<TMPL_UNLESS NAME="PKIT_MESSAGES">',
-                               HOSTNAME     => '<TMPL_VAR NAME="PKIT_HOSTNAME">',
-                               MESSAGE      => '<TMPL_VAR NAME="PKIT_MESSAGE">',
-                               ERRORSTR     => '<TMPL_VAR NAME="PKIT_ERRORSTR">',
-                               REALURL      => '<TMPL_VAR NAME="PKIT_REALURL">',
-  );
-
+                           MESSAGES          => '<TMPL_LOOP NAME="PKIT_MESSAGES">',
+                           IS_ERROR          => '<TMPL_IF NAME="PKIT_IS_ERROR">',
+                           NOT_ERROR         => '<TMPL_UNLESS NAME="PKIT_IS_ERROR">',
+                           HAVE_MESSAGES     => '<TMPL_IF NAME="PKIT_MESSAGES">',
+                           HAVE_NOT_MESSAGES => '<TMPL_UNLESS NAME="PKIT_MESSAGES">',
+                           HOSTNAME          => '<TMPL_VAR NAME="PKIT_HOSTNAME">',
+                           MESSAGE           => '<TMPL_VAR NAME="PKIT_MESSAGE">',
+                           ERRORSTR          => '<TMPL_VAR NAME="PKIT_ERRORSTR">',
+                           REALURL           => '<TMPL_VAR NAME="PKIT_REALURL">',
+);
+  
 %replace_end_tags = (
-                             VIEW         => '</TMPL_IF>',
-                             IS_ERROR     => '</TMPL_IF>',
-                             NOT_ERROR    => '</TMPL_UNLESS>',
-                             HAVE_MESSAGES  => '</TMPL_IF>',
-                             HAVE_NOT_MESSAGES => '</TMPL_UNLESS>',
-                             MESSAGES     => '</TMPL_LOOP>'
-  );
+                         VIEW              => '</TMPL_IF>',
+                         IS_ERROR          => '</TMPL_IF>',
+                         NOT_ERROR         => '</TMPL_UNLESS>',
+                         HAVE_MESSAGES     => '</TMPL_IF>',
+                         HAVE_NOT_MESSAGES => '</TMPL_UNLESS>',
+                         MESSAGES          => '</TMPL_LOOP>'
+);
 
 #                        --------------------- $1 --------------------------
 #                             $2                  $3         $4       $5
@@ -306,7 +307,7 @@ sub _create_static_zip {
       print GZIP $gzipped_content;
       close GZIP;
     } else {
-      warn "can't create gzip cache file $view->{cache_dir}/$gzipped_filename: $!";
+      warn "can not create gzip cache file $view->{cache_dir}/$gzipped_filename: $!";
     }
     return $gzipped_content;
   }
@@ -367,7 +368,7 @@ sub _html_clean {
 
   return unless $html_clean_level > 0;
 
-  my $h = new HTML::Clean($html_code_ref,$html_clean_level) || die("can't open HTML::Clean object: $!");
+  my $h = new HTML::Clean($html_code_ref,$html_clean_level) || die("can not open HTML::Clean object: $!");
   $h->strip;
   $$html_code_ref = ${$h->data()};
 }
@@ -461,19 +462,6 @@ sub _load_component {
     local($/) = undef;
     my $template = <TEMPLATE>;
     close TEMPLATE;
-
-    my $default_input_charset = $view->{default_input_charset};
-    unless($default_input_charset eq 'UTF-8'){
-      my $converter;
-      eval {
-	$converter = Text::Iconv->new($default_input_charset, 'UTF-8');
-      };
-      if ($@) {
-	(my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
-	die "charset ($default_input_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
-      }
-      $template = $converter->convert($template) || die "Can not convert page from $default_input_charset to utf-8" if $template;
-    }
     
     # expand PKIT_MACRO tags
     $template =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$component_params->{uc($+)} || ''!egi;
@@ -523,20 +511,37 @@ sub _load_page {
   my $pkit_comment_re = $re_helper{ $view->{relaxed_parser} eq 'yes' ? 'relaxed_parser' : 'std_parser' }->{pkit_comment_re};
   $$template_ref =~ s/$pkit_comment_re//sgi;
   
-  my $default_output_charset = $view->{default_output_charset};
+  #  my $template_file = $view->_find_template($pkit_view, $page_id);
+  my ( $lang_tmpl, $skip_xpath_content ) = $content->process_template($page_id, $template_ref);
+
+  # find the right converter for perl < 5.8.0
+  # if we skip the xpath content, the string is in $default_input_charset.
+  # otherwise it is in utf8 ( from libxml2 )
   my $converter;
-  unless ('UTF-8' eq $default_output_charset) {
-    eval {
-      $converter = Text::Iconv->new( 'UTF-8', $default_output_charset);
-    };
-    if ($@) {
-      (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
-      die "The charset ($default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+  my $default_output_charset = $view->{default_output_charset};
+  if ( $skip_xpath_content ) {
+    my $default_input_charset = $view->{default_input_charset};
+    unless ( lc $default_input_charset eq lc $default_output_charset) {
+      eval {
+        $converter = Text::Iconv->new( $default_input_charset, $default_output_charset );
+      };
+      if ($@) {
+        (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+        die "The conversion from ($default_input_charset => $default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+      }
+    }
+    else {
+      unless ( /^utf-?8$/i =~ $default_output_charset) {
+        eval {
+          $converter = Text::Iconv->new( 'utf8', $default_output_charset);
+        };
+        if ($@) {
+          (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+          die "The conversion from ('utf8' => $default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+        }
+      }
     }
   }
-
-#  my $template_file = $view->_find_template($pkit_view, $page_id);
-  my $lang_tmpl = $content->process_template($page_id, $template_ref);
 
   # add used content file(s) to the mtimes hash
   while( my ( $file, $mtime ) = each( %{ $content->{include_mtimes} } ) ) {
@@ -547,7 +552,7 @@ sub _load_page {
   while (my ($lang, $filtered_html) = each %$lang_tmpl){
 
     if ( $converter ) {
-      $$filtered_html = $converter->convert($$filtered_html) || die "Can not convert page from UTF-8 to $default_output_charset" if $$filtered_html;
+      $$filtered_html = $converter->convert($$filtered_html) || die "Can not convert page from 'something' to $default_output_charset" if $$filtered_html;
     }
 
     my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
@@ -565,7 +570,7 @@ sub _load_page {
 					   global_vars=>1);
     };
     if($@){
-      die "Can't load template (MODEL TAGS) for $page_id: $@"
+      die "Can not load template (MODEL TAGS) for $page_id: $@"
     }
     my $record = {
 		  exclude_params_set => $exclude_params_set,
@@ -715,3 +720,378 @@ sub _preparse_model_tags {
 }
 
 1;
+
+package Apache::PageKit::View::TT2;
+
+use strict;
+#use vars qw /@ISA $key_value_pattern %replace_start_tags %replace_end_tags/;
+our (@ISA, $key_value_pattern, %replace_start_tags, %replace_end_tags);
+@ISA = 'Apache::PageKit::View';
+
+*key_value_pattern = \$Apache::PageKit::View::key_value_pattern;
+
+%replace_start_tags = (
+                            MESSAGES          => '[% FOREACH pkit_messages %]',
+                            IS_ERROR          => '[% IF pkit_is_error %]',
+                            NOT_ERROR         => '[% UNLESS pkit_is_error %]',
+                            HAVE_MESSAGES     => '[% IF pkit_messages %]',
+                            HAVE_NOT_MESSAGES => '[% UNLESS pkit_messages %]',
+                            HOSTNAME          => '[% pkit_hostname %]',
+                            MESSAGE           => '[% pkit_message %]',
+                            ERRORSTR          => '[% pkit_errorstr %]',
+                            REALURL           => '[% pkit_realurl %]',
+);
+%replace_end_tags = (
+                          VIEW              => '[% END %]',
+                          IS_ERROR          => '[% END %]',
+                          NOT_ERROR         => '[% END %]',
+                          HAVE_MESSAGES     => '[% END %]',
+                          HAVE_NOT_MESSAGES => '[% END %]',
+                          MESSAGES          => '[% END %]'
+);
+
+
+sub new {
+  require Template;
+  require Template::Parser;
+  require Template::Context;
+  return shift->SUPER::new(@_);
+}
+
+sub fill_in_view {
+  my ($view) = @_;
+
+  # load record containing Template Toolkit object
+  my $record = $view->{record};
+
+  my %tt_params;
+
+  # Fill in (compiled) <PKIT_SELFURL> tags
+  my $exclude_params_set = $record->{exclude_params_set};
+  if ( $exclude_params_set && @$exclude_params_set ) {
+    my $input_param_object = $view->{input_param_object};
+    my $orig_uri           = $input_param_object->notes->get('orig_uri');
+    foreach my $exclude_params (@$exclude_params_set) {
+      my @exclude_params = split ( " ", $exclude_params );
+      my $query_string = Apache::PageKit::params_as_string( $input_param_object, \@exclude_params );
+
+      #remove empty parameters as arised from http://ka.zyx.de/galerie?show=abc& or <PKIT_SELFURL>
+      $query_string =~ s![?&]$!!;
+      if ($query_string) {
+        $tt_params{"pkit_selfurl$exclude_params"} = ( $orig_uri . '?' . $query_string ) . '&';
+      }
+      else {
+        $tt_params{"pkit_selfurl$exclude_params"} = $orig_uri . '?';
+      }
+    }
+  }
+
+  # fill in data from associated objects (for example from the Apache request
+  # object if $apr is set
+  foreach my $object ( @{ $view->{associated_objects} } ) {
+    foreach my $key ( $object->param ) {  
+      $view->{pkit_pk}->{browser_cache} = 'no';
+      # we need a separate variable for value to force scalar context
+      # for multivalued params http://www.xx.yy/a?foo=12&foo=13
+      my $value = $object->param($key);
+      $tt_params{$key} = $value;
+    }
+  }
+
+  # finally, we use the $output_param_object object to fill in template
+  # get params from $view object
+  # note that in this case we allow for MODEL_LOOPs as well as MODEL_VARs
+  my $output_param_object = $view->{output_param_object};
+  foreach my $key ( $output_param_object->param ) {
+    my $value = $output_param_object->param($key);
+    $view->{pkit_pk}->{browser_cache} = 'no';
+    $tt_params{$key} = $value;
+  }
+
+  my $output = Template::Context->new->process(Template::Document->new( $record->{filtered_html} ), \%tt_params );
+
+  if ( $record->{has_form} ) {
+
+    # if fillinform_objects is set, then we use that to fill in any HTML
+    # forms in the template.
+    my $fif;
+    if ( @{ $view->{fillinform_objects} } ) {
+      $view->{pkit_pk}->{browser_cache} = 'no';
+      $fif = HTML::FillInForm->new();
+      $output = $fif->fill(
+                            scalarref     => \$output,
+                            fobject       => $view->{fillinform_objects},
+                            ignore_fields => $view->{ignore_fillinform_fields}
+      );
+    }
+  }
+  if ( $view->{can_edit} eq 'yes' ) {
+    $view->{pkit_pk}->{browser_cache} = 'no';
+    Apache::PageKit::Edit::add_edit_links( $view, $record, \$output );
+  }
+  return \$output;
+}
+
+######################################################
+
+sub _load_page {
+  my ( $view, $page_id, $pkit_view ) = @_;
+
+  # solange HTML::Template::XPath noch nichts mit Tempate Toolkit anfangen kann,
+  # HTML::Template verwenden.
+  my $content_template_class = $view->{template_class};
+  $content_template_class = 'HTML::Template' if $content_template_class eq 'Template';
+
+  my $content = $view->{content} ||= Apache::PageKit::Content->new(
+                                                                    content_dir    => $view->{content_dir},
+                                                                    view_dir       => $view->{view_dir},
+                                                                    default_lang   => $view->{default_lang},
+                                                                    relaxed_parser => $view->{relaxed_parser},
+                                                                    template_class => $content_template_class,
+  );
+
+  $view->{lang_tmpl} = $content->{lang_tmpl} = {};
+  $content->{include_mtimes}  = {};
+  $view->{component_ids_hash} = {};
+
+  # we add Config.xml to the hash of files to be checked for mtimes,
+  # in case default_input_charset or default_output_charset changes!
+  ( my $config_file = $view->{view_dir} ) =~ s!/View$!/Config/Config.xml!;
+  my $config_mtime = ( stat($config_file) )[9];
+  $view->{include_mtimes} = { $config_file => $config_mtime };
+
+  my $template_file = $view->_find_template( $pkit_view, $page_id );
+  my $template_ref = $view->_load_component( $page_id, $page_id, $pkit_view );
+
+  # remove PKIT_COMMENT parts.
+  my $pkit_comment_re = $re_helper{ $view->{relaxed_parser} eq 'yes' ? 'relaxed_parser' : 'std_parser' }->{pkit_comment_re};
+  $$template_ref =~ s/$pkit_comment_re//sgi;
+
+  #  my $template_file = $view->_find_template($pkit_view, $page_id);
+  my ( $lang_tmpl, $skip_xpath_content ) = $content->process_template($page_id, $template_ref);
+
+  # find the right converter for perl < 5.8.0
+  # if we skip the xpath content, the string is in $default_input_charset.
+  # otherwise it is in utf8 ( from libxml2 )
+  my $converter;
+  my $default_output_charset = $view->{default_output_charset};
+  if ( $skip_xpath_content ) {
+    my $default_input_charset = $view->{default_input_charset};
+    unless ( lc $default_input_charset eq lc $default_output_charset) {
+      eval {
+        $converter = Text::Iconv->new( $default_input_charset, $default_output_charset );
+      };
+      if ($@) {
+        (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+        die "The conversion from ($default_input_charset => $default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+      }
+    }
+    else {
+      unless ( /^utf-?8$/i =~ $default_output_charset) {
+        eval {
+          $converter = Text::Iconv->new( 'utf8', $default_output_charset);
+        };
+        if ($@) {
+          (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+          die "The conversion from ('utf8' => $default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+        }
+      }
+    }
+  }
+
+  # add used content file(s) to the mtimes hash
+  while ( my ( $file, $mtime ) = each( %{ $content->{include_mtimes} } ) ) {
+    $view->{include_mtimes}->{$file} = $mtime;
+  }
+
+  # go through content files (which have had content filled in)
+  while ( my ( $lang, $filtered_html ) = each %$lang_tmpl ) {
+
+    if ($converter) {
+      $$filtered_html = $converter->convert($$filtered_html)
+        || die "Can not convert page from 'something' to $default_output_charset"
+        if $$filtered_html;
+    }
+
+    my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
+    $view->_html_clean($filtered_html);
+
+    my $has_form  = ( $$filtered_html =~ m!<form!i );
+    my $tt_parser = Template::Parser->new;
+    my $record = {
+                   exclude_params_set => $exclude_params_set,
+                   filename           => $template_file,
+                   include_mtimes     => $view->{include_mtimes},
+                   component_ids      => $view->{component_ids},
+                   has_form           => $has_form,
+                   filtered_html      => $tt_parser->parse($$filtered_html)   || die $tt_parser->error(),
+    };
+
+    # make directories, if approriate
+    ( my $dir = $page_id ) =~ s!(/)?[^/]*?$!!;
+
+    if ($dir) {
+      File::Path::mkpath("$view->{cache_dir}/$dir");
+    }
+
+    my ( $extra_param, $param_hash ) = ( "", "" );
+
+    # get a list of requested params in the *.xsl file
+    if ( my @xml_params = sort keys %{ $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id} } ) {
+      my $param_obj = $view->{input_param_object};
+
+      for my $xml_param (@xml_params) {
+        my $value = $param_obj->param($xml_param) || '';
+        $extra_param .= "&$xml_param=" . $value;
+      }
+      $param_hash = Digest::MD5::md5_hex($extra_param);
+    }
+
+    # Store record
+    Storable::lock_store( $record, "$view->{cache_dir}/$page_id.$pkit_view.$lang$param_hash" );
+  }
+
+  # include mtimes and component_ids are filled in by _include_components
+  # and _fill_in_content
+  delete $view->{include_mtimes};
+  delete $view->{lang_tmpl};
+  delete $view->{component_ids_hash};
+}
+
+sub _preparse_model_tags {
+  use bytes;
+  my ( $view, $html_code_ref ) = @_;
+
+  my $exclude_params_set = {};
+
+  # "compile" PageKit templates into HTML::Templates
+  if ( $view->{relaxed_parser} eq 'yes' ) {
+
+    # new parser
+
+    # the new parser is a lot more flexible over the old one. it can parse
+
+    # <MODEL_VAR NAME=abc>
+    # <MODEL_VAR NAME=abc/>
+    # <MODEL_VAR NAME=abc   />
+    # <   MODEL_VAR NAME=abc   >
+    # <!--   MODEL_VAR NAME=abc   -->
+    # <!--MODEL_VAR NAME=abc   -->
+    # <!--   MODEL_VAR NAME=abc   /-->
+
+    # all these are valid and expanded. it is slower than the old one but if it works relaible
+
+    if ( $$html_code_ref =~ m%<(!--)?\s*PKIT_(?:VAR|LOOP|IF|UNLESS)(?:$key_value_pattern)*\s*/?(?(1)--)>%i ) {
+      warn
+"PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, PKIT_NOT_ERROR or PKIT_MESSAGE instead";
+    }
+
+    # remove tags
+    # tags generated by XSLT
+    $$html_code_ref =~ s%<(!--)?\s*/(?:MODEL|PKIT)_VAR\s*(?(1)--)>%%sig;
+
+    # translate end to tmpl
+    $$html_code_ref =~ s~<(!--)?\s*/(?:MODEL|PKIT)_(LOOP|IF|UNLESS)\s*(?(1)--)>~[% END %]~sig;
+
+    # XML-style stand-alone tags and other start tags
+    $$html_code_ref =~ s~<(!--)?\s*(?:MODEL|PKIT)_(VAR|LOOP|IF|ELSE|UNLESS)($key_value_pattern*)\s*/?(?(1)--)>~
+	  my $type = uc($2);
+	  if ( $type eq 'VAR' ) {
+	    $type = '';
+	  } elsif ( $type eq 'LOOP' ) {
+	    $type = 'FOREACH';
+	  }
+          qq{[\% $type $2 \%]};
+	~esig;
+
+    $$html_code_ref =~
+      s^<(!--)?\s*PKIT_ERROR(?:FONT|SPAN)$key_value_pattern?\s*(?(1)--)>(.*?)<(!--)?\s*/PKIT_ERROR(?:FONT|SPAN)\s*(?(8)--)>^
+        my $name = $4 || $5 || $6 || $3;
+	if ( $name ) {
+          qq{[\% PKIT_ERRORSPAN_BEGIN_$name \%]${7}[\% PKIT_ERRORSPAN_END_$name \%]};
+	} else {
+	  my $text = $7;
+	  ( my $errorspan_begin_tag = $view->{errorspan_begin_tag} ) =~ s/<(!--)?\s*PKIT_ERRORSTR\s*(?(1)--)>/$view->{default_errorstr}/gi;
+	  $errorspan_begin_tag . $text . $view->{errorspan_end_tag};
+	} ^seig;
+
+    $$html_code_ref =~
+s%<(!--)?\s*PKIT_SELFURL$key_value_pattern?\s*/?(?(1)--)>% &process_selfurl_tag($exclude_params_set, $4 || $5 || $6 || $3 ) %seig;
+
+    $$html_code_ref =~
+s%<(!--)?\s*/PKIT_(VIEW|IS_ERROR|NOT_ERROR|MESSAGES|HAVE_MESSAGES|HAVE_NOT_MESSAGES)\s*(?(1)--)>%     $replace_end_tags{uc($2)}   %seig;
+    $$html_code_ref =~
+s%<(!--)?\s*PKIT_(MESSAGES|IS_ERROR|NOT_ERROR|HAVE_MESSAGES|HAVE_NOT_MESSAGES)\s*(?(1)--)>%           $replace_start_tags{uc($2)} %seig;
+    $$html_code_ref =~
+      s%<(!--)?\s*PKIT_(HOSTNAME|MESSAGE|ERRORSTR|REALURL)\s*/?(?(1)--)>% $replace_start_tags{uc($2)} %seig;
+
+    $$html_code_ref =~
+      s^<(!--)?\s*PKIT_VIEW$key_value_pattern\s*/?(?(1)--)>^ sprintf '[%% IF PKIT_VIEW#%s %%]', $4 || $5 || $6 || $3; ^sieg
+      ;    #"
+
+  }
+  else {
+
+    if ( $$html_code_ref =~ m%<PKIT_(?:VAR|LOOP|IF|UNLESS)(?:$key_value_pattern)*/?>%i ) {
+      warn
+"PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_HAVE_MESSAGES, PKIT_NOT_MESSAGES, PKIT_IS_ERROR, PKIT_NOT_ERROR or PKIT_MESSAGE instead";
+    }
+
+    # remove tags
+    # tags generated by XSLT
+    $$html_code_ref =~ s%</(?:MODEL|PKIT)_VAR>%%sig;
+
+    # translate end to tmpl
+    $$html_code_ref =~ s~</(?:MODEL|PKIT)_(LOOP|IF|UNLESS)>~[% END %]~sig;
+
+    # XML-style stand-alone tags and other start tags
+    $$html_code_ref =~ s!<(?:MODEL|PKIT)_(VAR|LOOP|IF|ELSE|UNLESS)($key_value_pattern*)/?>!
+	{
+          my $type = uc($1);
+	  if ( $type eq 'VAR' ) {
+	    $type = '';
+	  } elsif ( $type eq 'LOOP' ) {
+	    $type = 'FOREACH';
+	  }
+          my $out = $2;
+          if ( $out =~ m/NAME\s*=\s*"([^"]*)"/i ) {
+            $out = $1;
+	  }
+          qq{[\% $type $out \%]}
+	}!esig;
+
+    $$html_code_ref =~ s^<PKIT_ERROR(?:FONT|SPAN)$key_value_pattern?>(.*?)</PKIT_ERROR(?:FONT|SPAN)>^
+        my $name = $3 || $4 || $5 || $2;
+	if ( $name ) {
+          qq{[\% PKIT_ERRORSPAN_BEGIN_$name \%]${6}[\% PKIT_ERRORSPAN_END_$name \%]};
+	} else {
+	  my $text = $6;
+	  ( my $errorspan_begin_tag = $view->{errorspan_begin_tag} ) =~ s/<PKIT_ERRORSTR>/$view->{default_errorstr}/gi;
+	  $errorspan_begin_tag . $text . $view->{errorspan_end_tag}
+	} ^seig;
+
+    $$html_code_ref =~
+      s%<PKIT_SELFURL$key_value_pattern?/?>% &process_selfurl_tag_tt($exclude_params_set, $3 || $4 || $5 || $2 ) %seig;
+
+    $$html_code_ref =~
+      s%</PKIT_(VIEW|IS_ERROR|NOT_ERROR|MESSAGES|HAVE_MESSAGES|HAVE_NOT_MESSAGES)>%    $replace_end_tags{uc($1)}   %seig;
+    $$html_code_ref =~
+      s%<PKIT_(MESSAGES|IS_ERROR|NOT_ERROR|HAVE_MESSAGES|HAVE_NOT_MESSAGES)>%          $replace_start_tags{uc($1)}%seig;
+    $$html_code_ref =~ s%<PKIT_(HOSTNAME|MESSAGE|ERRORSTR|REALURL)/?>%$replace_start_tags{uc($1)}%seig;
+
+    $$html_code_ref =~ s^<PKIT_VIEW$key_value_pattern/?>^ sprintf '[%% IF PKIT_VIEW#%s %%]', $3 || $4 || $5 || $2; ^sieg;  #"
+  }
+
+  my @a = keys %$exclude_params_set;
+  return \@a;
+
+  sub process_selfurl_tag_tt {
+    my ( $exclude_params_set, $exclude_params ) = @_;
+    $exclude_params = defined($exclude_params) ? join ( " ", sort split ( /\s+/, $exclude_params ) ) : "";
+    $exclude_params_set->{$exclude_params} = 1;
+    return qq{[\% pkit_selfurl$exclude_params \%]};
+  }
+}
+
+1;
+

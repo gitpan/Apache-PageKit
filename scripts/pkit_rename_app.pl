@@ -6,22 +6,42 @@ use FindBin;
 use File::Find  ();
 use XML::LibXML ();
 use Cwd         ();
+use Getopt::Long ();
 
 # $Id: pkit_rename_app.pl,v 1.1 2004/03/03 13:28:30 borisz Exp $
 
 our $VERSION = 0.01;
 
 my %h;
+my ( $use_svn, $use_svk );
+
+exit 1 unless ( Getopt::Long::GetOptions ( svn => \$use_svn, svk => \$use_svk ) );
+
 my $new_name = pop || die <<"ENDE";
 Usage:
-  $0 MyNewApplicationName
-  $0 pkit_rootdir MyNewApplicationName
+  $0 [--svn|--svk] MyNewApplicationName
+  $0 [--svn|--svk] pkit_rootdir MyNewApplicationName
   
   for more try
     perldoc $0
 ENDE
 
 my $eg_root = Cwd::abs_path( pop || '.' );
+
+if ( $use_svn ) {
+  # check if there are already uncommitted changes under the
+  # eg_root path
+  my $changes = qx!svn status $eg_root!;
+  unless ( defined $changes ) {
+    die "svn is not in your PATH";
+  }
+  die <<"ENDE" if ( $changes );
+There are already some uncommitted changes:
+$changes
+appliy them first!
+ENDE
+}
+
 die <<"ENDE" if !-f "$eg_root/Config/Config.xml" or !-e "$eg_root/Model";
 $eg_root is not the root of your application.
   $eg_root/Config/Config.xml or
@@ -70,8 +90,38 @@ while ( defined( $_ = <> ) ) {
   s/\b$prefix_a(?=::)/$new_name/g;
   print;
 }
-rename "$eg_root/Model/$path", "$eg_root/Model/$new_name";
 
+
+if ( $use_svn ) {
+  my $old_dir = Cwd::getcwd;
+  chdir $eg_root || die $!;
+  system( svn => mv => '--force',
+    "$eg_root/Model/$path", "$eg_root/Model/$new_name" ) == 0 or die $?;
+  my $changes = `svn status`;
+  system( svn => ci => -m => <<"ENDE" ) == 0 or die $?;
+Rename $path to $new_name. And modilfy the following files:
+$changes
+ENDE
+  system( svn => 'update' ) == 0 or die $?;
+  chdir $old_dir || die $!;
+}
+elsif ( $use_svk ) {
+  my $old_dir = Cwd::getcwd;
+  chdir $eg_root || die $!;
+  system( svk => move => '--force',
+    "$eg_root/Model/$path", "$eg_root/Model/$new_name" ) == 0 or die $?;
+  my $changes = `svn status`;
+  system( svk => ci => -m => <<"ENDE" ) == 0 or die $?;
+Rename $path to $new_name. And modilfy the following files:
+$changes
+ENDE
+  chdir $old_dir || die $!;
+}
+}
+ # no version control
+else  {
+  rename "$eg_root/Model/$path", "$eg_root/Model/$new_name";
+}
 =pod
 
 =head1 Start a new Application with C<Apache::PageKit>
@@ -88,6 +138,8 @@ You need a working Apache::PageKit application. Not running, you need only the f
 
   pkit_rename_app.pl MyNewAplicationName
   pkit_rename_app.pl pkit_root MyNewAplicationName
+  pkit_rename_app.pl --svn pkit_root MyNewAplicationName
+  pkit_rename_app.pl --svk pkit_root MyNewAplicationName
    
 C<MyNewAplicationName> is the new name for your application.
 
@@ -108,7 +160,16 @@ Now a little example that clones the example site to anotherone.
   cp -r eg a_new_site
   pkit_rename_app.pl a_new_site MyNewSite
 
+or with version control
+  svn co http://mysvn/repository/pagekit/trunk newapp
+  cd newapp
+  ./scripts/pkit_rename_app.pl --svn eg MyNewApp
+
+or with svk version control
+  svk co //depotpath/pagekit/trunk newapp
+  cd newapp
+  ./scripts/pkit_rename_app.pl --svk eg MyNewApp
+
 =head1 AUTHOR
 
   Boris Zentner bzm@2bz.de
-

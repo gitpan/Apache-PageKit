@@ -7,6 +7,15 @@ use vars qw(@ISA);
 
 use strict;
 
+# this is just a testcase, it counts a counter in a session
+# and redirect to the index page.
+# delete it in your application
+sub create_and_redirect {
+  my $model = shift;
+  $model->session->{counter}++;
+  $model->pkit_redirect('/index');
+}
+
 # customize site look-and-feel
 sub customize {
   my $model = shift;

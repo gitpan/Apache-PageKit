@@ -334,6 +334,20 @@ by the corresponding <link linkend="config.page.request_param_in_tmpl">page attr
       </para>
      </listitem>
     </varlistentry>
+
+    <varlistentry id="config.global.request_class">
+     <term>request_class</term>
+     <listitem>
+      <para>
+      Name for the Module, that is used to create the request class objects.
+      Defaults to <emphasis>Apache::Request::PageKit</emphasis>. Which is a 
+      subclass of Apache::Request. A own subclass is usefull, if you like to
+      change the data container for your requstparameter or modify them on
+      init() or new(). 
+      </para>
+     </listitem>
+    </varlistentry>
+
     <varlistentry id="config.global.session_class">
      <term>session_class</term>
      <listitem>

@@ -3,7 +3,25 @@
 use strict;
 use warnings FATAL => 'all';
 
-# required for example web site to run
+my %tables = (
+  pkit_user => q{
+    CREATE 
+      TABLE pkit_user (
+        user_id CHAR(8), 
+        login   CHAR(255), 
+        email   CHAR(255), 
+        passwd  CHAR(255)
+      )
+  },
+  sessions => q{
+    CREATE 
+      TABLE sessions (
+        id char(32) not null primary key,
+        a_session text
+      )
+  }
+);
+
 # required for example web site to run
 use DBD::SQLite;
 use Digest::MD5;
@@ -34,26 +52,18 @@ for ( 0 .. $#ARGV ) {
 
 $pkit_root ||= catfile( Cwd::getcwd(), 'eg' );
 
-my $dbh = DBI->connect("dbi:SQLite:dbname=$pkit_root/dbfile", "", "", 
-  { AutoCommit => 1, PrintError => 1, RaiseError => 0 } ) 
+my $dbh = DBI->connect( "dbi:SQLite:dbname=$pkit_root/dbfile",
+                 "", "", { AutoCommit => 1, PrintError => 1, RaiseError => 0 } )
   or die $DBI::errstr;
 
-unless ( table_exists( $dbh, 'pkit_user' ) ) {
-  $dbh->do(q{
-    CREATE TABLE pkit_user (
-      user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255)
-    )}
-  );
-}
-unless ( table_exists( $dbh, 'sessions' ) ) {
-  $dbh->do( q{ 
-    CREATE TABLE sessions (
-      id char(32) not null primary key,
-      a_session text
-    )}
-  );
+for my $table ( keys %tables ) {
+  unless ( table_exists( $dbh, $table ) ) {
+    $dbh->do( $tables{$table} );
+  }
 }
 $dbh->disconnect;
+
+chmod 0666 => "$pkit_root/dbfile";
 
 unless ($root_found) {
   push( @ARGV, '--documentroot' => $pkit_root );

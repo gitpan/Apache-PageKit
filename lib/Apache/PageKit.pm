@@ -1,3 +1,18 @@
+package Apache::Request::PageKit;
+use Apache::Request;
+
+our @ISA = qw(Apache::Request);
+sub new {
+  my $class = shift;
+  my $rr    = shift;
+  my $self = bless { _r => Apache::Request->new($rr, @_) }, $class;
+  $self->init;
+  $self;
+}
+
+sub init {}
+
+1;
 package Apache::PageKit;
 
 # $Id: PageKit.pm,v 1.236 2004/05/06 09:54:35 borisz Exp $
@@ -35,7 +50,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED HTTP_NOT_MODIFIED);
 
 use vars qw($VERSION);
-$VERSION = '1.14';
+$VERSION = '1.15';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -856,7 +871,8 @@ sub new {
   # so we set it only on request.
   my @apr_params = ();
   push @apr_params, TEMP_DIR => $upload_tmp_dir if $upload_tmp_dir;
-  my $apr = $self->{apr} = Apache::Request->new($r, POST_MAX => $post_max, @apr_params);
+  my $request_class = $self->{config}->get_global_attr('request_class') || "Apache::Request::PageKit";
+  my $apr = $self->{apr} = $request_class->new($r, POST_MAX => $post_max, @apr_params);
   my $model_base_class = $self->{config}->get_global_attr('model_base_class') || "MyPageKit::Common";
 
   $self->_check_gzip;
@@ -886,12 +902,13 @@ sub new {
   my $errorspan_begin_tag = $config->get_global_attr('errorspan_begin_tag') || q{<font color="<PKIT_ERRORSTR>">};
   my $errorspan_end_tag   = $config->get_global_attr('errorspan_end_tag')   || q{</font>};
   my $default_errorstr   = $config->get_global_attr('default_errorstr')   || '#ff0000';
-
-  my $template_class = $config->get_global_attr('template_class') || 'HTML::Template';
   
   my $uri_prefix = $config->get_global_attr('uri_prefix') || '';
-  
-  $self->{view} = Apache::PageKit::View->new(
+
+  my $template_class = $config->get_global_attr('template_class')
+    || 'HTML::Template';
+  my $view_class = $template_class =~ /^HTML::Template/ ? 'Apache::PageKit::View' : 'Apache::PageKit::View::TT2';
+  $self->{view} = $view_class->new(
   					     root_dir => $pkit_root,
 					     view_dir => "$pkit_root/View",
 					     content_dir => "$pkit_root/Content",
@@ -1520,7 +1537,7 @@ Fixes, Bug Reports, Docs have been generously provided by:
 
   Ben Ausden
   Stu Pae
-  Yann Kerhervé
+  Yann KerhervÃ©
   Chris Burbridge
   Leonardo de Carvalho
   Rob Falcon
@@ -1553,6 +1570,9 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Bruno Czekay
   Henry Kilmer
   Tony Martin
+  Shawn Poulson
+  Sean Lee
+  Veeresh Khanorkar
 
 Also, thanks to Dan Von Kohorn for helping shape the initial architecture
 and for the invaluable support and advice. 

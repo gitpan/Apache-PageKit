@@ -1,6 +1,27 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.15
+	- Add: request_class parameter just for the case, that you like 
+		another class or subclass do what Apache::Request do for you.
+		Defaults to Apache::Request::PageKit ( Boris Zentner )
+	- Fix: conversion error if the tmpl file's encoding is != utf8 and no
+		content_var's are used. affects only perl < 5.8.0
+		( Boris Zentner )
+	- Add: Basic testsuite ( Boris Zentner )
+	- Remove setup_eg.pl this file is obsolete ( Boris Zentner )
+	- Fix: Fresh created session cookie headers are wrongly not send
+        for pkit_redirect pages this is fixed now. ( Boris Zentner ) 
+	- Add: Experimental support for Template Toolkit. Enabled with
+		template_class = "Template" in your Config.xml
+		( Boris Zentner)
+	- Fix: with pkit_admin=on and perl 5.8.x the input data is 
+                converted to your default_input_charset.
+                ( Boris Zentner, Sean Lee )
+	- Send Content-Length header for static files. ( Boris Zentner )
+	- Fix: eg/dbfile needs rw permission even for nobody or nouser
+		if apache is started as root. 
+		( Boris Zentner, Shawn Poulson )
 1.14
  	- Fix: parse for xsl-params again in the xsl files. This was 
  		broken in 1.13. ( Ben Ausden )

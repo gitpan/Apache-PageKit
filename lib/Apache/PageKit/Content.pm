@@ -103,7 +103,8 @@ sub process_template {
 
   # this pattern is not very accurate, but only as quick check if a run of XPathTemplate is needed
   my $content_pattern = ( $content->{relaxed_parser} eq 'yes' ) ? '<(?:!--)?\s*CONTENT_(VAR|LOOP|IF|UNLESS)\s+' : '<CONTENT_(VAR|LOOP|IF|UNLESS)\s+';
-  if($$template_ref =~ m!$content_pattern!i){
+  my $skip_xpath_content = $$template_ref =~ m!$content_pattern!i;
+  if( $skip_xpath_content ){
     # XPathTemplate template
 
     my $xpt = HTML::Template::XPath->new( default_lang   => $content->{default_lang},
@@ -125,7 +126,7 @@ sub process_template {
   } else {
     $lang_tmpl->{$content->{default_lang}} = $template_ref;
   }
-  return $lang_tmpl;
+  return wantarray ? ( $lang_tmpl, $skip_xpath_content ) : $lang_tmpl;
 }
 
 sub _rel2abs {

@@ -37,9 +37,71 @@ sub top_targets {
 package main;
 open FH, ">patch_file.diff" || die $!;
 print FH <<'__THIS_IS_THE_END__';
+diff -Nur a/lib/Apache/PageKit/Content.pm b/lib/Apache/PageKit/Content.pm
+--- a/lib/Apache/PageKit/Content.pm	Wed Oct 27 12:04:51 2004
++++ b/lib/Apache/PageKit/Content.pm	Wed Oct 27 11:53:53 2004
+@@ -103,8 +103,7 @@
+ 
+   # this pattern is not very accurate, but only as quick check if a run of XPathTemplate is needed
+   my $content_pattern = ( $content->{relaxed_parser} eq 'yes' ) ? '<(?:!--)?\s*CONTENT_(VAR|LOOP|IF|UNLESS)\s+' : '<CONTENT_(VAR|LOOP|IF|UNLESS)\s+';
+-  my $skip_xpath_content = $$template_ref =~ m!$content_pattern!i;
+-  if( $skip_xpath_content ){
++  if($$template_ref =~ m!$content_pattern!i){
+     # XPathTemplate template
+ 
+     my $xpt = HTML::Template::XPath->new( default_lang   => $content->{default_lang},
+@@ -126,7 +125,7 @@
+   } else {
+     $lang_tmpl->{$content->{default_lang}} = $template_ref;
+   }
+-  return wantarray ? ( $lang_tmpl, $skip_xpath_content ) : $lang_tmpl;
++  return $lang_tmpl;
+ }
+ 
+ sub _rel2abs {
+diff -Nur a/lib/Apache/PageKit/Edit.pm b/lib/Apache/PageKit/Edit.pm
+--- a/lib/Apache/PageKit/Edit.pm	Wed Oct 27 12:04:51 2004
++++ b/lib/Apache/PageKit/Edit.pm	Wed Oct 27 11:53:53 2004
+@@ -44,14 +44,15 @@
+ 
+   $model->output( read_only => 1 ) if ( ! -w $file );
+ 
+-  open FILE, "$file" or die $!;
+-  binmode FILE;
+-  local $/ = undef;
++  my $default_input_charset = $model->{pkit_pk}->{view}->{default_input_charset};
++  open my $fh, $file or die $!;
++  binmode $fh, ":encoding($default_input_charset)";
++  local $/;
+ 
+ # we need to escape HTML tags to avoid </textarea>
+ # my $content = Apache::Util::escape_html(<PAGE> || "");
+-  my $content = <FILE>;
+-  close FILE;
++  my $content = <$fh>;
++  close $fh;
+ 
+   # we need to escape all & chars so that for example &nbsp; is
+   # &nbsp; and not ' ' 
+@@ -76,10 +77,11 @@
+   my $pkit_done = $model->input('pkit_done');
+   my $content = $model->input('content');
+ 
+-  open FILE, ">$file" or die $!;
+-  binmode FILE;
+-  print FILE $content;
+-  close FILE;
++  my $default_input_charset = $model->{pkit_pk}->{view}->{default_input_charset};
++  open my $fh, ">$file" or die $!;
++  binmode $fh, "encoding($default_input_charset)";
++  print $fh $content;
++  close $fh;
+ 
+   if($pkit_done){
+     $model->pkit_redirect($pkit_done);
 diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
---- a/lib/Apache/PageKit/Model.pm	2004-05-06 11:13:18.482624360 +0200
-+++ b/lib/Apache/PageKit/Model.pm	2004-05-06 11:13:25.883499256 +0200
+--- a/lib/Apache/PageKit/Model.pm	Wed Oct 27 12:04:51 2004
++++ b/lib/Apache/PageKit/Model.pm	Wed Oct 27 11:53:53 2004
 @@ -204,15 +204,8 @@
    # translate from default_input_charset to default_output_charset if needed
    my $view = $model->{pkit_pk}->{view};
@@ -91,7 +153,7 @@ diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
    $model->output( $p{output} || %p );
  }
  
-@@ -484,41 +472,41 @@
+@@ -492,41 +480,41 @@
  sub _change_params {
  
    sub _change_array {
@@ -146,83 +208,224 @@ diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
    }
  }
 diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
---- a/lib/Apache/PageKit/View.pm	2004-05-06 11:13:18.441630592 +0200
-+++ b/lib/Apache/PageKit/View.pm	2004-05-06 11:13:25.880499712 +0200
-@@ -181,11 +181,13 @@
+--- a/lib/Apache/PageKit/View.pm	Wed Oct 27 12:04:51 2004
++++ b/lib/Apache/PageKit/View.pm	Wed Oct 27 12:08:11 2004
+@@ -182,11 +182,13 @@
      my $fif;
      if(@{$view->{fillinform_objects}}){
        $view->{pkit_pk}->{browser_cache} = 'no';
-+      my $state = Encode::_utf8_off($output);
++      Encode::_utf8_off($output);
        $fif = HTML::FillInForm->new();
        $output = $fif->fill(scalarref => \$output,
                             fobject   => $view->{fillinform_objects},
  			   ignore_fields => $view->{ignore_fillinform_fields}
  			  );
-+       Encode::_utf8_on($output) if $state;
++      Encode::_utf8_on($output);
      }
    }
    if($view->{can_edit} eq 'yes'){
-@@ -456,24 +458,12 @@
+@@ -206,15 +208,15 @@
+ 
+   # is the cache entry valid or changed on disc?
+   if(-f "$gzipped_filename"){
+-    open FH, "<$gzipped_filename" or return undef;
+-    binmode FH;
++    open my $fh, "<$gzipped_filename" or return undef;
++    binmode $fh;
+     # read mtime from first line
+     chomp($gzip_mtime = <FH>);
+ 
+     # read rest of gzipped content
+-    local $/ = undef;
+-    $gzipped_content = <FH>;
+-    close FH;
++    local $/;
++    $gzipped_content = <$fh>;
++    close $fh;
+     if($view->{reload} ne 'no'){
+       # is the cache entry valid or changed on disc?
+       my $mtime = ( stat($filename) )[9];
+@@ -285,11 +287,11 @@
+ # creates gzipped file
+ sub _create_static_zip {
+   my ($view, $filename, $gzipped_filename) = @_;
+-  local $/ = undef;
+-  open FH, "<$filename" or return undef;
+-  binmode FH;
+-  my $content = <FH>;
+-  close FH;
++  local $/;
++  open my $fh, "<$filename" or return undef;
++  binmode $fh;
++  my $content = <$fh>;
++  close $fh;
+ 
+   $view->_html_clean(\$content);
+ 
+@@ -301,11 +303,11 @@
+ 
+   if ($gzipped_content) {
+     my $mtime = (stat($filename))[9];
+-    if ( open GZIP, ">$gzipped_filename" ) {
+-      binmode GZIP;
+-      print GZIP "$mtime\n";
+-      print GZIP $gzipped_content;
+-      close GZIP;
++    if ( open my $gzip_fh, ">$gzipped_filename" ) {
++      binmode $gzip_fh;
++      print $gzip_fh "$mtime\n";
++      print $gzip_fh $gzipped_content;
++      close $gzip_fh;
+     } else {
+       warn "can not create gzip cache file $view->{cache_dir}/$gzipped_filename: $!";
+     }
+@@ -457,12 +459,13 @@
      # currently only XML::LibXSLT is supported
      $template_ref = $view->{content}->generate_template($page_id, $component_id, $pkit_view, $view->{input_param_object}, $component_params);
    } else {
-+    my $default_input_charset = $view->{default_input_charset};
-     open TEMPLATE, "<$template_file" or die "can not read $template_file";
+-    open TEMPLATE, "<$template_file" or die "can not read $template_file";
 -    binmode TEMPLATE;
-+    binmode TEMPLATE, ":encoding($default_input_charset)";
-     local($/) = undef;
-     my $template = <TEMPLATE>;
-     close TEMPLATE;
--
--    my $default_input_charset = $view->{default_input_charset};
--    unless($default_input_charset eq 'UTF-8'){
--      my $converter;
--      eval {
--	$converter = Text::Iconv->new($default_input_charset, 'UTF-8');
--      };
--      if ($@) {
--	(my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
--	die "charset ($default_input_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
--      }
--      $template = $converter->convert($template) || die "Can not convert page from $default_input_charset to utf-8" if $template;
--    }
-     
+-    local($/) = undef;
+-    my $template = <TEMPLATE>;
+-    close TEMPLATE;
+-    
++      open my $template_fh, "<$template_file" or die "can not read $template_file";
++      my $default_input_charset = $view->{default_input_charset};
++      binmode $template_fh, ":encoding($default_input_charset)";
++      local $/;
++      my $template = <$template_fh>;
++      close $template_fh;
++
      # expand PKIT_MACRO tags
      $template =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$component_params->{uc($+)} || ''!egi;
-@@ -522,20 +512,8 @@
+ 
+@@ -510,38 +513,9 @@
    # remove PKIT_COMMENT parts.
    my $pkit_comment_re = $re_helper{ $view->{relaxed_parser} eq 'yes' ? 'relaxed_parser' : 'std_parser' }->{pkit_comment_re};
    $$template_ref =~ s/$pkit_comment_re//sgi;
 -  
--  my $default_output_charset = $view->{default_output_charset};
+-  #  my $template_file = $view->_find_template($pkit_view, $page_id);
+-  my ( $lang_tmpl, $skip_xpath_content ) = $content->process_template($page_id, $template_ref);
+ 
+-  # find the right converter for perl < 5.8.0
+-  # if we skip the xpath content, the string is in $default_input_charset.
+-  # otherwise it is in utf8 ( from libxml2 )
 -  my $converter;
--  unless ('UTF-8' eq $default_output_charset) {
--    eval {
--      $converter = Text::Iconv->new( 'UTF-8', $default_output_charset);
--    };
--    if ($@) {
--      (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
--      die "The charset ($default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+-  my $default_output_charset = $view->{default_output_charset};
+-  if ( $skip_xpath_content ) {
+-    my $default_input_charset = $view->{default_input_charset};
+-    unless ( lc $default_input_charset eq lc $default_output_charset) {
+-      eval {
+-        $converter = Text::Iconv->new( $default_input_charset, $default_output_charset );
+-      };
+-      if ($@) {
+-        (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+-        die "The conversion from ($default_input_charset => $default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+-      }
+-    }
+-    else {
+-      unless ( /^utf-?8$/i =~ $default_output_charset) {
+-        eval {
+-          $converter = Text::Iconv->new( 'utf8', $default_output_charset);
+-        };
+-        if ($@) {
+-          (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+-          die "The conversion from ('utf8' => $default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+-        }
+-      }
 -    }
 -  }
- 
--#  my $template_file = $view->_find_template($pkit_view, $page_id);
 +  #  my $template_file = $view->_find_template($pkit_view, $page_id);
-   my $lang_tmpl = $content->process_template($page_id, $template_ref);
++  my $lang_tmpl = $content->process_template($page_id, $template_ref);
  
    # add used content file(s) to the mtimes hash
-@@ -546,10 +524,6 @@
+   while( my ( $file, $mtime ) = each( %{ $content->{include_mtimes} } ) ) {
+@@ -551,10 +525,6 @@
    # go through content files (which have had content filled in)
    while (my ($lang, $filtered_html) = each %$lang_tmpl){
  
 -    if ( $converter ) {
--      $$filtered_html = $converter->convert($$filtered_html) || die "Can not convert page from UTF-8 to $default_output_charset" if $$filtered_html;
+-      $$filtered_html = $converter->convert($$filtered_html) || die "Can not convert page from 'something' to $default_output_charset" if $$filtered_html;
 -    }
 -
      my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
      $view->_html_clean($filtered_html);
  
-@@ -607,7 +581,6 @@
+@@ -612,7 +582,6 @@
+ }
+ 
+ sub _preparse_model_tags {
+-  use bytes;
+   my ( $view, $html_code_ref ) = @_;
+ 
+   my $exclude_params_set = {};
+@@ -817,12 +786,14 @@
+     my $fif;
+     if ( @{ $view->{fillinform_objects} } ) {
+       $view->{pkit_pk}->{browser_cache} = 'no';
++      Encode::_utf8_off($output);
+       $fif = HTML::FillInForm->new();
+       $output = $fif->fill(
+                             scalarref     => \$output,
+                             fobject       => $view->{fillinform_objects},
+                             ignore_fields => $view->{ignore_fillinform_fields}
+       );
++      Encode::_utf8_on($output);      
+     }
+   }
+   if ( $view->{can_edit} eq 'yes' ) {
+@@ -868,36 +839,7 @@
+   $$template_ref =~ s/$pkit_comment_re//sgi;
+ 
+   #  my $template_file = $view->_find_template($pkit_view, $page_id);
+-  my ( $lang_tmpl, $skip_xpath_content ) = $content->process_template($page_id, $template_ref);
+-
+-  # find the right converter for perl < 5.8.0
+-  # if we skip the xpath content, the string is in $default_input_charset.
+-  # otherwise it is in utf8 ( from libxml2 )
+-  my $converter;
+-  my $default_output_charset = $view->{default_output_charset};
+-  if ( $skip_xpath_content ) {
+-    my $default_input_charset = $view->{default_input_charset};
+-    unless ( lc $default_input_charset eq lc $default_output_charset) {
+-      eval {
+-        $converter = Text::Iconv->new( $default_input_charset, $default_output_charset );
+-      };
+-      if ($@) {
+-        (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+-        die "The conversion from ($default_input_charset => $default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+-      }
+-    }
+-    else {
+-      unless ( /^utf-?8$/i =~ $default_output_charset) {
+-        eval {
+-          $converter = Text::Iconv->new( 'utf8', $default_output_charset);
+-        };
+-        if ($@) {
+-          (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+-          die "The conversion from ('utf8' => $default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+-        }
+-      }
+-    }
+-  }
++  my $lang_tmpl = $content->process_template( $page_id, $template_ref );
+ 
+   # add used content file(s) to the mtimes hash
+   while ( my ( $file, $mtime ) = each( %{ $content->{include_mtimes} } ) ) {
+@@ -907,12 +849,6 @@
+   # go through content files (which have had content filled in)
+   while ( my ( $lang, $filtered_html ) = each %$lang_tmpl ) {
+ 
+-    if ($converter) {
+-      $$filtered_html = $converter->convert($$filtered_html)
+-        || die "Can not convert page from 'something' to $default_output_charset"
+-        if $$filtered_html;
+-    }
+-
+     my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
+     $view->_html_clean($filtered_html);
+ 
+@@ -959,7 +895,6 @@
  }
  
  sub _preparse_model_tags {
@@ -231,9 +434,20 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
  
    my $exclude_params_set = {};
 diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
---- a/lib/Apache/PageKit.pm	2004-05-06 11:13:18.460627704 +0200
-+++ b/lib/Apache/PageKit.pm	2004-05-06 11:13:25.892497888 +0200
-@@ -19,7 +19,7 @@
+--- a/lib/Apache/PageKit.pm	Wed Oct 27 12:04:51 2004
++++ b/lib/Apache/PageKit.pm	Wed Oct 27 11:54:10 2004
+@@ -17,8 +17,8 @@
+ 
+ # $Id: PageKit.pm,v 1.236 2004/05/06 09:54:35 borisz Exp $
+ 
+-# required for UNIVERSAL->can
+-require 5.005;
++# require perl 5.8 for numerous utf8 issues ( and Encode )
++require 5.008;
+ 
+ use strict;
+ 
+@@ -34,7 +34,7 @@
  use HTML::Parser ();
  use HTML::Entities ();
  use HTML::Template ();
@@ -242,7 +456,7 @@ diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
  use XML::LibXML ();
  
  $| = 1;
-@@ -799,12 +799,10 @@
+@@ -814,12 +814,10 @@
      my $data;
      while (@charsets){
        $retcharset = (shift @charsets)->[0];
@@ -250,14 +464,14 @@ diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
        eval {
 -        my $converter = Text::Iconv->new($default_output_charset, $retcharset);
 -        $converted_data = $converter->convert($$output_ref);
-+        $converted_data = Encode::encode( $retcharset, $$output_ref, Encode::FB_CROAK );
++        $converted_data = Encode::encode($retcharset, $$output_ref, Encode::FB_CROAK );
        };
 -      last if ($converted_data);
-+      last unless ( $@ );
++      last unless ($@);
        $retcharset = undef;
      }
  
-@@ -812,8 +810,13 @@
+@@ -827,10 +825,14 @@
      ## we deliver in our default_output_charset.
  
      # correct the header
@@ -268,11 +482,13 @@ diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
 +    }
 +    else {
 +      $apr->content_type("text/html; charset=$default_output_charset");
-+      $converted_data = Encode::encode( $default_output_charset, $$output_ref, Encode::FB_DEFAULT );
++      $converted_data = Encode::encode( $default_output_charset, $$output_ref,Encode::FB_DEFAULT );
 +    }
    }
- 
+-
    # only pages with propper $retcharset are tranfered gzipped.
+   # this can maybe changed!? Needs some tests
+   my $send_gzipped = ( $retcharset && $pk->{use_gzip} eq 'all' );
 __THIS_IS_THE_END__
 
 #

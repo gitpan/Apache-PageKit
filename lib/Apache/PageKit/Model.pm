@@ -381,6 +381,10 @@ sub pkit_redirect {
   my ($model, $url) = @_;
   my $pk = $model->{pkit_pk};
   my $apr = $pk->{apr};
+  
+  # we may have created a new session. Add a cookie header if needed
+  $pk->set_session_cookie;
+  
   if(my $pkit_messages = $model->output('pkit_messages')){
     my $add_url = join("", map { "&pkit_" . ($_->{pkit_is_error} ? "error_" : "") . "messages=" . Apache::Util::escape_uri($_->{pkit_message}) } @$pkit_messages);
     $add_url =~ s!^&!?! unless $url =~ m/\?/;
@@ -443,7 +447,7 @@ sub pkit_send {
   my ($model, $ref_or_fname, $media_type, $content_encoding) = @_;
 
   my $type = ref $ref_or_fname;
-
+  my $apr = $model->apr;
   unless ( $media_type ) {
     unless ( $type ) {
       # is filename
@@ -455,7 +459,11 @@ sub pkit_send {
 
   my $apr = $model->apr;
   $apr->content_type($media_type);
-  $apr->content_encoding($content_encoding) if ( $content_encoding && $media_type eq 'text/html' );
+  if ( $content_encoding && $media_type eq 'text/html' ) {
+    $apr->content_encoding($content_encoding) 
+  } elsif ( !$type ) {
+    $apr->headers_out->set('Content-Length' => -s $ref_or_fname);
+  }
   $apr->send_http_header if $apr->is_main;
   unless ($apr->header_only) {
     # NOT a head request, send the data
