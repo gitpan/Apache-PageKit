@@ -1,6 +1,25 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.14
+ 	- Fix: parse for xsl-params again in the xsl files. This was 
+ 		broken in 1.13. ( Ben Ausden )
+	- Fix: add use Apache::PageKit::Model to eg/Model/MyPageKit/Common.pm
+		since it is possible that the application class is loaded
+		before Apache::PageKit ( Boris Zentner )
+	- the eg site use DBD::SQLite now. This obsoletes
+		DBD::CSV, SQL::Statement and Text::CSV_XS.
+		( Boris Zentner )
+	- fop_command can be disabled with fop_command = ""
+		( Boris Zentner, Shimon Rura )
+	- Remove Apache->request calls from Apache::PageKit::Edit
+		just to make apache 2 changes smaller ( Boris Zentner )
+	- Fix: Parse Accept-Charsets more pettier ( Boris Zentner )
+	! If the client browser has no accept charset header or no good one,
+		deliver in the default_output_charset and set the charset
+		in the content_type header. ( Erik Günther )
+	- Fix uri_prefix in conjunction with can_edit
+		( Boris Zentner, Erik Günther ) 
 1.13
 	- Add scripts/pkit_rename_app.pl it helps to start new applications
                 fast ( Boris Zentner )

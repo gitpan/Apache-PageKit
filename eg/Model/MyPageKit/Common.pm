@@ -1,10 +1,11 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.26 2004/01/06 16:31:47 borisz Exp $
+# $Id: Common.pm,v 1.29 2004/05/06 09:55:56 borisz Exp $
 
 use strict;
 
 use vars qw(@ISA);
+use Apache::PageKit::Model;
 @ISA = qw(Apache::PageKit::Model);
 
 use Apache::Constants qw(OK REDIRECT DECLINED);
@@ -21,32 +22,23 @@ use MyPageKit::MyModel;
 sub pkit_dbi_connect {
   # this line should be replaced with a DBI->connect(...) statement
   # for your database
-  return DBI->connect("DBI:CSV:f_dir=/tmp/csvdb")
+  my $pkit_root = shift->pkit_root;
+  return DBI->connect_cached("dbi:SQLite:dbname=$pkit_root/dbfile","","")
 	|| die "$DBI::errstr";
 }
 
 sub pkit_session_setup {
-  # uncomment if you need use a $dbh object in your session setup
-  #my $model = shift;
-  #my $dbh = $model->dbh;
+  my $model = shift;
+  my $dbh = $model->dbh;
 
   my %session_setup = (
-		       session_store_class => 'File',
-
-                       # *Win32* user should use session_lock_class => 'Null',
-                       # if 'File' is not working propper.
-		       session_lock_class => 'File',
-		       session_args => {
-#					Handle => $dbh,
-#					LockHandle => $dbh,
-					Directory => '/tmp/pkit_sessions',
-					LockDirectory => '/tmp/pkit_sessions_lock',
-					
-					# here again something for Win32 systems
-#					Directory => 'c:/tmp/pkit_sessions',
-#					LockDirectory => 'c:/tmp/pkit_sessions_lock',
-				       }
-		      );
+        session_store_class     => 'MySQL',
+	session_lock_class      => 'Null',
+	session_serialize_class => 'Base64',
+	session_args => {
+                         Handle => $dbh,
+        },
+  );
   return \%session_setup;
 }
 

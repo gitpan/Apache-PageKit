@@ -38,8 +38,8 @@ package main;
 open FH, ">patch_file.diff" || die $!;
 print FH <<'__THIS_IS_THE_END__';
 diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
---- a/lib/Apache/PageKit/Model.pm	2004-03-12 10:15:16.000000000 +0100
-+++ b/lib/Apache/PageKit/Model.pm	2004-03-12 10:15:28.000000000 +0100
+--- a/lib/Apache/PageKit/Model.pm	2004-05-06 11:13:18.482624360 +0200
++++ b/lib/Apache/PageKit/Model.pm	2004-05-06 11:13:25.883499256 +0200
 @@ -204,15 +204,8 @@
    # translate from default_input_charset to default_output_charset if needed
    my $view = $model->{pkit_pk}->{view};
@@ -146,8 +146,8 @@ diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
    }
  }
 diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
---- a/lib/Apache/PageKit/View.pm	2004-03-12 10:15:16.000000000 +0100
-+++ b/lib/Apache/PageKit/View.pm	2004-03-12 10:15:28.000000000 +0100
+--- a/lib/Apache/PageKit/View.pm	2004-05-06 11:13:18.441630592 +0200
++++ b/lib/Apache/PageKit/View.pm	2004-05-06 11:13:25.880499712 +0200
 @@ -181,11 +181,13 @@
      my $fif;
      if(@{$view->{fillinform_objects}}){
@@ -189,7 +189,7 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
      
      # expand PKIT_MACRO tags
      $template =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$component_params->{uc($+)} || ''!egi;
-@@ -520,18 +510,6 @@
+@@ -522,20 +512,8 @@
    # remove PKIT_COMMENT parts.
    my $pkit_comment_re = $re_helper{ $view->{relaxed_parser} eq 'yes' ? 'relaxed_parser' : 'std_parser' }->{pkit_comment_re};
    $$template_ref =~ s/$pkit_comment_re//sgi;
@@ -206,9 +206,12 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
 -    }
 -  }
  
- #  my $template_file = $view->_find_template($pkit_view, $page_id);
+-#  my $template_file = $view->_find_template($pkit_view, $page_id);
++  #  my $template_file = $view->_find_template($pkit_view, $page_id);
    my $lang_tmpl = $content->process_template($page_id, $template_ref);
-@@ -544,10 +522,6 @@
+ 
+   # add used content file(s) to the mtimes hash
+@@ -546,10 +524,6 @@
    # go through content files (which have had content filled in)
    while (my ($lang, $filtered_html) = each %$lang_tmpl){
  
@@ -219,7 +222,7 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
      my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
      $view->_html_clean($filtered_html);
  
-@@ -605,7 +579,6 @@
+@@ -607,7 +581,6 @@
  }
  
  sub _preparse_model_tags {
@@ -228,8 +231,8 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
  
    my $exclude_params_set = {};
 diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
---- a/lib/Apache/PageKit.pm	2004-03-12 10:15:16.000000000 +0100
-+++ b/lib/Apache/PageKit.pm	2004-03-12 10:15:28.000000000 +0100
+--- a/lib/Apache/PageKit.pm	2004-05-06 11:13:18.460627704 +0200
++++ b/lib/Apache/PageKit.pm	2004-05-06 11:13:25.892497888 +0200
 @@ -19,7 +19,7 @@
  use HTML::Parser ();
  use HTML::Entities ();
@@ -239,16 +242,7 @@ diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
  use XML::LibXML ();
  
  $| = 1;
-@@ -754,7 +754,7 @@
-     my $fo_file = "$view_cache_dir/$$.fo";
-     my $pdf_file = "$view_cache_dir/$$.pdf";
-     open FO_TEMPLATE, ">$fo_file" or die "can't open file: $fo_file ($!)";
--    binmode FO_TEMPLATE;
-+    binmode FO_TEMPLATE, ":encoding($default_output_charset)";
-     print FO_TEMPLATE $$output_ref;
-     close FO_TEMPLATE;
- 
-@@ -798,12 +798,10 @@
+@@ -799,12 +799,10 @@
      my $data;
      while (@charsets){
        $retcharset = (shift @charsets)->[0];
@@ -263,17 +257,17 @@ diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
        $retcharset = undef;
      }
  
-@@ -811,8 +809,13 @@
+@@ -812,8 +810,13 @@
      ## we deliver in our default_output_charset.
  
      # correct the header
 -    $apr->content_type("text/html; charset=$retcharset") if ($retcharset);
--    $apr->content_type("text/html")                      unless ($retcharset);
+-    $apr->content_type("text/html; charset=$default_output_charset")    unless ($retcharset);
 +    if ($retcharset) {
 +      $apr->content_type("text/html; charset=$retcharset");
 +    }
 +    else {
-+      $apr->content_type("text/html");
++      $apr->content_type("text/html; charset=$default_output_charset");
 +      $converted_data = Encode::encode( $default_output_charset, $$output_ref, Encode::FB_DEFAULT );
 +    }
    }
@@ -311,23 +305,21 @@ use vars qw( %h );
                       'HTML::Template::XPath' => { version => 0.10 },
                       'HTML::Clean'           => {},
                       'Text::Iconv'           => {},
-                      'XML::LibXML' => { version => 1.31, comment => '(you need libxml2 >= 2.4.10 and libxslt >= 1.0.9)' },
+                      'XML::LibXML' => { version => 1.53, comment => '(you need libxml2 >= 2.4.10 and libxslt >= 1.0.9)' },
     },
 
     Recommended => {
                     'Mail::Mailer'    => { comment => '(only needed if you use Apache::ErrorReport)' },
                     'Apache::DBI'     => { comment => '(*strongly* recommended if you use DBI)' },
                     'MIME::Types'     => { comment => '(needed if you want to serve static files from View/Default directory)' },
-                    'XML::LibXSLT'    => { version => 1.31, comment => '(needed if you want to use XSLT tranformations)' },
+                    'XML::LibXSLT'    => { version => 1.53, comment => '(needed if you want to use XSLT tranformations)' },
                     'Storable'        => { version => 1.013, comment => '(needed for heavy loaded servers)' },
                     'Locale::gettext' => { version => 1.01,  comment => '(needed if you want to localize pkit messages)' },
     },
 
     Example => {
-                 'DBD::CSV'       => {},
+                 'DBD::SQLite'    => {},
                  'HTTP::Headers'  => {},
-                 'SQL::Statement' => {},
-                 'Text::CSV_XS'   => {},
                  'Apache::Reload' => {},
     }
   },
@@ -346,23 +338,21 @@ use vars qw( %h );
                       'HTML::Template::XPath' => { version => 0.10 },
                       'HTML::Clean'           => {},
                       'Encode'                => {},
-                      'XML::LibXML' => { version => 1.31, comment => '(you need libxml2 >= 2.4.10 and libxslt >= 1.0.9)' },
+                      'XML::LibXML' => { version => 1.53, comment => '(you need libxml2 >= 2.4.10 and libxslt >= 1.0.9)' },
     },
 
     Recommended => {
                     'Mail::Mailer' => { comment => '(only needed if you use Apache::ErrorReport)' },
                     'Apache::DBI'  => { comment => '(*strongly* recommended if you use DBI)' },
                     'MIME::Types' => { comment => '(needed if you want to serve static files from View/Default directory)' },
-                    'XML::LibXSLT' => { version => 1.31, comment => '(needed if you want to use XSLT tranformations)' },
+                    'XML::LibXSLT' => { version => 1.53, comment => '(needed if you want to use XSLT tranformations)' },
                     'Storable'        => { version => 1.013, comment => '(needed for heavy loaded servers)' },
                     'Locale::gettext' => { version => 1.01,  comment => '(needed if you want to localize pkit messages)' },
     },
 
     Example => {
-                 'DBD::CSV'       => {},
+                 'DBD::SQLite'    => {},
                  'HTTP::Headers'  => {},
-                 'SQL::Statement' => {},
-                 'Text::CSV_XS'   => {},
                  'Apache::Reload' => {},
     }
   },

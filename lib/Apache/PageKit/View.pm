@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.109 2004/03/03 12:55:59 borisz Exp $
+# $Id: View.pm,v 1.110 2004/05/03 13:48:29 borisz Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -495,6 +495,8 @@ sub _load_component {
 
 sub _load_page {
   my ($view, $page_id, $pkit_view) = @_;
+
+  $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id} = {};
 
   my $content = $view->{content} ||= Apache::PageKit::Content->new(
 						     content_dir => $view->{content_dir},

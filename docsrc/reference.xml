@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.67 2004/03/11 12:49:29 borisz Exp $
+$Id: reference.xml,v 1.68 2004/04/06 09:18:30 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -147,11 +147,20 @@ but their cookies are not enabled.  Defaults to <literal><link linkend="config.g
 	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"
 	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.Fop"
 	fop_command = "/usr/lib/java/bin/java -classpath /opt/fop-0.20.3/lib/xerces-1.2.3.jar:/opt/fop-0.20.3/lib/xalanj1compat.jar:/opt/fop-0.20.3/lib/xalan-2.0.0.jar:/opt/fop-0.20.3/lib/xalan-1.2.2.jar:/opt/fop-0.20.3/lib/stylebook.jar:/opt/fop-0.20.3/lib/logkit-1.0b4.jar:/opt/fop-0.20.3/lib/buildtools.jar:/opt/fop-0.20.3/lib/bsf.jar:/opt/fop-0.20.3/lib/batik.jar:/opt/fop-0.20.3/lib/avalon-framework-4.0.jar:/opt/fop-0.20.3/lib/ant.jar:/opt/fop-0.20.3/lib/ant-1.3-optional.jar:/opt/fop-0.20.3/build/fop.jar: org.apache.fop.apps.Fop"
+        
+        # disable fop_command from Apache::PageKit 1.14 on 
+        fop_command = ""
+        # or remove the fop_command line option from Config.xml at all.
 
        </programlisting>
       </informalexample>
       <para>
        Can be overriden by specifying the server <link linkend="config.server.fop_command">fop_command</link> configuration option.
+      </para>
+      <para>
+       As of version 1.13 of Apache::PageKit a error is issued, if no global <link linkend="config.global.fop_command">fop_command</link> or server <link linkend="config.server.fop_command">fop_command</link> is found in the Config.xml and a 'application/pdf' is requested.
+       
+       Form Apache::PageKit 1.14 on, no error message is issued and no special action is taken.
       </para>
      </listitem>
     </varlistentry>

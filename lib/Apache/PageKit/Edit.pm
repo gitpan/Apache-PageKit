@@ -1,6 +1,6 @@
 package Apache::PageKit::Edit;
 
-# $Id: Edit.pm,v 1.14 2004/01/12 12:51:04 borisz Exp $
+# $Id: Edit.pm,v 1.17 2004/05/03 13:48:29 borisz Exp $
 
 # note that this Model class accesses some of the internals of
 # PageKit and should not be used as an example for writing
@@ -89,7 +89,7 @@ sub commit_file {
 sub add_edit_links {
   my ($view, $record, $output_ref) = @_;
 
-  my $pkit_root = Apache->request->dir_config('PKIT_ROOT');
+  my $pkit_root = $view->{root_dir};
 
   my $output_param_object = $view->{output_param_object};
 
@@ -98,18 +98,20 @@ sub add_edit_links {
 
     my $include_mtimes = $record->{include_mtimes};
 
+    my $abs_uri_prefix = $view->{uri_prefix} ? '/' . $view->{uri_prefix} : '';
+
     # add edit link for main template file
     my $filename = $record->{filename};
 
     die "Filename ($filename) points outside PKIT_ROOT ($pkit_root)" if ( $filename and $filename !~ s!^$pkit_root/!! );
 
-    my $edit_html = $filename ? qq{<font size="-1"><a href="/pkit_edit/open_file?file=$filename&pkit_done=$pkit_done">(edit $filename)</a></font><br>}:qq{};
+    my $edit_html = $filename ? qq{<font size="-1"><a href="$abs_uri_prefix/pkit_edit/open_file?file=$filename&pkit_done=$pkit_done">(edit $filename)</a></font><br>}:qq{};
 
     for my $filename (grep /\.(xml|xsl)$/, keys %$include_mtimes){
       # add edit link content XML files and XSLT files
       die "Filename ($filename) points outside PKIT_ROOT ($pkit_root)" unless ( $filename =~ s!^$pkit_root/!! );
 
-      $edit_html .= qq{<font size="-1"><a href="/pkit_edit/open_file?file=$filename&pkit_done=$pkit_done">(edit $filename)</a></font><br>};
+      $edit_html .= qq{<font size="-1"><a href="$abs_uri_prefix/pkit_edit/open_file?file=$filename&pkit_done=$pkit_done">(edit $filename)</a></font><br>};
     }
 
     for my $filename (grep !/\.xml$/, keys %$include_mtimes){
@@ -117,8 +119,8 @@ sub add_edit_links {
       # the component is included
       die "Filename ($filename) points outside PKIT_ROOT ($pkit_root)" unless ( $filename =~ s!^$pkit_root/!! );
 
-      (my $component_id = $filename) =~ s!(?:[^/]+/+){2}(.*?)\.tmpl$!$1!;
-      $$output_ref =~ s!<PKIT_EDIT_COMPONENT NAME="/?$component_id">!<font size="-1"><a href="/pkit_edit/open_file?file=$filename&pkit_done=$pkit_done">(edit $filename)</a></font><br>!g;
+      (my $component_id = $filename) =~ s!(?:[^/]+/+){2}(.*?)\.(?:tmpl|xsl)$!$1!;
+      $$output_ref =~ s!<PKIT_EDIT_COMPONENT NAME="/?$component_id">!<font size="-1"><a href="$abs_uri_prefix/pkit_edit/open_file?file=$filename&pkit_done=$pkit_done">(edit $filename)</a></font><br>!g;
     }
     $$output_ref = $edit_html . $$output_ref;
 #    $$output_ref =~ s/<\s*BODY($key_value_pattern)*\s*>/<BODY$1>$edit_html/i;
@@ -167,13 +169,19 @@ sub add_component_edit_stubs {
       $template_file = $view->_find_template( $pkit_view, $component_id );
     }
 
-    # if the template_dile is not found search as abs path
+    # if the template_file is not found search as abs path
     unless ( $template_file ) {
       $component_id  = $params{NAME};
-      $template_file = $view->_find_template( $pkit_view, $component_id ) || die "$component_id not found";
+      $template_file = $view->_find_template( $pkit_view, $component_id );
+
+      unless ( $template_file ) {
+	  my $xml_file = "$view->{root_dir}/Content/$params{NAME}.xml";
+	  $template_file = $xml_file if -f $xml_file;
+      }
+      $template_file || die "$component_id not found";
     }
     
-    my $pkit_root = Apache->request->dir_config('PKIT_ROOT');
+    my $pkit_root = $view->{root_dir};
     die "Filename ($template_file) points outside PKIT_ROOT ($pkit_root)" unless ( $template_file =~ s!^$pkit_root/!! );
     return qq{<PKIT_EDIT_COMPONENT NAME="$component_id"><PKIT_COMPONENT $params>};
   }

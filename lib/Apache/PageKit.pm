@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.230 2004/03/02 13:34:17 borisz Exp $
+# $Id: PageKit.pm,v 1.236 2004/05/06 09:54:35 borisz Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -35,7 +35,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED HTTP_NOT_MODIFIED);
 
 use vars qw($VERSION);
-$VERSION = '1.13';
+$VERSION = '1.14';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -732,50 +732,51 @@ sub prepare_and_print_view {
   if($output_media eq 'text/html'){
     # first get accepted charsets from incoming Accept-Charset HTTP header
     if(my $accept_charset = $apr->headers_in->{'Accept-Charset'}){
+      my @quality = split(/\s*;\s*/, $accept_charset);
+      my @accept_charsets = split(/\s*,\s*/, shift @quality);
       my $pos = 0;
-      foreach my $charset (split(/,\s*/, $accept_charset)) {
-        my $score;
-
-        ($charset, $score) = split(/;\s*q=/, $charset, 2);
-        $score = 1 unless (defined($score) && ($score =~ /^(\+|\-)?\d+(\.\d+)?$/));
-        $charset =~ s/iso/ISO/;
-        $charset =~ s/utf/UTF/;
-        $charset =~ s/(us\-)?ascii/US-ASCII/;
-        push @charsets, [ $charset, $score, $pos++ ];
+      for ( @accept_charsets ) {
+        s/^(iso|utf)/\U$1/;
+        s/^(us\-)?ascii/US-ASCII/;
+	$quality[$pos] =~ /^q=(\d+(?:\.\d+)?)/;
+	push @charsets, [ $_, $1 || '0.1', $pos++ ];
       }
       @charsets = sort {$b->[1] <=> $a->[1] || $a->[2] <=> $b->[2] } @charsets;
-      # set a content-type perhaps we overwrite this later if we know about the charset for the output pages
+     
+     # set a content-type perhaps we overwrite this later if we know about the charset for the output pages
       $apr->content_type("text/html");
     }
   } elsif ($output_media eq 'application/pdf'){
-    # write output_media to file, using process number of Apache child process
-    my $view_cache_dir = $view->{cache_dir};
+    
+    my $fop_command = $config->get_server_attr('fop_command') 
+      || $config->get_global_attr('fop_command');
 
-    my $fo_file = "$view_cache_dir/$$.fo";
-    my $pdf_file = "$view_cache_dir/$$.pdf";
-    open FO_TEMPLATE, ">$fo_file" or die "can't open file: $fo_file ($!)";
-    binmode FO_TEMPLATE;
-    print FO_TEMPLATE $$output_ref;
-    close FO_TEMPLATE;
+    if ( $fop_command ) {
+      # write output_media to file, using process number of Apache child process
+      my $view_cache_dir = $view->{cache_dir};
+      my $fo_file = "$view_cache_dir/$$.fo";
+      my $pdf_file = "$view_cache_dir/$$.pdf";
+      open FO_TEMPLATE, ">$fo_file" or die "can't open file: $fo_file ($!)";
+      binmode FO_TEMPLATE;
+      print FO_TEMPLATE $$output_ref;
+      close FO_TEMPLATE;
+      
+      #   my $error_message = `$fop_command $fo_file $pdf_file 2>&1 1>/dev/null`;
+      my $error_message = `$fop_command $fo_file $pdf_file 2>&1`;
 
-    # call Apache XML FOP
-    my $fop_command = $config->get_server_attr('fop_command') ||
-      $config->get_global_attr('fop_command');
-    die "fop_command not specifed in configuration - must specify to use Apache XML FOP to generate PDFs" unless $fop_command;
- #   my $error_message = `$fop_command $fo_file $pdf_file 2>&1 1>/dev/null`;
-    my $error_message = `$fop_command $fo_file $pdf_file 2>&1`;
-
-    ## the recommended fop converter has no usefull error messages.
-    ## the errormoessages go also to STDOUT
-    ## and the returncode is always 0
-    unless ($error_message =~ /^\[ERROR\]:/m){
-      local $/;
-      open PDF_OUTPUT, "<$pdf_file" or die "can't open file: $pdf_file ($!)";
-      binmode PDF_OUTPUT;
-      $$output_ref = <PDF_OUTPUT>;
-      close PDF_OUTPUT;
-    } else {
-      die "Error processing template with Apache XML FOP: $error_message";
+      ## the recommended fop converter has no usefull error messages.
+      ## the errormoessages go also to STDOUT
+      ## and the returncode is always 0
+      unless ($error_message =~ /^\[ERROR\]:/m){
+        local $/;
+        open PDF_OUTPUT, "<$pdf_file" or die "can't open file: $pdf_file ($!)";
+        binmode PDF_OUTPUT;
+        $$output_ref = <PDF_OUTPUT>;
+        close PDF_OUTPUT;
+      } 
+      else {
+        die "Error processing template with Apache XML FOP: $error_message";
+      }
     }
     $apr->content_type($output_media);
   } else {
@@ -812,7 +813,7 @@ sub prepare_and_print_view {
 
     # correct the header
     $apr->content_type("text/html; charset=$retcharset") if ($retcharset);
-    $apr->content_type("text/html")                      unless ($retcharset);
+    $apr->content_type("text/html; charset=$default_output_charset")    unless ($retcharset);
   }
 
   # only pages with propper $retcharset are tranfered gzipped.
@@ -887,7 +888,12 @@ sub new {
   my $default_errorstr   = $config->get_global_attr('default_errorstr')   || '#ff0000';
 
   my $template_class = $config->get_global_attr('template_class') || 'HTML::Template';
-  $self->{view} = Apache::PageKit::View->new(view_dir => "$pkit_root/View",
+  
+  my $uri_prefix = $config->get_global_attr('uri_prefix') || '';
+  
+  $self->{view} = Apache::PageKit::View->new(
+  					     root_dir => $pkit_root,
+					     view_dir => "$pkit_root/View",
 					     content_dir => "$pkit_root/Content",
 					     cache_dir => $view_cache_dir,
 					     default_lang => $default_lang,
@@ -903,6 +909,9 @@ sub new {
                                              errorspan_end_tag => $errorspan_end_tag,
                                              default_errorstr => $default_errorstr,
                                              template_class => $template_class,
+
+					     uri_prefix => $uri_prefix,
+
 					     # used only to set browser_cache = '..' maybe another
 					     # way to set browser_cache is better to leave the View
 					     # independent from pk
@@ -1542,6 +1551,7 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Eugene Rachinsky
   Erik Günther
   Bruno Czekay
+  Henry Kilmer
   Tony Martin
 
 Also, thanks to Dan Von Kohorn for helping shape the initial architecture

@@ -4,55 +4,61 @@ use strict;
 use warnings FATAL => 'all';
 
 # required for example web site to run
-use DBD::CSV;
+# required for example web site to run
+use DBD::SQLite;
 use Digest::MD5;
-use SQL::Statement;
-use Text::CSV_XS;
 use Cwd;
 use File::Path;
-
-my %dirs = (
-          unix => {
-                    csvdb_dir         => '/tmp/csvdb',
-                    sessions_dir      => '/tmp/pkit_sessions',
-                    sessions_lock_dir => '/tmp/pkit_sessions_lock'
-          },
-          MSWin32 => {
-                     csvdb_dir         => 'c:/tmp/csvdb',
-                     sessions_dir      => 'c:/tmp/pkit_sessions',
-                     sessions_lock_dir => 'c:/tmp/pkit_sessions_lock'
-          },
-);
-
-my $os = ( exists $dirs{$^O} ) ? $^O : 'unix';
-
-for my $dir ( values %{ $dirs{$os} } ) {
-  mkpath($dir) unless -d $dir;
-  chmod 0777, $dir;
-}
-
-my $csvdb_dir = $dirs{$os}->{csvdb_dir};
-
-my $dbh = DBI->connect("DBI:CSV:f_dir=$csvdb_dir");
-if ( -e "$csvdb_dir/pkit_user" ) {
-  $dbh->do("DROP TABLE pkit_user");
-}
-$dbh->do("CREATE TABLE pkit_user (user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255))");
-$dbh->disconnect;
-
 use Apache::Test 1.05;
 use Apache::TestRunPerl ();
 use File::Spec::Functions qw(catfile);
 
-my $root_found;
-for ( @ARGV ) {
-    $root_found++ if /-documentroot$/;
+sub table_exists {
+  my ( $dbh, $table ) = @_;
+  eval {
+    local $dbh->{PrintError} = 0;
+    local $dbh->{RaiseError} = 1;
+    $dbh->do(qq{SELECT * FROM $table WHERE 1 = 0 });
+  };
+  return !$@;
 }
-unless ( $root_found ) {
-    push ( @ARGV, '--documentroot' => catfile Cwd::getcwd() , 'eg' );
-    chmod 0777 =>  catfile( Cwd::getcwd(), 'eg', 'View', 'pkit_cache' );
+
+my ( $root_found, $pkit_root );
+for ( 0 .. $#ARGV ) {
+  if ( $ARGV[$_] =~ /-documentroot$/ ) {
+    $root_found++;
+    $pkit_root = $ARGV[ $_ + 1 ];
+    last;
+  }
+}
+
+$pkit_root ||= catfile( Cwd::getcwd(), 'eg' );
+
+my $dbh = DBI->connect("dbi:SQLite:dbname=$pkit_root/dbfile", "", "", 
+  { AutoCommit => 1, PrintError => 1, RaiseError => 0 } ) 
+  or die $DBI::errstr;
+
+unless ( table_exists( $dbh, 'pkit_user' ) ) {
+  $dbh->do(q{
+    CREATE TABLE pkit_user (
+      user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255)
+    )}
+  );
+}
+unless ( table_exists( $dbh, 'sessions' ) ) {
+  $dbh->do( q{ 
+    CREATE TABLE sessions (
+      id char(32) not null primary key,
+      a_session text
+    )}
+  );
+}
+$dbh->disconnect;
+
+unless ($root_found) {
+  push( @ARGV, '--documentroot' => $pkit_root );
+  chmod 0777 => catfile( $pkit_root, 'View', 'pkit_cache' );
 }
 
 Apache::TestRunPerl->new->run(@ARGV);
-
 1;

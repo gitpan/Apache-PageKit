@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.45 2003/11/25 10:13:12 borisz Exp $
+# $Id: Content.pm,v 1.46 2004/05/03 13:48:29 borisz Exp $
 
 use strict;
 
@@ -48,16 +48,7 @@ sub generate_template {
   $parser->close_callback(\&close_uri);
   $parser->read_callback(\&read_uri);
 
-  $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID} = {};
   my $xp = $parser->parse_file("/$component_id.xml");
-
-  # for caching pages including the params info (that way extrenous parameters
-  # won't be taken into account when counting)
-  # META: do i only need to cache top level params from top level stylesheet?
-  for my $node ($xp->findnodes(q{node()[name() = 'xsl:stylesheet']/node()[name() = 'xsl:param']})->get_nodelist){
-    my $param_name = $node->getAttribute('name');
-    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID}->{$param_name} = 1;
-  }
 
   my @pi_nodes = $xp->findnodes("processing-instruction('xml-stylesheet')");
   my @stylesheet_hrefs;
@@ -75,6 +66,16 @@ sub generate_template {
 
 #  my $stylesheet_mtime = (stat(_))[9];
 #  $INCLUDE_MTIMES->{$stylesheet_file} = $stylesheet_mtime;
+
+  my $stylesheet_parser = XML::LibXML->new();
+  my $stylesheet_xp = $stylesheet_parser->parse_file($stylesheet_file);
+  # for caching pages including the params info (that way extrenous parameters
+  # won't be taken into account when counting)
+  # META: do i only need to cache top level params from top level stylesheet?
+  for my $node ($stylesheet_xp->findnodes(q{node()[name() = 'xsl:stylesheet']/node()[name() = 'xsl:param']})->get_nodelist){
+    my $param_name = $node->getAttribute('name');
+    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID}->{$param_name} = 1;
+  }
 
   my $xslt = XML::LibXSLT->new();
   my $source = $xp; # we parsed the source xmlfile already

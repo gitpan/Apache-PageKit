@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 1.13
+	Version: 1.14
 
 Description
 -----------
@@ -58,10 +58,8 @@ Requirements
 
 Required for example web site located in eg/ directory
 ----------------------
-	- DBD::CSV
+	- DBD::SQLite
 	- HTTP::Headers
-	- SQL::Statement
-	- Text::CSV_XS
 	- Apache::Reload
 
 Recommended
@@ -180,8 +178,8 @@ Setup
 
 	For sessions to work, you will have
 	to manually create a database 'sessions', and include a table (this
-	example is for MySQL/PostgreSQL, adjust as needed for your target
-	database)
+	example is for MySQL/PostgreSQL/SQLite, adjust as needed for your
+        target database)
 
 		CREATE TABLE sessions (
 			id char(32) not null primary key,
@@ -223,8 +221,28 @@ Setup
 		  return \%session_setup;
 		}
 
-	Postgres user MUST use the Commit parameter in the session_args no matter if it is on or off.
-        Look in Apache::Session::Postgres and Apache::Session
+	Postgres user MUST use the Commit parameter in the session_args no
+        matter if it is on or off.
+        Look in Apache::Session::Postgres and Apache::Session.
+
+
+        A SQLite configuration inside Common.pm might look like:
+                sub pkit_session_setup {
+                  my $model = shift;
+                  my $dbh = $model->dbh;
+                
+                  my %session_setup = (
+                        session_store_class     => 'MySQL',
+                        session_lock_class      => 'Null',
+                        session_serialize_class => 'Base64',
+                        session_args => {
+                                         Handle => $dbh,
+                        },
+                  );
+                  return \%session_setup;
+                }
+        For more information look in Apache::Session::SQLite,
+        Apache::Session::Flex and Apache::Session.
 
 Configuration
 -------------
