@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.35 2002/08/21 20:21:57 borisz Exp $
+# $Id: Config.pm,v 1.37 2002/12/12 12:05:33 borisz Exp $
 
 use integer;
 use strict;
@@ -126,7 +126,8 @@ sub get_page_attr {
   my ($config, $page_id, $key) = @_;
   my $config_dir = $config->{config_dir};
 
-  if ( exists $page_attr->{$config_dir}->{$page_id} ) {
+  if ( exists $page_attr->{$config_dir}->{$page_id} 
+        && $page_attr->{$config_dir}->{$page_id}->{$key} ) {
     return $page_attr->{$config_dir}->{$page_id}->{$key};
   }
 
@@ -215,6 +216,14 @@ sub PAGE {
 
   my $config = $cur_config;
   my $page_id = $attrs{id} || die "The attribute id is prescribed for the tag PAGE";
+
+  # warn if use_sessions eq 'no' and page_session eq 'yes' thats illegal.
+  # we ignore use_sessions.
+  if ( $attrs{page_session} && $attrs{page_session} eq 'yes' &&
+       $attrs{use_sessions} && $attrs{use_sessions} eq 'no' ) {
+       delete $attrs{use_session};
+       warn "Page attribute use_sessions ignored";
+  }
 
   # remove leading /
   $page_id =~ s!^/+!!;

@@ -28,7 +28,7 @@ sub form_validation_done {
   my $model = shift;
   my $input_profile = {
 		       required => [ qw( email phone likes ) ],
-		       optional => [ qq( toppings ) ],
+		       optional => [ qw( toppings ) ],
 		       constraints => {
 				       email => "email",
 				       phone => "phone",

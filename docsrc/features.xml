@@ -1,7 +1,7 @@
 <chapter><?dbhtml filename="features.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: features.xml,v 1.19 2002/08/23 09:42:07 borisz Exp $
+$Id: features.xml,v 1.20 2002/10/25 02:55:26 tjmather Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Overview of Features</title>
@@ -557,6 +557,19 @@ in <filename>View/Default</filename> directory.
    You may set the <literal><link linkend="request.pkit_view">pkit_view</link></literal> request parameter in the request URI or by using
    <literal>$model->input(pkit_view => <replaceable>pkit_view</replaceable>);</literal> in your model code.
   </para>
+ </sect1>
+ <sect1 id="features.editing"><?dbhtml filename="editing.html"?>
+  <title>On-line Editing tools</title>
+  <para>
+   PageKit supports a set of simple on-line editing tools.  To enable,
+   set <literal><link linkend="config.server.can_edit">can_edit</link></literal> in your
+   server config.  You will also need to call in your Model code:
+  </para>
+      <informalexample>
+       <programlisting>
+  $model->output(pkit_admin => 1);
+       </programlisting>
+      </informalexample>
  </sect1>
  <sect1><?dbhtml filename="errorreport.html"?>
   <title>Error Reporting</title>

@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.206 2002/08/23 09:00:28 borisz Exp $
+# $Id: PageKit.pm,v 1.215 2002/12/12 12:05:32 borisz Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -34,7 +34,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.10';
+$VERSION = '1.11';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -438,7 +438,7 @@ sub prepare_page {
 	# or whatever page is static.
 	# if we have some parameters, defer the delivery of the page after the
 	# auth check
-        return $pk->_send_static_file($filename) unless ( $apr->param );
+        return $pk->_send_static_file($filename) unless ( () = $apr->param );
       }
       $static_file{name}    = $filename;
       $static_file{page_id} = $pk->{page_id};
@@ -452,7 +452,12 @@ sub prepare_page {
 
   # session handling
   if($model->can('pkit_session_setup')){
-    $pk->setup_session($auth_session_id);
+    if ( ( $config->get_page_attr( $pk->{page_id}, 'use_sessions' ) || 'yes' ) eq 'yes' ) {
+      $pk->setup_session($auth_session_id);
+    }
+    else {
+    $pk->{session} = {};
+    }
   }
   my $session = $pk->{session};
 
@@ -679,9 +684,10 @@ sub prepare_and_print_view {
   $view->{fillinform_objects} = [ grep {$_->param} @fillinform_objects_array ];
   $view->{ignore_fillinform_fields} = $pk->{ignore_fillinform_fields};
 
-  my $page_rpit = $config->get_page_attr($page_id,'request_param_in_tmpl') || '';
-  my $global_rpit = $config->get_global_attr('request_param_in_tmpl') || 'no';
-  if($page_rpit eq 'yes' || ($page_rpit ne 'no' && $global_rpit eq 'yes')) {
+  my $request_param_in_tmpl = $config->get_page_attr($page_id,'request_param_in_tmpl')
+    || $config->get_global_attr('request_param_in_tmpl')
+    || 'no';
+  if( $request_param_in_tmpl eq 'yes' ) {
     $view->{associated_objects} = [$apr];
   }
 
@@ -1092,8 +1098,7 @@ sub authenticate {
 
   return unless $auth_user;
 
-  $auth_session_id = $auth_user
-    unless defined($auth_session_id);
+  $auth_session_id = $auth_user unless defined($auth_session_id);
 
   $apr->connection->user($auth_user);
 #  $apr->param(pkit_user => $auth_user);
@@ -1486,10 +1491,13 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Chris Hamilton
   David Christian
   Rob Starkey
+  Glenn Morgan
   Anton Permyakov
   Gabriel Burca
-  Glenn Morgan
   John Robinson
+  Paul G. Weiss
+  Russell D. Weiss
+  Bill Karwin
   Daniel Gardner
   Andy Massey
   Michael Cook
@@ -1499,6 +1507,9 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Vladimir Sekissov
   Tomasz Konefal
   Michael Wojcikiewicz
+  Vladimir Bogdanov
+  Eugene Rachinsky
+  Erik Günther
 
 Also, thanks to Dan Von Kohorn for helping shape the initial architecture
 and for the invaluable support and advice. 

@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.102 2002/08/21 20:21:57 borisz Exp $
+# $Id: View.pm,v 1.105 2002/10/02 13:57:33 borisz Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -109,7 +109,7 @@ sub fill_in_view {
       my $query_string = Apache::PageKit::params_as_string($input_param_object, \@exclude_params);
 
       #remove empty parameters as arised from http://ka.zyx.de/galerie?show=abc& or <PKIT_SELFURL>
-      $query_string =~ s!=&!!;
+      $query_string =~ s![?&]$!!;
       if($query_string){
 	$tmpl->param("pkit_selfurl$exclude_params", ($orig_uri . '?' . $query_string) . '&');
       } else {
@@ -373,7 +373,6 @@ sub _include_components {
     }
 
     my $template_ref = $view->_load_component($page_id, $component_id, $pkit_view, \%params);
-    $$template_ref =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$params{uc($+)} || ''!egi if (keys %params);
     return $$template_ref;
   }
 }
@@ -439,6 +438,10 @@ sub _load_component {
       }
       $template = $converter->convert($template) || die "Can not convert page from $default_input_charset to utf-8" if $template;
     }
+    
+    # expand PKIT_MACRO tags
+    $template =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$component_params->{uc($+)} || ''!egi;
+
     $template_ref = \$template;
 
     my $mtime = (stat(_))[9];

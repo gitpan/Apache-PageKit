@@ -4,12 +4,13 @@ use Digest::MD5;
 use SQL::Statement;
 use Text::CSV_XS;
 use Apache::Reload;
+use Cwd;
+use File::Path;
 
 # use Apache::test to test PageKit (using eg/ code)
 use Apache::test;
 my %params = Apache::test->get_test_params();
-my $pwd = `pwd`;
-chomp($pwd);
+my $pwd    = cwd;
 $more_directives = <<END;
 # PageKit Setup
 PerlSetVar PKIT_ROOT $pwd/eg
@@ -26,17 +27,34 @@ PerlModule Apache::ErrorReport
 PerlSetVar ErrorReportHandler display
 END
 
-Apache::test->write_httpd_conf(%params, include => $more_directives);
+%dirs = (
+          unix => {
+                    csvdb_dir         => '/tmp/csvdb',
+                    sessions_dir      => '/tmp/pkit_sessions',
+                    sessions_lock_dir => '/tmp/pkit_sessions_lock'
+          },
+          MSWin32 => {
+                     csvdb_dir         => 'c:/tmp/csvdb',
+                     sessions_dir      => 'c:/tmp/pkit_sessions',
+                     sessions_lock_dir => 'c:/tmp/pkit_sessions_lock'
+          },
+);
+
+$os = ( exists $dirs{$^O} ) ? $^O : 'unix';
+
+Apache::test->write_httpd_conf( %params, include => $more_directives );
 *MY::test = sub { Apache::test->MM_test(%params) };
 
-mkdir '/tmp/csvdb', 0777;
-my $dbh = DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
-if (-e "/tmp/csvdb/pkit_user"){
+for my $dir ( values %{ $dirs{$os} } ) {
+  mkpath($dir);
+  chmod 0777, $dir;
+}
+
+$csvdb_dir = $dirs{$os}->{csvdb_dir};
+
+my $dbh = DBI->connect("DBI:CSV:f_dir=$csvdb_dir");
+if ( -e "$csvdb_dir/pkit_user" ) {
   $dbh->do("DROP TABLE pkit_user");
 }
 $dbh->do("CREATE TABLE pkit_user (user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255))");
 $dbh->disconnect;
-
-mkdir '/tmp/pkit_sessions', 0777;
-mkdir '/tmp/pkit_sessions_lock', 0777;
-chmod 0777, '/tmp/pkit_sessions', '/tmp/pkit_sessions_lock', '/tmp/pkit_user';

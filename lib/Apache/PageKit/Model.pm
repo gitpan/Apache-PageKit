@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.82 2002/08/21 20:21:57 borisz Exp $
+# $Id: Model.pm,v 1.84 2002/12/12 12:05:33 borisz Exp $
 
 use integer;
 use strict;
@@ -57,7 +57,8 @@ sub pkit_get_config_attr {
 
 sub pkit_get_session_id {
   my $model = shift;
-  return tied(%{$model->{pkit_pk}->{session}})->getid;
+  my $obj = tied(%{$model->{pkit_pk}->{session}});
+  return $obj ? $obj->getid : undef;
 }
 
 sub pkit_get_page_session_id {
@@ -118,7 +119,9 @@ sub pkit_set_errorfont {
 sub pkit_validate_input {
   my ($model, $input_profile) = @_;
 
-  my $validator = new Data::FormValidator({default => $input_profile});
+  my $messages = delete $input_profile->{messages};
+
+  my $validator = Data::FormValidator->new({default => $input_profile});
 
   # put the data from input into a %fdat hash so Data::FormValidator can read it
   my $input_hashref = $model->pkit_input_hashref;
@@ -129,6 +132,10 @@ sub pkit_validate_input {
   $input_hashref->{'pkit_model'} = $model;
 
   my ($valids, $missings, $invalids, $unknowns) = $validator->validate($input_hashref, 'default');
+  
+  # put our messages back into the hash...  
+  $input_profile->{messages} = $messages if defined $messages;
+
   # used to change apply changes from filter to apr
   while (my ($key, $value) = each %$valids){
     # if multiple request param, don't set, since formvalidator doesn't deal
@@ -147,10 +154,10 @@ sub pkit_validate_input {
   if(@$invalids || @$missings){
     if(@$invalids){
       foreach my $field (@$invalids){
-	next unless exists $input_profile->{messages}->{$field};
+	next unless exists $messages->{$field};
 	my $value = $input_hashref->{$field};
 	# gets error message for that field which was filled in incorrectly
-	my $msg = $input_profile->{messages}->{$field};
+	my $msg = $messages->{$field};
 
         $msg = $model->pkit_gettext($msg);
 

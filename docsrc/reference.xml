@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.59 2002/07/31 08:16:39 borisz Exp $
+$Id: reference.xml,v 1.61 2002/10/25 02:55:27 tjmather Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -444,7 +444,7 @@ by the corresponding <link linkend="config.page.request_param_in_tmpl">page attr
      <term>can_edit</term>
      <listitem>
       <para>
-If set to <emphasis>yes</emphasis>, enables on-line editing tools.
+If set to <emphasis>yes</emphasis>, enables <link linkend="features.editing">on-line editing tools</link>.
       </para>
      </listitem>
     </varlistentry>
@@ -803,53 +803,7 @@ If your code likes to throw an error let it die.
      </para>
     </refsect1>
    </refentry>
-   <refentry id="model.api.pkit_send">
-    <refnamediv>
-     <refname>pkit_send</refname>
-     <refpurpose>
-      Can be used to send data to the client.
-     </refpurpose>
-    </refnamediv>
-    <refsynopsisdiv>
-     <synopsis>
 
-        #
-        # for a filename, the media_type will be found by the <literal>MIME::Types</literal> module.
-        #
-	my $status_code = $model->pkit_send($filename);
-
-        my $status_code = $model->pkit_send(\$data, 'image/png');
-
-        # $data_ref is not zipped by the pkit_send methode, it sends
-        # it only with this encoding header.
-	my $status_code = $model->pkit_send($data_ref, 'html/text', 'gzip');
-
-        my $status_code = $model->pkit_send($fh);
-
-        $model->pkit_status_code($status_code);
-
-     </synopsis>
-    </refsynopsisdiv>
-    <refsect1>
-     <title>Description</title>
-     <para>
-      Can be used to send data to the client. From a scalar_ref a filename or
-      a reference to a filehandle.
-
-      If the first argument is a filename, and the second argument media_type is not set,
-      the module <literal>MIME::Types</literal>
-      try to find the media_type for us depending on the suffix.
-
-      If this fails or the optional second argument media_type is not set, the default
-      <literal>application/octet-stream</literal> is used.
-
-      If the request was only a head request, only a header is send back to the client.
-
-      The optional third argument if the content_encoding (ie: gzip|x-gzip|compress|x-compress) it is only used if the
-      media_type is html/text.
-     </para>
-    </refsect1>
-   </refentry>
    <refentry id="model.api.pkit_session_setup">
     <refnamediv>
      <refname>pkit_session_setup</refname>
@@ -1166,7 +1120,7 @@ $location = $model->pkit_get_config_attr('USER', 'location');
     <refsynopsisdiv>
      <synopsis>
   sub pkit_get_default_page {
-    my $model = @_;
+    my ($model) = @_;
 
     if($model->pnotes('user_id')){
       # user is logged in, go to account page
@@ -1304,7 +1258,7 @@ NOTE: currently this is the only pkit_* method which can exist outside Common.pm
   <sect2 id="model.api.api">
    <title>PageKit API</title>
    <para>
-    The following methods are available to the user as Apache::PageKit::Model API.
+    Theese methods are available to the user as Apache::PageKit::Model API.
    </para>
    <refentry id="model.api.input">
     <refnamediv>
@@ -1330,6 +1284,86 @@ NOTE: currently this is the only pkit_* method which can exist outside Common.pm
      <para>
 Gets requested parameter from the Apache request object,
 if called without any parameters, gets all available input parameters:
+     </para>
+    </refsect1>
+   </refentry>
+      <refentry id="model.api.pkit_send">
+    <refnamediv>
+     <refname>pkit_send</refname>
+     <refpurpose>
+      Can be used to send data to the client.
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+
+        #
+        # for a filename, the media_type will be found by the <literal>MIME::Types</literal> module.
+        #
+	my $status_code = $model->pkit_send($filename);
+
+        my $status_code = $model->pkit_send(\$data, 'image/png');
+
+        # $data_ref is not zipped by the pkit_send methode, it sends
+        # it only with this encoding header.
+	my $status_code = $model->pkit_send($data_ref, 'html/text', 'gzip');
+
+        my $status_code = $model->pkit_send($fh);
+
+        $model->pkit_status_code($status_code);
+
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+      Can be used to send data to the client. From a scalar_ref a filename or
+      a reference to a filehandle.
+
+      If the first argument is a filename, and the second argument media_type is not set,
+      the module <literal>MIME::Types</literal>
+      try to find the media_type for us depending on the suffix.
+
+      If this fails or the optional second argument media_type is not set, the default
+      <literal>application/octet-stream</literal> is used.
+
+      If the request was only a head request, only a header is send back to the client.
+
+      The optional third argument if the content_encoding (ie: gzip|x-gzip|compress|x-compress) it is only used if the
+      media_type is html/text.
+     </para>
+    </refsect1>
+   </refentry>
+   
+   <refentry id="model.api.pkit_component_params_hashref">
+    <refnamediv>
+     <refname>pkit_component_params_hashref</refname>
+     <refpurpose>
+      Get access to the component parameters.
+    </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis><![CDATA[
+
+     <PKIT_COMPONENT NAME="xxx" headline="title" datasrc="select * from a_table">
+     <PKIT_COMPONENT NAME="xxx" headline="another_title" datasrc="select * from another_table">
+     <PKIT_COMPONENT NAME="xxx" headline="title" datasrc="select * from a_table">
+
+  sub xxx {
+    my $model = shift;
+    my $fields = $model->pkit_component_params_hashref;
+    my $select_statement = $fields->{DATASRC};
+    ...
+  }
+]]>
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+      This method return a hashref that contain the component parameters (or undef if the calling routine is not a component).
+      All keys are uppercase and the NAME of the component is not present in the hash. If the same component is used twice or more,
+      the component code is called only once.
      </para>
     </refsect1>
    </refentry>
@@ -2480,6 +2514,104 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
       </para>
      </refsect1>
     </refentry>
+    <refentry id="pkit.else">
+     <refnamediv>
+      <refname>PKIT_ELSE</refname>
+      <refpurpose>
+       Can be used to add a else part to PKIT_... tags.
+      </refpurpose>
+     </refnamediv>
+     <refsynopsisdiv>
+      <synopsis>
+       &lt;PKIT_VIEW NAME="print"&gt;This is text display for the printable view&lt;PKIT_ELSE&gt;And this text if hte view is NOT printable&lt;/PKIT_VIEW&gt;
+      </synopsis>
+     </refsynopsisdiv>
+     <refsect1>
+      <title>Description</title>
+      <para>
+            Can be used to add a else part to <link linkend="pkit.view">PKIT_VIEW</link>,
+       <link linkend="pkit.have_messages">PKIT_HAVE_MESSAGES</link>,
+       <link linkend="pkit.have_not_messages">PKIT_HAVE_NOT_MESSAGES</link>,
+       <link linkend="pkit.is_error">PKIT_IS_ERROR</link> or
+       <link linkend="pkit.not_error">PKIT_NOT_ERROR</link>.
+      </para>
+     </refsect1>
+    </refentry>
+    
+       <refentry id="pkit.is_error">
+     <refnamediv>
+      <refname>PKIT_IS_ERROR</refname>
+      <refpurpose>
+       Used to display messages only if it is a errormessage.
+      </refpurpose>
+     </refnamediv>
+     <refsynopsisdiv>
+      <synopsis>
+
+    <![CDATA[<PKIT_HAVE_MESSAGES>
+          Here are some error messages for you: <p>
+         <PKIT_MESSAGES>
+         <PKIT_IS_ERROR>
+           <PKIT_MESSAGE>
+         </PKIT_IS_ERROR>
+     </PKIT_MESSAGES>
+     </p>
+       </PKIT_HAVE_MESSAGES>
+]]>
+      </synopsis>
+     </refsynopsisdiv>
+     <refsect1>
+      <title>Description</title>
+      <para>
+       Used to display messages only if it is a errormessage. Or display errors and warnings in different places.
+
+      </para>
+     </refsect1>
+    </refentry>
+
+          <refentry id="pkit.not_error">
+     <refnamediv>
+      <refname>PKIT_NOT_ERROR</refname>
+      <refpurpose>
+       Used to display messages only if it is a NOT a errormessage.
+      </refpurpose>
+     </refnamediv>
+     <refsynopsisdiv>
+      <synopsis>
+
+    <![CDATA[
+       
+       <PKIT_HAVE_MESSAGES>
+          Here are some warnings messages for you: <p>
+         <PKIT_MESSAGES>
+         <PKIT_NOT_ERROR>
+           <PKIT_MESSAGE>
+         </PKIT_NOT_ERROR>
+     </PKIT_MESSAGES>
+     </p>
+       </PKIT_HAVE_MESSAGES>
+
+       <PKIT_HAVE_MESSAGES>
+          Here are some error messages for you: <p>
+         <PKIT_MESSAGES>
+         <PKIT_IS_ERROR>
+           <PKIT_MESSAGE>
+         </PKIT_IS_ERROR>
+     </PKIT_MESSAGES>
+     </p>
+       </PKIT_HAVE_MESSAGES>
+]]>
+      </synopsis>
+     </refsynopsisdiv>
+     <refsect1>
+      <title>Description</title>
+      <para>
+       Used to display messages only if it is NOT a errormessage. Or display errors and warnings in different places.
+
+      </para>
+     </refsect1>
+    </refentry>
+
    </sect2>
  </sect1>
  <sect1>

@@ -60,6 +60,7 @@ lib/Apache/PageKit.pm
 lib/Apache/PageKit/Config.pm
 lib/Apache/PageKit/Content.pm
 lib/Apache/PageKit/Edit.pm
+lib/Apache/PageKit/FAQ.pod
 lib/Apache/PageKit/Model.pm
 lib/Apache/PageKit/Param.pm
 lib/Apache/PageKit/Session.pm

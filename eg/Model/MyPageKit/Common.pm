@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.22 2002/08/21 20:21:58 borisz Exp $
+# $Id: Common.pm,v 1.24 2002/10/10 08:32:45 borisz Exp $
 
 use strict;
 
@@ -33,14 +33,18 @@ sub pkit_session_setup {
   my %session_setup = (
 		       session_store_class => 'File',
 
-#                      *Win32* user should use session_lock_class => 'Null',
-#                      if 'File' is not working propper.
+                       # *Win32* user should use session_lock_class => 'Null',
+                       # if 'File' is not working propper.
 		       session_lock_class => 'File',
 		       session_args => {
 #					Handle => $dbh,
 #					LockHandle => $dbh,
 					Directory => '/tmp/pkit_sessions',
 					LockDirectory => '/tmp/pkit_sessions_lock',
+					
+					# here again something for Win32 systems
+#					Directory => 'c:/tmp/pkit_sessions',
+#					LockDirectory => 'c:/tmp/pkit_sessions_lock',
 				       }
 		      );
   return \%session_setup;
@@ -59,10 +63,10 @@ sub pkit_common_code {
 
   # for the pagekit.org website, we control the colors based on the
   # values the user selected, stored in the session.
-  $model->output(link_color => $session->{'link_color'} || 'ff9933');
-  $model->output(text_color => $session->{'text_color'} || '000000');
-  $model->output(bgcolor => $session->{'bgcolor'} || 'dddddd');
-  $model->output(mod_color => $session->{'mod_color'} || 'ffffff');
+  $model->output(link_color => $session->{'link_color'} || '#ff9933');
+  $model->output(text_color => $session->{'text_color'} || '#000000');
+  $model->output(bgcolor => $session->{'bgcolor'} || '#dddddd');
+  $model->output(mod_color => $session->{'mod_color'} || '#ffffff');
 
   # toggle on-line editing tools
   if($model->input('pkit_admin')) {

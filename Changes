@@ -1,6 +1,29 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.11
+	- Fix early delivery of static pages (Paul G. Weiss)
+	- Add Apache::PageKit::FAQ (Boris Zentner)
+	- Fix: Search attributes for a page in the sections
+        	even if the page has some other attributes
+		(Glenn Morgan)
+	- Fix: Add missing # to the colors in eg/Common.pm
+		(Boris Zentner)
+	- Fix expansion of unused pkit_macro tags to ''
+		(Boris Zentner)
+	- Fix pkit_get_session_id to work even without a real
+		session (Boris Zentner, Russell D. Weiss)
+	- Add page attribute use_sessions defaults to 'yes'
+		(Boris Zentner, Russell D. Weiss)
+	- Fix PKIT_SELFURL and handling of empty parameters
+		(Bill Karwin)
+	- Fix PKIT_MACRO expansion for nested templates.
+		(Boris Zentner, Russell D. Weiss)
+	- setup_eg.pl is now os indpendent (Boris Zentner)
+	- Add docs for <PKIT_ELSE>, <PKIT_IS_ERROR>, <PKIT_NOT_ERROR> and
+		pkit_component_params_hashref (Boris Zentner)
+	- Fix pkit_validate_input to work with Data::FormValidator >= 1.11
+		(Paul G. Weiss, Boris Zentner)
 1.10
  	- Add a note to the docs, that some pages can not be protected
 		(Boris Zentner, Rob Starkey)
@@ -82,7 +105,7 @@ Revision history for Perl extension Apache::PageKit.
 	- Clear missing server section on reload (Boris Zentner)
 	- Die if a conversion from one charset to another is not possible.
 		Maybe a char is not part of the target charset.
-		(Boris Zentner, Gabriel Burka)
+		(Boris Zentner, Gabriel Burca)
 	! Add protection of static pages with the require_login config
 		attribute. (Boris Zentner)
 	- Fix two cases where a filehandle can be used even if open failed
