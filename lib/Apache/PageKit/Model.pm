@@ -1,25 +1,25 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.53 2001/09/16 21:11:33 borisz Exp $
+# $Id: Model.pm,v 1.57 2001/10/31 09:53:49 borisz Exp $
 
 use integer;
 use strict;
 use Data::FormValidator;
 
-use Apache::Constants qw(REDIRECT);
+use Apache::Constants qw(REDIRECT OK DONE DECLINED NOT_FOUND);
 use Apache::PageKit::Param;
 
 sub new {
   my $class = shift;
   my $self = { @_ };
   bless $self, $class;
-  $self->{pkit_pk}->{output_param_object} ||= Apache::PageKit::Param->new();
-  $self->{pkit_pk}->{fillinform_object} ||= Apache::PageKit::Param->new();
   unless (exists $self->{pkit_pk} && exists $self->{pkit_pk}->{apr}){
     # if running outside of mod_perl
     $self->{pkit_pk}->{apr} ||= Apache::PageKit::Param->new();
     $self->{pkit_pk}->{pnotes_param_object} ||= Apache::PageKit::Param->new();
   }
+  $self->{pkit_pk}->{output_param_object} ||= Apache::PageKit::Param->new();
+  $self->{pkit_pk}->{fillinform_object} ||= Apache::PageKit::Param->new();
   return $self;
 }
 
@@ -103,7 +103,7 @@ sub pkit_validate_input {
     $model->pkit_set_errorfont($field);
   }
   if(@$invalids || @$missings){
-    if(@$invalids){
+     if(@$invalids){
       foreach my $field (@$invalids){
 	next unless exists $input_profile->{messages}->{$field};
 	my $value = $input_hashref->{$field};
@@ -178,6 +178,13 @@ sub output {
   return shift->{pkit_pk}->{output_param_object}->param(@_);
 }
 
+sub pkit_status_code {
+  my $pk = shift->{pkit_pk};
+  my $old_status_code = $pk->{status_code};
+  $pk->{status_code} = $_[0] if ( @_ );
+  return $old_status_code;
+}
+
 sub output_convert {
   my ($model, %p) = @_;
   my $view = $model->{pkit_pk}->{view};
@@ -209,7 +216,7 @@ sub pnotes {
 
 # put here so that it can be overriden in derived classes
 sub pkit_get_default_page {
-  return shift->{pkit_pk}->{config}->get_global_attr('default_page');
+  return shift->{pkit_pk}->{config}->get_global_attr('default_page') || 'index';
 }
 
 sub create {
@@ -241,7 +248,8 @@ sub dbh {
 }
 
 sub apr {return shift->{pkit_pk}->{apr};}
-sub config { return shift->{pkit_pk}->{config};}
+# undocumented
+sub config {return shift->{pkit_pk}->{config};}
 sub session {return shift->{pkit_pk}->{session};}
 
 sub pkit_redirect {
@@ -276,6 +284,41 @@ sub pkit_query {
   }
 
   return $view->{record}->{html_template}->query(@p);
+}
+
+# undocumented
+sub pkit_send {
+  my ($model, $dataref_or_fname, $media_type, $content_encoding) = @_;
+
+  unless ( $media_type ) {
+    unless ( ref $dataref_or_fname ) {
+      require MIME::Types;
+      ($media_type, $content_encoding) = MIME::Types::by_suffix($dataref_or_fname);
+    }
+   $media_type ||= 'application/octet-stream';
+  }
+
+  my $apr = $model->apr;
+  $apr->content_type($media_type);
+  $apr->content_encoding($content_encoding) if $content_encoding;
+  $apr->send_http_header if $apr->is_initial_req;
+  unless ($apr->header_only) {
+    # NOT a head request
+    if ( ref $dataref_or_fname ) {
+      $apr->print($$dataref_or_fname);
+    }
+    else {
+      if ( open FH, "<$dataref_or_fname" ) {
+        $apr->send_fd(\*FH);
+        close FH;
+      }
+      else {
+        warn "can't open file $!";
+        return NOT_FOUND;
+      }
+    }
+  }
+  return DONE;
 }
 
 # helper function for output_convert

@@ -43,6 +43,7 @@ sub form_validation_done {
     $model->pkit_internal_redirect('form_validation');
     return;
   }
+  $model->pkit_redirect('index');
 }
 
 sub index {

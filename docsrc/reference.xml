@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.24 2001/09/08 19:26:14 borisz Exp $
+$Id: reference.xml,v 1.30 2001/10/31 09:53:49 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -125,6 +125,19 @@ static pages only.
       </para>
      </listitem>
     </varlistentry>
+    <varlistentry id="config.global.logout_kills_session">
+   <term>logout_kills_session</term>
+   <listitem>
+   <para>
+    When pkit_logout is called it normally resets just the pkit_id cookie.
+    With logout_kills_session enabled (set to yes), pkit_logout will also
+    reset pkit_session_id and forcing a new pkit_session_id cookie to be
+    set with a new session_id.
+
+       Defaults to <emphasis>yes</emphasis>.
+   </para>
+   </listitem>
+  </varlistentry>
     <varlistentry id="config.global.model_base_class">
      <term>model_base_class</term>
      <listitem>
@@ -181,6 +194,33 @@ set to <emphasis>recent</emphasis>.  Defaults to 3600 (1 hour).
       </para>
      </listitem>
     </varlistentry>
+   <varlistentry id="config.global.relaxed_parser">
+    <term>relaxed_parser</term>
+    <listitem>
+     <para>
+       If set to yes, this option allows template tags to be placed inside
+HTML comments. It also permits spaces and newlines within the tag itself.
+This option may be useful to HTML authors who would like to validate their
+templates' HTML syntax prior to processing, or who use DTD-aware editing
+tools.
+
+      Defaults to <emphasis>no</emphasis>.
+      <informalexample>
+       <programlisting>
+        relaxed_parser = "yes"
+
+        # these tags are all allowed if relaxed_parser is enabled:
+        &lt;MODEL_VAR NAME="x"&gt;
+        &lt; MODEL_VAR NAME = 'x' &gt;
+        &lt; MODEL_LOOP NAME = x &gt;
+        &lt; PKIT_COMPONENT NAME = x /&gt;
+        &lt;!-- MODEL_VAR NAME="x" --&gt;
+        &lt;!--   CONTENT_VAR   NAME   =    "x"   /--&gt;
+       </programlisting>
+      </informalexample>
+     </para>
+    </listitem>
+   </varlistentry>
     <varlistentry id="config.global.request_param_in_tmpl">
      <term>request_param_in_tmpl</term>
      <listitem>
@@ -765,8 +805,8 @@ returns the <link linkend="config.global.default_page">default_page</link> attri
       sub pkit_merge_sessions {
         my ($model, $old_session, $new_session) = @_;
         while(my ($k, $v) = each %$old_session){
-          $new_session->{$k} = $v
-            unless exists $new_session->{$v};
+          next if $k eq '_session_id';
+          $new_session->{$k} = $v unless exists $new_session->{$k};
         }
       }
      </synopsis>
@@ -1087,6 +1127,41 @@ Returns <ulink uri="http://perldoc.anidea.com/Apache/Request.html">Apache::Reque
      </para>
     </refsect1>
    </refentry>
+
+      <refentry id="model.api.pkit_status_code">
+    <refnamediv>
+     <refname>pkit_status_code</refname>
+     <refpurpose>
+Get or set the status code for you page.
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+  # get status code
+  my $status_code = $model->pkit_status_code;
+
+  # set status code
+  $model->pkit_status_code(DONE);
+  $model->pkit_status_code(NOT_FOUND);
+  $model->pkit_status_code(OK);
+
+  # return old status code
+  return $model->pkit_status_code(OK);
+
+  # remove previously set returncode
+  $model->pkit_status_code(undef);
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+     Set or get the status code for your page. If you set a status code the execution
+     of your model code ends after the peace of code that sets the status code.
+     Even if you set the status code to OK. The status code is passed back to the webserver.
+     </para>
+    </refsect1>
+   </refentry>
+
    <refentry id="model.api.dbh">
     <refnamediv>
      <refname>dbh</refname>
@@ -1594,7 +1669,8 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
        fill in any MODEL_VAR and MODEL_LOOP tags in the included PageKit Template.
       </para>
       <para>
-       The 2. 3. and 4. example define also some macros.
+       The 2. 3. and 4. example define also some macros. These macros are also available for
+       XSLT with the &lt;xsl:param name="..."&gt; tag.
        See <literal><link linkend="pkit.macro">PKIT_MACRO</link></literal>
       </para>
      </refsect1>

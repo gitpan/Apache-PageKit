@@ -1,7 +1,7 @@
 <chapter><?dbhtml filename="features.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: features.xml,v 1.12 2001/08/23 08:13:59 borisz Exp $
+$Id: features.xml,v 1.13 2001/10/01 10:02:12 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Overview of Features</title>
@@ -54,7 +54,7 @@ interfering with each other.
     site.  These class files should be located in the <filename>Model/</filename> directory.  Each URL is translated into a class and method automatically. 
    </para>
    <para>
-It includes support for <ulink url="http://search.cpan.org/doc/MARKSTOS/Data-FormValidator-1.5/lib/Data/FormValidator.pm">Data::FormValidator</ulink>, making the tedious task of input validation easier.
+It includes support for <ulink url="http://search.cpan.org/doc/MARKSTOS/Data-FormValidator-1.6/lib/Data/FormValidator.pm">Data::FormValidator</ulink>, making the tedious task of input validation easier.
 To validate a form, you simply specify required fields and constraints. If there is an error, you
 can return to the input form, and the invalid fields automatically get highlighted in red.
    </para>
@@ -77,7 +77,7 @@ where the data is being pulled from.
    <para>
 The <link linkend="model.tags">Model Tags</link>,
 &lt;MODEL_VAR&gt;, &lt;MODEL_LOOP&gt;, and &lt;MODEL_IF&gt;,
-are filled with data by the Model. 
+are filled with data by the Model.
    </para>
    <para>
 The <link linkend="content.tags">Content Tags</link>,
@@ -85,13 +85,13 @@ The <link linkend="content.tags">Content Tags</link>,
 XPath queries to the Content XML data.
    </para>
    <para>
-The <link linkend="pagekit.tags">PageKit Tags</link> are set internally by the Controller. 
+The <link linkend="pagekit.tags">PageKit Tags</link> are set internally by the Controller.
    </para>
    <para>
 It is easy to implement <link linkend="features.multiple.views">multiple views</link>, such as a printable version of a web page or a
 co-branded site. To create a new view, simply create a directory containing template files for
 the view. You only have to create templates for pages and components that you wish to
-override. That is all views inherit from the default set of templates. 
+override. That is all views inherit from the default set of templates.
    </para>
   </sect2>
   <sect2>
@@ -102,9 +102,9 @@ PageKit Template using <ulink url="http://perldoc.anidea.com/XML/XPathTemplate.h
 PageKit Template.
    </para>
    <para>
-     Language localization couldn't be easier. Simply use the 
+     Language localization couldn't be easier. Simply use the
      <literal>xml:lang</literal> attribute in the tags you wish
-     to localize. For example, to have a title available in both English and Spanish use: 
+     to localize. For example, to have a title available in both English and Spanish use:
    </para>
    <informalexample>
     <programlisting><![CDATA[
@@ -292,7 +292,7 @@ across your Derived Model Classes.
     </listitem>
     <listitem>
      <para>
-      If no nodes are found in the preferred language, then 
+      If no nodes are found in the preferred language, then
       it returns the node(s) which are in the
       <literal><link linkend="config.global.default_lang">default_lang</link></literal>
       language.

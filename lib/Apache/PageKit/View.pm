@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.71 2001/09/04 14:19:07 borisz Exp $
+# $Id: View.pm,v 1.75 2001/10/17 21:58:15 borisz Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -53,9 +53,33 @@ use Data::Dumper;
 #    * _fill_in_content_loop(...)
 #    * _load_page($page_id, $pkit_view, [$template_file])
 
+
+
+# these global vars are initialised and then they are readonly!
+# this is done here mainly for speed.
+use vars qw /%replace_start_tags %replace_end_tags $key_value_pattern/;
+
+%replace_start_tags = (
+                               MESSAGES => '<TMPL_LOOP NAME="PKIT_MESSAGES">',
+                               IS_ERROR => '<TMPL_IF NAME="PKIT_IS_ERROR">',
+                               HOSTNAME => '<TMPL_VAR NAME="PKIT_HOSTNAME">',
+                               MESSAGE  => '<TMPL_VAR NAME="PKIT_MESSAGE">',
+                               REALURL  => '<TMPL_VAR NAME="PKIT_REALURL">',
+  );
+
+%replace_end_tags = (
+                             VIEW     => '</TMPL_IF>',
+                             IS_ERROR => '</TMPL_IF>',
+                             MESSAGES => '</TMPL_LOOP>'
+  );
+
+#                        --------------------- $1 --------------------------
+#                             $2                  $3         $4       $5
+$key_value_pattern = qr!(\s+(\w+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\w+)))?)!;    #"
+
 $Apache::PageKit::View::cache_component = {};
 
-sub new($$) {
+sub new {
   my $class = shift;
   my $self = { @_ };
   bless $self, $class;
@@ -95,7 +119,8 @@ sub fill_in_view {
     foreach my $key ($object->param){
       # note that we only fill in MODEL_VARs, to avoid errors when setting
       # loops in HTML::Template
-      if ($tmpl->query(name => $key) eq 'VAR'){
+      my $type = $tmpl->query(name => $key);
+      if ( $type && $type eq 'VAR' ) {
 	$tmpl->param($key,$object->param($key));
       }
     }
@@ -303,18 +328,16 @@ sub _html_clean {
 sub _include_components {
   my ($view, $page_id, $html_code_ref, $pkit_view) = @_;
 
-  my $pattern = qr!(\s+(\w+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\w+)))!; #"
-  $$html_code_ref =~ s%<\s*PKIT_COMPONENT($pattern+)\s*/?>(</PKIT_COMPONENT>)?%&get_component($page_id,$1,$view,$pkit_view)%eig;
-
-#  my @component_ids = keys %component_ids;
-#  return \@component_ids;
-
+  if ( $view->{relaxed_parser} eq 'yes' ) {
+    $$html_code_ref =~ s%<(!--)?\s*PKIT_COMPONENT($key_value_pattern+)\s*/?(?(1)--)?>(?:<(!--)?\s*/PKIT_COMPONENT\s*(?(1)--)>)?%get_component($page_id,$2,$view,$pkit_view)%eig;
+  } else {
+    $$html_code_ref =~ s%<\s*PKIT_COMPONENT($key_value_pattern+)\s*/?>(<\s*/PKIT_COMPONENT\s*>)?%&get_component($page_id,$1,$view,$pkit_view)%eig;
+  }
   sub get_component {
     my ($page_id, $params, $view, $pkit_view) = @_;
-   my $pattern = qr!(\s+(\w+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\w+)))!; #"
-   my %params = ();
+    my %params = ();
 
-    while($params =~ m!$pattern!ig) {
+    while($params =~ m!$key_value_pattern!ig) {
       $params{uc($2)} = $+;
     }
 
@@ -333,8 +356,8 @@ sub _include_components {
       die "Likely recursive PKIT_COMPONENTS for component_id $component_id and giving up.";
     }
 
-    my $template_ref = $view->_load_component($page_id, $component_id, $pkit_view);
-    $$template_ref =~ s!<\s*PKIT_MACRO$pattern\s*/?>!$params{uc($+)}!egi if (keys %params);
+    my $template_ref = $view->_load_component($page_id, $component_id, $pkit_view, \%params);
+    $$template_ref =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$params{uc($+)}!egi if (keys %params);
     return $$template_ref;
   }
 }
@@ -372,7 +395,7 @@ sub _is_record_uptodate {
 
 # here the usage of "component" also includes page
 sub _load_component {
-  my ($view, $page_id, $component_id, $pkit_view) = @_;
+  my ($view, $page_id, $component_id, $pkit_view, $component_params) = @_;
 
   my $template_file = $view->_find_template($pkit_view, $component_id);
   my $template_ref;
@@ -380,7 +403,7 @@ sub _load_component {
   unless($template_file){
     # no template file exists, attempt to generate from XML and XSL files
     # currently only XML::LibXSLT is supported
-    $template_ref = $view->{content}->generate_template($page_id, $component_id, $pkit_view, $view->{input_param_object});
+    $template_ref = $view->{content}->generate_template($page_id, $component_id, $pkit_view, $view->{input_param_object}, $component_params);
   } else {
     open TEMPLATE, "$template_file";
     local($/) = undef;
@@ -422,7 +445,8 @@ sub _load_page {
   my $content = $view->{content} ||= Apache::PageKit::Content->new(
 						     content_dir => $view->{content_dir},
 						     view_dir => $view->{view_dir},
-						     default_lang => $view->{default_lang});
+						     default_lang => $view->{default_lang},
+                                                     relaxed_parser => $view->{relaxed_parser});
 
   $view->{lang_tmpl} = $content->{lang_tmpl} = {};
   $content->{include_mtimes} = {};
@@ -511,50 +535,90 @@ sub _load_page {
 }
 
 sub _preparse_model_tags {
-  my ($view, $html_code_ref) = @_;
+  my ( $view, $html_code_ref ) = @_;
 
   my $exclude_params_set = {};
 
   # "compile" PageKit templates into HTML::Templates
-  $$html_code_ref =~ s!<MODEL_(VAR|LOOP|IF|ELSE|UNLESS)!<TMPL_$1!sig;
-  $$html_code_ref =~ s!</MODEL_(LOOP|IF|UNLESS)!</TMPL_$1!sig;
+  if ( $view->{relaxed_parser} eq 'yes' ) {
 
-  # XML-style stand-alone tags
-  $$html_code_ref =~ s!<(TMPL_.*?)/>!<$1>!sig;
+    # new parser
 
-  # tags generated by XSLT
-  $$html_code_ref =~ s!</(MODEL|PKIT)_VAR>!!ig;
+    # the new parser is a lot more flexible over the old one. it can parse
 
-  $$html_code_ref =~ s!<PKIT_SELFURL( +exclude=('|")(.*?)('|"))? */?>!&process_selfurl_tag($exclude_params_set, $3)!eig;
+    # <MODEL_VAR NAME=abc>
+    # <MODEL_VAR NAME=abc/>
+    # <MODEL_VAR NAME=abc   />
+    # <   MODEL_VAR NAME=abc   >
+    # <!--   MODEL_VAR NAME=abc   -->
+    # <!--MODEL_VAR NAME=abc   -->
+    # <!--   MODEL_VAR NAME=abc   /-->
 
-  $$html_code_ref =~ s!<PKIT_ERRORFONT (NAME=)?"?([^"]*?)"?>(.*?)</PKIT_ERRORFONT>!<TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_$2">$3<TMPL_VAR NAME="PKIT_ERRORFONT_END_$2">!sig;
-  $$html_code_ref =~ s!<PKIT_HOSTNAME/?>!<TMPL_VAR NAME="PKIT_HOSTNAME">!ig;
+    # all these are valid and expanded. it is slower than the old one but if it works relaible
 
-  $$html_code_ref =~ s!<PKIT_MESSAGES>!<TMPL_LOOP NAME="PKIT_MESSAGES">!ig;
-  $$html_code_ref =~ s!<PKIT_IS_ERROR>!<TMPL_IF NAME="PKIT_IS_ERROR">!ig;
-  $$html_code_ref =~ s!</PKIT_IS_ERROR>!</TMPL_IF>!ig;
-  $$html_code_ref =~ s!<PKIT_MESSAGE/?>!<TMPL_VAR NAME="PKIT_MESSAGE">!ig;
-  $$html_code_ref =~ s!</PKIT_MESSAGES>!</TMPL_LOOP>!ig;
+    if ( $$html_code_ref =~ m%<(!--)?\s*PKIT_(?:VAR|LOOP|IF|UNLESS)(?:$key_value_pattern)*\s*/?(?(1)--)>%i ) {
+      warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, or PKIT_MESSAGE instead";
+    }
 
-  $$html_code_ref =~ s!<PKIT_VIEW +NAME *= *('|")?(.*?)('|")? *>!<TMPL_IF NAME="PKIT_VIEW:$2">!sig;
-  $$html_code_ref =~ s!</PKIT_VIEW>!</TMPL_IF>!ig;
+    # remove tags
+    # tags generated by XSLT
+    $$html_code_ref =~ s%<(!--)?\s*/(?:MODEL|PKIT)_VAR\s*(?(1)--)>%%sig;
 
-  if($$html_code_ref =~ m!<PKIT_(VAR|LOOP|IF|UNLESS) (.*?)>!){
-    warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, or PKIT_MESSAGE instead";
+    # translate end to tmpl
+    $$html_code_ref =~ s%<(!--)?\s*/(?:MODEL|PKIT)_(LOOP|IF|UNLESS)\s*(?(1)--)>%</TMPL_$2>%sig;
+
+    # XML-style stand-alone tags and other start tags
+    $$html_code_ref =~ s%<(!--)?\s*(?:MODEL|PKIT)_(VAR|LOOP|IF|ELSE|UNLESS)($key_value_pattern*)\s*/?(?(1)--)>%<TMPL_$2$3>%sig;
+
+    $$html_code_ref =~
+      s%<(!--)?\s*PKIT_SELFURL$key_value_pattern?\s*/?(?(1)--)>% &process_selfurl_tag($exclude_params_set, $4 || $5 || $6 || $3 ) %seig;
+
+    $$html_code_ref =~ s%<(!--)?\s*/PKIT_(VIEW|IS_ERROR|MESSAGES)\s*(?(1)--)>%    $replace_end_tags{uc($2)}   %seig;
+    $$html_code_ref =~ s%<(!--)?\s*PKIT_(MESSAGES|IS_ERROR)\s*(?(1)--)>%          $replace_start_tags{uc($2)} %seig;
+    $$html_code_ref =~ s%<(!--)?\s*PKIT_(HOSTNAME|MESSAGE|REALURL)\s*/?(?(1)--)>% $replace_start_tags{uc($2)} %seig;
+
+    $$html_code_ref =~
+      s^<(!--)?\s*PKIT_VIEW$key_value_pattern\s*/?(?(1)--)>^ sprintf '<TMPL_IF NAME="PKIT_VIEW:%s">', $4 || $5 || $6 || $3; ^sieg; #"
+    $$html_code_ref =~
+      s^<(!--)?\s*PKIT_ERRORFONT$key_value_pattern(?(1)--)\s*>(.*?)<(!--)?\s*/PKIT_ERRORFONT\s*(?(8)--)>^ my $font = $4 || $5 || $6 || $3; qq{<TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_$font">$7<TMPL_VAR NAME="PKIT_ERRORFONT_END_$font">}; ^seig;
+
   }
+  else {
 
-#  $$html_code_ref =~ s!<PKIT_(VAR|LOOP|IF|UNLESS) +NAME *= *("?)__(FIRST|INNER|ODD|LAST)!<TMPL_$1 NAME=$2__$3!sig;
-#  $$html_code_ref =~ s!<PKIT_(VAR|LOOP|IF|UNLESS) +NAME *= *("?)!<TMPL_$1 NAME=$2PKIT_!sig;
-  $$html_code_ref =~ s!<PKIT_ELSE!<TMPL_ELSE!sig;
-  $$html_code_ref =~ s!</PKIT_(LOOP|IF|UNLESS)!</TMPL_$1!sig;
+      if ( $$html_code_ref =~ m%<PKIT_(?:VAR|LOOP|IF|UNLESS)(?:$key_value_pattern)*/?>%i ) {
+      warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, or PKIT_MESSAGE instead";
+    }
+
+    # remove tags
+    # tags generated by XSLT
+    $$html_code_ref =~ s%</(?:MODEL|PKIT)_VAR>%%sig;
+
+    # translate end to tmpl
+    $$html_code_ref =~ s%</(?:MODEL|PKIT)_(LOOP|IF|UNLESS)>%</TMPL_$1>%sig;
+
+    # XML-style stand-alone tags and other start tags
+    $$html_code_ref =~ s%<(?:MODEL|PKIT)_(VAR|LOOP|IF|ELSE|UNLESS)($key_value_pattern*)/?>%<TMPL_$1$2>%sig;
+
+    $$html_code_ref =~
+      s%<PKIT_SELFURL$key_value_pattern?/?>% &process_selfurl_tag($exclude_params_set, $3 || $4 || $5 || $2 ) %seig;
+
+    $$html_code_ref =~ s%</PKIT_(VIEW|IS_ERROR|MESSAGES)>%    $replace_end_tags{uc($1)}   %seig;
+    $$html_code_ref =~ s%<PKIT_(MESSAGES|IS_ERROR)>%          $replace_start_tags{uc($1)} %seig;
+    $$html_code_ref =~ s%<PKIT_(HOSTNAME|MESSAGE|REALURL)/?>% $replace_start_tags{uc($1)} %seig;
+
+    $$html_code_ref =~
+      s^<PKIT_VIEW$key_value_pattern/?>^ sprintf '<TMPL_IF NAME="PKIT_VIEW:%s">', $3 || $4 || $5 || $2; ^sieg; #"
+    $$html_code_ref =~
+      s^<PKIT_ERRORFONT$key_value_pattern>(.*?)</PKIT_ERRORFONT>^ my $font = $3 || $4 || $5 || $2; qq{<TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_$font">$6<TMPL_VAR NAME="PKIT_ERRORFONT_END_$font">}; ^seig;
+
+  }
 
   my @a = keys %$exclude_params_set;
   return \@a;
 
   sub process_selfurl_tag {
-    my ($exclude_params_set, $exclude_params) = @_;
-    $exclude_params = defined($exclude_params) ?
-      join(" ",sort split(/\s+/,$exclude_params)) : "";
+    my ( $exclude_params_set, $exclude_params ) = @_;
+    $exclude_params = defined($exclude_params) ? join ( " ", sort split ( /\s+/, $exclude_params ) ) : "";
     $exclude_params_set->{$exclude_params} = 1;
     return qq{<TMPL_VAR NAME="pkit_selfurl$exclude_params">};
   }

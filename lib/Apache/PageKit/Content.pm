@@ -1,12 +1,12 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.28 2001/06/04 20:46:35 tjmather Exp $
+# $Id: Content.pm,v 1.32 2001/10/23 21:49:55 borisz Exp $
 
 use strict;
 
 use vars qw($CONTENT $PKIT_VIEW $COMPONENT_ID_DIR $PAGE_ID $INCLUDE_MTIMES);
 
-sub new($$) {
+sub new {
   my $class = shift;
   my $self = { @_ };
   bless $self, $class;
@@ -14,7 +14,7 @@ sub new($$) {
 }
 
 sub generate_template {
-  my ($content, $page_id, $component_id, $pkit_view, $input_param_obj) = @_;
+  my ($content, $page_id, $component_id, $pkit_view, $input_param_obj, $component_params) = @_;
 
   unless(exists $INC{'XML/LibXML.pm'}){
     require XML::LibXML;
@@ -70,7 +70,7 @@ sub generate_template {
 
   my @params = map { $_, $input_param_obj->param($_) } $input_param_obj->param ;
 
-  my $results = $stylesheet->transform($source, @params);
+  my $results = $stylesheet->transform($source, @params, %$component_params);
 
 #  my $content_type = $stylesheet->media_type;
 #  my $encoding = $stylesheet->output_encoding;
@@ -86,14 +86,17 @@ sub process_template {
   my $lang_tmpl = {};
   $INCLUDE_MTIMES = {};
 
-  if($$template_ref =~ m!<CONTENT_(VAR|LOOP|IF|UNLESS) !i){
+  # this pattern is not very accurate, but only as quick check if a run of XPathTemplate is needed
+  my $content_pattern = ( $content->{relaxed_parser} eq 'yes' ) ? '<(?:!--)?\s*CONTENT_(VAR|LOOP|IF|UNLESS)\s+' : '<CONTENT_(VAR|LOOP|IF|UNLESS)\s+';
+  if($$template_ref =~ m!$content_pattern!i){
     # XPathTemplate template
 
-    my $xpt = XML::XPathTemplate->new(default_lang => $content->{default_lang},
-					root_dir => $content->{content_dir});
+    my $xpt = XML::XPathTemplate->new(default_lang   => $content->{default_lang},
+				      root_dir       => $content->{content_dir},
+                                      relaxed_parser => $content->{relaxed_parser});
 
     $lang_tmpl = $xpt->process_all_lang(xpt_scalarref => $template_ref,
-					xml_filename => "$component_id.xml");
+					xml_filename  => "$component_id.xml");
     my $file_mtimes = $xpt->file_mtimes;
     while (my ($k, $v) = each %$file_mtimes){
       $content->{include_mtimes}->{$k} = $v;

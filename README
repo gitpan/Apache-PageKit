@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 1.06 (Alpha)
+	Version: 1.07 (Beta)
 
 Description
 -----------
@@ -37,7 +37,7 @@ Requirements
 ------------
 	- perl 5.005 or greater
 	- mod_perl 1.24_01 (lastest version requir'd for make test only)
-	- Apache 1.3.x compiled _without_ expat
+	- Apache 1.3.x compiled _without_ expat (1.3.21 or higher recommended)
 	- libapreq
 	- Apache::Session 1.5
 	- Compress::Zlib
@@ -73,7 +73,11 @@ Recommended
 Installation
 ------------
 	First you must have a mod_perl enabled apache server _without_
-	expat compiled in.  That is you should supply the option
+	expat compiled in.  Apache 1.3.21 and above do not include
+	expat if you already have expat installed.
+
+	However, if you are using a version below 1.3.21, then
+	you should supply the option
 	--disable-rule=EXPAT to ./configure when you build Apache.  Alternatively
 	if you build Apache with mod_perl, it will supply this option
 	automatically for you.  For more information on the expat conflict,

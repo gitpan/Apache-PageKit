@@ -1,6 +1,27 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.07
+	- Fixed language localisation (Boris Zentner)
+        - More Warnings fixed (Boris Zentner)
+        - Add new parser, it is faster as before and the new option
+		relaxed_parser = "yes" enables a more relaxed but slower parser
+                if you like (Boris Zentner, Ben Ausden, Daniel Gardner)
+        - Fixed default for default_page (Boris Zentner)
+        - Append the default_page to the url if url is a directory (Rob Starkey)
+        ! New global option logout_kills_session. Defaults to 'yes'.
+        	The behavior before this option was no (Rob Falcon)
+        - Fixed head requests for gzipped static files (Boris Zentner)
+        - Improved security for recent='yes' pages (Boris Zentner)
+        - PKIT_COMPONENT macros are also available
+        	for XSLT with <xsl:param name="..."> (Ben Ausden)
+        ! The return code from pagecode is completely ignored. If you have to set a
+		return code use pkit_status_code (Boris Zentner)
+	- Fixed form_validation_done in the eg/site's MyModel code. (Michael Cook)
+        - Fixed restricted page login if the user was not logged
+        	in before (Boris Zentner)
+        ! Anonymous sessions are created lazy as in pkit <= 1.05 (Boris Zentner)
+
 1.06
 	- empty parameters are stripped from the requested url
 		ie: http://www.xyz.de/test?=& (Boris Zentner)

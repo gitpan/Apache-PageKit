@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.122 2001/09/19 05:22:39 tjmather Exp $
+# $Id: PageKit.pm,v 1.147 2001/11/02 10:46:38 borisz Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -34,7 +34,7 @@ use Apache::PageKit::Config ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.06';
+$VERSION = '1.07';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -42,7 +42,7 @@ $VERSION = '1.06';
 				     xml => 'application/xml');
 
 # in httpd.conf file
-sub startup ($$$) {
+sub startup {
   my ($class, $pkit_root, $server) = @_;
 
   die 'must specify $server variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)' unless $server;
@@ -104,13 +104,19 @@ sub handler ($$){
     $status_code = $pk->prepare_page;
     my $use_template = $config->get_page_attr($pk->{page_id},'use_template') || 'yes' if ($status_code eq OK);
     if ($status_code eq OK && $use_template ne 'no'){
-      $pk->open_view;
-      for my $component_id (@{$view->{record}->{component_ids}}){
-	$pk->component_code($component_id);
+      COMPONENT: {
+        $pk->open_view;
+        for my $component_id (@{$view->{record}->{component_ids}}){
+	  $pk->component_code($component_id);
+          if ( defined $pk->{status_code} ) {
+            $status_code = $pk->{status_code};
+            last COMPONENT;
+          }
+        }
+        $model->pkit_post_common_code if $model->can('pkit_post_common_code');
+        $pk->set_session_cookie;
+        $pk->prepare_and_print_view;
       }
-      $model->pkit_post_common_code if $model->can('pkit_post_common_code');
-      $pk->set_session_cookie;
-      $pk->prepare_and_print_view;
     }
     $model->pkit_cleanup_code if $model->can('pkit_cleanup_code');
   };
@@ -126,7 +132,7 @@ sub handler ($$){
   }
 
   delete $pk->{session};
-  return $status_code;
+  return $status_code || OK;
 }
 
 # called in case die is trapped by eval
@@ -273,9 +279,9 @@ sub prepare_page {
 
   $pk->{page_id} = $uri;
 
-  # add index for pageid with trailing slash "/"
+  # add the default_page for pageid with trailing slash "/"
   # WARNING - this is undocumented and may go away at anytime
-  $pk->{page_id} =~ s!(.+)/$!$1/index!;
+  $pk->{page_id} =~ s!^(.*?)/+$! "$1/" . $model->pkit_get_default_page !e;
 
   # get rid of leading forward slash
   $pk->{page_id} =~ s(^/+)();
@@ -290,7 +296,15 @@ sub prepare_page {
     # first try to see if we can find a static file that we
     # can return
     my $filename = $pk->static_page_exists($pk->{page_id});
-    unless($filename){
+    unless($filename) {{
+
+      if ($pk->is_directory($pk->{page_id})) {
+        $pk->{page_id} .= '/' . $model->pkit_get_default_page;
+        last if ($pk->page_exists($pk->{page_id}));
+	$filename = $pk->static_page_exists($pk->{page_id});
+        last if ($filename);
+      }
+
       $pk->{page_id} = ($config->uri_match($pk->{page_id})
 	|| $config->get_global_attr('not_found_page'))
 	  || $model->pkit_get_default_page;
@@ -298,7 +312,7 @@ sub prepare_page {
 	# if not_found_page is static, the return DECLINED...
 	$filename = $pk->static_page_exists($pk->{page_id});
       }
-    }
+    }}
     if ($filename){
       require MIME::Types;
       my ($media_type, $content_encoding) = MIME::Types::by_suffix($filename);
@@ -309,7 +323,7 @@ sub prepare_page {
           if ($gzipped){
             $apr->content_encoding("gzip");
             $apr->send_http_header;
-            $apr->print($gzipped);
+            $apr->print($gzipped) unless $apr->header_only;
             return DONE;
           }
         }
@@ -329,7 +343,9 @@ sub prepare_page {
     # goto home page when user logouts (if from page that requires login)
     my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
     if (defined($require_login) && $require_login =~ m!^(yes|recent)$!){
-      $pk->{page_id} = $config->get_global_attr('default_page');
+      #$pk->{page_id} = $config->get_global_attr('default_page');
+      $pk->{page_id} = $model->pkit_get_default_page;
+
     }
     $model->pkit_message("You have successfully logged out.");
   } else {
@@ -398,7 +414,6 @@ sub prepare_page {
       $pk->{page_id} = $config->get_global_attr('login_page');
       $output_param_object->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
       $model->pkit_message("This page requires a login.");
-      $pk->logout;
     }
   }
 
@@ -410,8 +425,13 @@ sub prepare_page {
     $session->{'pkit_lang'} = $lang if $session;
   } elsif ( $session && ! exists $pk->{is_new_session} ){
     $lang = $session->{'pkit_lang'} if exists $session->{'pkit_lang'};
-  } elsif ( $accept_lang = $apr->header_in('Accept-Language') ) {
-    $lang = substr($accept_lang, 0, 2);
+  }
+
+  # if we have no lang setting here look what the browser likes most.
+  unless ($lang) {
+    if ( $accept_lang = $apr->header_in('Accept-Language') ) {
+      $lang = substr($accept_lang, 0, 2);
+    }
   }
 
   $lang ||= $config->get_global_attr('default_lang') || 'en';
@@ -424,11 +444,9 @@ sub prepare_page {
   $model->pkit_common_code if $model->can('pkit_common_code');
 
   # run the page code!
-  my $status_code = $pk->page_code;
-  $status_code ||= $pk->{status_code};
-  if(defined($status_code) && ($status_code eq REDIRECT || $status_code eq DONE)){
-    return $status_code;
-  }
+  $pk->page_code;
+  # check for the statuscode that can be set with $model->pkit_status_code
+  return $pk->{status_code} if ( defined $pk->{status_code} );
 
   # add pkit_message from previous page, if that pagekit did a pkit_redirect
   if(my @pkit_messages = $apr->param('pkit_messages')){
@@ -502,12 +520,15 @@ sub prepare_and_print_view {
 
   # set view fillinform_objects and associated_objects, if approriate
   my $fill_in_form = $config->get_page_attr($page_id,'fill_in_form') || 'yes';
-  if($fill_in_form ne 'no'){
-    # $apr comes first, so that fillinform overrides request parameters
-    $view->{fillinform_objects} = [$apr, $pk->{fillinform_object}];
-  } else {
-    $view->{fillinform_objects} = [$pk->{fillinform_object}];
+
+  # $apr comes first, so that fillinform overrides request parameters
+  my @fillinform_objects_array = ( $apr, $pk->{fillinform_object} );
+  if ( $fill_in_form eq 'no' ) {
+    # we want only the $pk->{fillinform_object} object
+    shift @fillinform_objects_array;
   }
+  $view->{fillinform_objects} = [ grep {$_->param} @fillinform_objects_array ];
+
   my $page_rpit = $config->get_page_attr($page_id,'request_param_in_tmpl') || '';
   my $global_rpit = $config->get_global_attr('request_param_in_tmpl') || 'no';
   if($page_rpit eq 'yes' || ($page_rpit ne 'no' &&
@@ -683,8 +704,8 @@ sub new {
   my $reload = $config->get_server_attr('reload') || 'no';
 
   my $cache_dir = $config->get_global_attr('cache_dir');
-  my $view_cache_dir = $cache_dir ? $cache_dir . '/pkit_cache' :
-    $pkit_root . '/View/pkit_cache';
+  my $view_cache_dir = $cache_dir ? $cache_dir . '/pkit_cache' : $pkit_root . '/View/pkit_cache';
+  my $relaxed_parser = $config->get_global_attr('relaxed_parser') || 'no';
 
   $self->{view} = Apache::PageKit::View->new(view_dir => "$pkit_root/View",
 					     content_dir => "$pkit_root/Content",
@@ -697,6 +718,7 @@ sub new {
 					     input_param_object => $apr,
 					     output_param_object => $self->{output_param_object},
 					     can_edit => $can_edit,
+                                             relaxed_parser => $relaxed_parser,
 					    );
 
   return $self;
@@ -746,12 +768,15 @@ sub page_code {
 
   my @subs = grep { $_ } ( $default_code_perl_sub, $pk->page_sub );
   return $pk->call_model_code(@subs) if (@subs);
-  return 1;
+  return;
 }
 
 sub component_code {
   my $pk = shift;
   my $component_id = shift;
+
+  #remove any leading /
+  $component_id =~ s!^/+!!;
 
   # change all the / to ::
   $component_id =~ s!/!::!g;
@@ -761,11 +786,10 @@ sub component_code {
 
   my $model_dispatch_prefix = $pk->{config}->get_global_attr('model_dispatch_prefix');
 
-  no strict 'refs';
   my $perl_sub = $model_dispatch_prefix . '::' . $component_id;
 
   return $pk->call_model_code($perl_sub) if (defined &{$perl_sub});
-  return 1;
+  return;
 }
 
 # calls code from user module in Model
@@ -782,8 +806,9 @@ sub call_model_code {
 
     # dispatch message to model class
     no strict 'refs';
-    my $status_code = $dispatch_model->$method();
-    return $status_code if (defined $status_code);
+    $dispatch_model->$method();
+    # for the case, that someone has set this -- with $model->pkit_status_code
+    return if ( defined $pk->{status_code} );
   }
 }
 
@@ -792,15 +817,10 @@ sub login {
 
   my $apr = $pk->{apr};
   my $config = $pk->{config};
-  my $session = $pk->{session};
   my $model = $pk->{model};
 
   my $remember = $apr->param('pkit_remember');
-  my $done = $apr->param('pkit_done') || $apr->notes('orig_uri');
-
-  unless($done){
-    $model->pkit_get_default_page;
-  }
+  my $done = $apr->param('pkit_done') || $apr->notes('orig_uri') || $model->pkit_get_default_page;
 
   unless($model->can('pkit_auth_credential')){
     die "Must set pkit_auth_credential in your model base class";
@@ -810,13 +830,42 @@ sub login {
   $ses_key || return 0;
 
   # allow user to view pages with require_login eq 'recent'
-  if(exists $pk->{session}){
-    unless($pk->{is_new_session}){
-      delete $pk->{session}->{pkit_inactivity_timeout};
-      $pk->{session}->{pkit_last_activity} = time();
+  my $session_id;
+  if(defined $pk->{session}){
+    $session_id = tied(%{$pk->{session}})->getid;
+    if ( $session_id ) {
+      unless ( $pk->{is_new_session} ) {
+        delete $pk->{session}->{pkit_inactivity_timeout};
+        $pk->{session}->{pkit_last_activity} = time;
+      }
       # save session
       delete $pk->{session};
     }
+  }
+  # this call can't fail it is already verified by pkit_auth_credential
+  my ($auth_user, $auth_session_id) = $model->pkit_auth_session_key($ses_key);
+
+ # watch if session was the session we search for, if not get the auth_session
+  if (!$session_id || $auth_session_id ne $session_id) {
+    my $ss = $model->pkit_session_setup;
+    my %auth_session;
+    # get new session assoc with login
+    tie %auth_session, 'Apache::PageKit::Session', $auth_session_id,
+      {
+         Lock => $ss->{session_lock_class},
+         Store => $ss->{session_store_class},
+         Generate => 'MD5',
+         Serialize => 'Storable',
+         create_unknown => 1,
+         lazy => 0,
+         %{$ss->{session_args}}
+      };
+
+    delete $auth_session{pkit_inactivity_timeout};
+    $auth_session{pkit_last_activity} = time;
+
+    # save session
+    untie %auth_session;
   }
 
   my $cookie_domain_str = $config->get_server_attr('cookie_domain');
@@ -896,18 +945,22 @@ sub logout {
 
   my %cookies = Apache::Cookie->fetch;
 
-  return unless defined $cookies{'pkit_id'};
+  my $logout_kills_session = $pk->{config}->get_global_attr('logout_kills_session') || 'yes';
+  my @cookies_to_kill = ( $cookies{pkit_id} );
+  push @cookies_to_kill, $cookies{pkit_session_id} if $logout_kills_session eq 'yes';
 
   my $cookie_domain = $pk->{config}->get_server_attr('cookie_domain');
-  my @cookie_domains = defined($cookie_domain) ? split(' ',$cookie_domain) :
-    (undef);
-  for my $cookie_domain (@cookie_domains){
-    my $tcookie = $cookies{'pkit_id'};
-    $tcookie->value("");
-    $tcookie->path("/");
-    $tcookie->domain($cookie_domain) if $cookie_domain;
-    $tcookie->expires('-5y');
-    $tcookie->bake;
+  my @cookie_domains = defined($cookie_domain) ? split(' ',$cookie_domain) : (undef);
+
+  for my $tcookie (@cookies_to_kill){
+    next unless $tcookie;
+    for my $cookie_domain (@cookie_domains){
+      $tcookie->value("");
+      $tcookie->path("/");
+      $tcookie->domain($cookie_domain) if $cookie_domain;
+      $tcookie->expires('-5y');
+      $tcookie->bake;
+    }
   }
 }
 
@@ -953,7 +1006,7 @@ sub setup_session {
    Generate => 'MD5',
    Serialize => 'Storable',
    create_unknown => 1,
-   lazy => 0,
+   lazy => 1,
    %{$ss->{session_args}}
   };
 
@@ -976,10 +1029,6 @@ sub setup_session {
     # user must have just logged in, so we must merge session objects!
     $pk->{model}->pkit_merge_sessions(\%session,\%auth_session);
 
-    # update pkit_last_activity and delete pkit_inactivity_timeout so we dont need to login and login and ...
-    $auth_session{pkit_last_activity} = time() if exists ( $auth_session{pkit_last_activity} );
-    delete $auth_session{pkit_inactivity_timeout};
-
     # permanently remove old session from storage
     tied(%session)->delete;
     untie(%session);
@@ -987,8 +1036,8 @@ sub setup_session {
     undef(%session);
 
     # unset cookie for old session
-    my @cookie_domains = split(' ',$pk->{config}->get_server_attr('cookie_domain'));
-    @cookie_domains = (undef) if @cookie_domains == 0;
+    my $cookie_domain_str = $pk->{config}->get_server_attr('cookie_domain');
+    my @cookie_domains = defined($cookie_domain_str) ? split(' ',$cookie_domain_str) : (undef);
     for my $cookie_domain (@cookie_domains){
       my $cookie = Apache::Cookie->new($apr,
 					 -name => 'pkit_session_id',
@@ -1015,8 +1064,8 @@ sub set_session_cookie {
   if(my $session_id = tied(%$session)->getid){
     # something was stored in session
     my $expires = $pk->{config}->get_global_attr('session_expires');
-    my @cookie_domains = split(' ',$pk->{config}->get_server_attr('cookie_domain'));
-    @cookie_domains = (undef) if @cookie_domains == 0;
+    my $cookie_domain_str = $pk->{config}->get_server_attr('cookie_domain');
+    my @cookie_domains = defined($cookie_domain_str) ? split(' ',$cookie_domain_str) : (undef);
     for my $cookie_domain (@cookie_domains){
       my $cookie = Apache::Cookie->new($apr,
 				       -name => 'pkit_session_id',
@@ -1047,13 +1096,27 @@ sub page_exists{
   return 1 if (-f "$pkit_root/Content/$page_id.xml");
 }
 
+sub is_directory {
+  my ($pk, $page_id) = @_;
+
+  # check to see if the page/url is a directory
+  my $apr = $pk->{apr};
+  foreach ($apr->param('pkit_view'), 'Default') {
+    if (defined ($_)) {
+      my $filename = $apr->dir_config('PKIT_ROOT') . '/View/' . $_ . '/' . $page_id;
+      return $filename if (-d "$filename");
+    }
+  }
+  return undef;
+}
+
 sub static_page_exists{
   my ($pk, $page_id) = @_;
   my $apr = $pk->{apr};
   foreach ($apr->param('pkit_view'), 'Default') {
     if (defined ($_)){
       my $filename = $apr->dir_config('PKIT_ROOT') . '/View/' . $_ . '/' . $page_id;
-      return $filename if (-e "$filename");
+      return $filename if (-f "$filename");
     }
   }
   return undef;
@@ -1073,10 +1136,11 @@ In httpd.conf
 
   SetHandler perl-script
   PerlSetVar PKIT_ROOT /path/to/pagekit/files
+  PerlSetVar PKIT_SERVER staging
 
   PerlHandler +Apache::PageKit
   <Perl>
-        Apache::PageKit->startup("/path/to/pagekit/files");
+        Apache::PageKit->startup('/path/to/pagekit/files', 'staging');
   </Perl>
 
 In MyPageKit/Common.pm
@@ -1182,7 +1246,7 @@ This document describes Apache::PageKit module version 1.06
 =head1 NOTES
 
 Requires mod_perl, XML::Parser, HTML::Clean,
-HTML::FillInForm, Form::FormValidator, and HTML::Template.
+HTML::FillInForm, Data::FormValidator, and HTML::Template.
 
 I wrote these modules because I needed an application framework that was based
 on mod_perl and seperated HTML from Perl.  HTML::Embperl, Apache::ASP 
@@ -1204,11 +1268,7 @@ mailing list at http://lists.sourceforge.net/mailman/listinfo/pagekit-users
 
 Support Template-Toolkit templates as well as HTML::Template templates.
 
-Support for exposing Model objects using XML-RPC and/or SOAP.
-
 Support for multiple transformations with stylesheets, and for filters.
-
-Associate sessions with authenticated user ID.
 
 Add more tests to the test suite.
 
@@ -1231,6 +1291,10 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Rob Falcon
   Sheffield Nolan
   David Raimbault
+  Daniel Gardner
+  Rob Starkey
+  Michael Cook
+  Michael Pheasant
 
 Also, thanks to Dan Von Kohorn for helping shape the initial architecture
 and for the invaluable support and advice. 

@@ -1,5 +1,10 @@
 Please remember to BACK UP YOUR FILES before attempting to run migration
 scripts.
+=============================================================
+Migration from 1.06 to 1.07
+
+1. the returncode from your pagecode is now ignored. If you have to set such
+	a code, see $model->pkit_status_code;.
 
 =============================================================
 Migration from 1.05 to 1.06

@@ -1,10 +1,10 @@
 package Apache::PageKit::Param;
 
-# $Id: Param.pm,v 1.4 2001/05/29 00:43:34 tjmather Exp $
+# $Id: Param.pm,v 1.5 2001/10/17 21:58:15 borisz Exp $
 
 use strict;
 
-sub new($$) {
+sub new {
   my $class = shift;
   my $self = {};
   bless $self, $class;

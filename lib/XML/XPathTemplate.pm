@@ -1,6 +1,6 @@
 package XML::XPathTemplate;
 
-# $Id: XPathTemplate.pm,v 1.13 2001/07/13 11:58:40 tjmather Exp $
+# $Id: XPathTemplate.pm,v 1.14 2001/10/01 15:01:58 borisz Exp $
 
 use strict;
 use XML::XPath;
@@ -9,7 +9,17 @@ use HTML::Template;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.05';
+$VERSION = '0.06';
+
+
+# these global vars are initialised and then they are readonly!
+# this is done here mainly for speed.
+use vars qw /$key_value_pattern/;
+
+#                        --------------------- $1 --------------------------
+#                             $2                  $3         $4       $5
+$key_value_pattern = qr!(\s+(\w+)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\w+)))?)!;    #"
+
 
 # public methods
 
@@ -17,7 +27,8 @@ sub new {
   my ($class, @options) = @_;
   my $self = { @options };
   bless $self, $class;
-  $self->{'default_lang'} ||= 'en';
+  $self->{'default_lang'}   ||= 'en';
+  $self->{'relaxed_parser'} ||= 'no';
   return $self;
 }
 
@@ -49,12 +60,30 @@ sub process {
 
   $opt{lang} ||= $xpt->{default_lang};
 
-  $$xpt_template_ref =~ s!<CONTENT_!<TMPL_!ig;
-  $$xpt_template_ref =~ s!</CONTENT_(VAR|ELSE)>!!ig;
-  $$xpt_template_ref =~ s!</CONTENT_!</TMPL_!ig;
+  if ($xpt->{relaxed_parser} eq 'yes') {
 
-  $$xpt_template_ref =~ s!<(TMPL_.*?)/>!<$1>!sig; 
+    # new experimental parser
 
+    # see comments in PageKit::View::_preparse_model_tags
+
+    # remove unneeded tags
+    $$xpt_template_ref =~ s^<(!--)?\s*/CONTENT_(?:VAR|ELSE)\s*(?(1)--)>^^sig;
+
+    # translate all content end tags to tmpl tags
+    $$xpt_template_ref =~ s^<(!--)?\s*/CONTENT_(\w+)\s*(?(1)--)>^</TMPL_$2>^sig;
+
+    $$xpt_template_ref =~ s^<(!--)?\s*CONTENT_(\w+(?:$key_value_pattern)*)\s*/?(?(1)--)>^<TMPL_$2>^sig;
+
+  } else {
+
+      # remove unneeded tags
+    $$xpt_template_ref =~ s^</CONTENT_(?:VAR|ELSE)>^^ig;
+
+    # translate all content end tags to tmpl tags
+    $$xpt_template_ref =~ s^</CONTENT_(\w+)>^</TMPL_$1>^ig;
+
+    $$xpt_template_ref =~ s^<CONTENT_(\w+(?:$key_value_pattern)*)/?>^<TMPL_$1>^ig;
+  }
   $xpt->_fill_in_content($xpt_template_ref, $opt{xml_filename}, $opt{lang}, $opt{check_for_other_lang});
 
   return $xpt->{lang}->{$opt{lang}};
@@ -314,7 +343,8 @@ XML::XPathTemplate - Easy access to XML files using XPath and HTML::Template
 In your perl code:
 
   my $xpt = new XML::XPathTemplate(default_lang => 'en',
-				  root_dir => $root_dir);
+				  root_dir => $root_dir
+                                  relaxed_parser => 'yes');
 
   my $output = $xpt->process(xpt_filename => $xpt_filename,
 			     xml_filename => $xml_filename,
