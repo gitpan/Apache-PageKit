@@ -1,6 +1,14 @@
 Please remember to BACK UP YOUR FILES before attempting to run migration
 scripts.
 =============================================================
+Migration from 1.08 to 1.09
+
+1. Static pages can be protected with the reqire_login attribute in the
+	Config.xml page and section tags. This is enabled by default.
+        If you want backward compatible or you do not want to protect
+        static pages, set the global option protect_static="no".
+
+=============================================================
 Migration from 1.07 to 1.08
 
 1. Remember that you need libxml2 >= 2.4.10, libxslt >= 1.0.9,
@@ -13,7 +21,7 @@ Migration from 1.07 to 1.08
         session_class = 'Apache::PageKit::Session' and
         page_session_class = 'Apache::PageKit::Session'
 
-	this setings choose the old Session class, but the old class
+	this settings choose the old Session class, but the old class
 	might go away in the future.
 
 3. inside the hook pkit_cleanup_code it is impossible to use $model->session

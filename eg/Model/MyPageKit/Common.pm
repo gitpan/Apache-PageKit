@@ -154,7 +154,7 @@ Model classes.
 
 T.J. Mather (tjmather@anidea.com)
 
-Boris Zentner (boris@m2b.de)
+Boris Zentner (boris@id9.de)
 
 =head1 COPYRIGHT
 

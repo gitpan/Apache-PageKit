@@ -29,7 +29,7 @@ msgstr "Vous n'avez pas rempli tous les champs obligatoires. S'il vous plaît veu
 msgid "Your login/password is invalid. Please try again."
 msgstr "Login et Mot de passe incorrect. S'il vous plait, réessayé"
 
-msgid "You did not fill all of the fields.  Please try again."
+msgid "You did not fill all of the fields. Please try again."
 msgstr "Vous n'avez pas remplis tous les champs. S'il vous plait, réessayé"
 
 #

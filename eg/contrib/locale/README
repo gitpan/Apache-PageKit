@@ -41,11 +41,11 @@ are reread on every request. else only on serverstartup or first usage.
 the API:
 
 pkit_gettext($text);
-        translate the text $text and return the translated text.
-        if the text cant be translated, the original text is returned.
+	translate the text $text and return the translated text.
+	if the text cant be translated, the original text is returned.
 
 and pkit_gettext_message($text,...);
-        this is a shortcut for
+	this is a shortcut for
 $model->pkit_message($model->pkit_gettext($text),...);
 
 
@@ -110,7 +110,7 @@ msgstr "Es wurden nicht alle erforderlichen Felder ausgefüllt. Bitte alle
 msgid "Your login/password is invalid. Please try again."
 msgstr "Das Passwort oder der Login ist ungültig. Bitte nocheinmal versuchen"
 
-msgid "You did not fill all of the fields.  Please try again."
+msgid "You did not fill all of the fields. Please try again."
 msgstr "Es wurden nicht all Felder ausgefüllt, bitte nocheinmal versuchen"
 
 #

@@ -250,13 +250,24 @@ Maximum size of file uploads.  Defaults to 100,000,000 (100 MB).
       </para>
      </listitem>
     </varlistentry>
+    <varlistentry id="config.global.protect_static">
+     <term>protect_static</term>
+     <listitem>
+      <para>
+      If set to <emphasis>yes</emphasis> static files can also be protected with the
+      require_login attribute in the SECTION or PAGE tags.
+      Set this option to <emphasis>no</emphasis> to be compatible to PageKit &lt; 1.09.
+      Defaults to <emphasis>yes</emphasis>.
+      </para>
+     </listitem>
+    </varlistentry>
     <varlistentry id="config.global.recent_login_timeout">
      <term>recent_login_timeout</term>
      <listitem>
       <para>
 Seconds that user's session has to be inactive before a user is asked
 to verify a password on pages with the <literal><link linkend="config.page.require_login">require_login</link></literal> attribute
-set to <emphasis>recent</emphasis>.  Defaults to 3600 (1 hour).
+set to <emphasis>recent</emphasis>. Defaults to 3600 (1 hour).
       </para>
      </listitem>
     </varlistentry>
@@ -477,6 +488,10 @@ If set to <emphasis>yes</emphasis>, check for new view, content and config xml f
 on each request.  Should be set to <emphasis>no</emphasis> on production servers.
 Default is <emphasis>no</emphasis>.
       </para>
+      <para>
+      If you change this from <emphasis>no</emphasis> to <emphasis>yes</emphasis> it is
+      certainly that the server must be restarted to notice the change.
+      </para>
      </listitem>
     </varlistentry>
    </variablelist>
@@ -692,6 +707,80 @@ is responsible for sending output.  Default is <emphasis>yes</emphasis>.
      <para>
       This method will probably be replaced when request-based sessions
       are implemented.
+     </para>
+    </refsect1>
+   </refentry>
+      <refentry id="model.api.pkit_on_error">
+    <refnamediv>
+     <refname>pkit_on_error</refname>
+     <refpurpose>
+      Can be used to catch any fatal error condition.
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+
+  ## inside your Common.pm, maybe also in your Modelclass to overwrite the one in Common.pm
+
+  sub pkit_on_error {
+    my ( $model, $err ) = @_;
+    my $page_id = $model->pkit_get_page_id;
+
+    if ( $err =~ /DBI/ ) {
+      # prevent endless loop if the error happened on our errorpage.
+      return $err if ( $page_id =~ /db_error_page$/ );
+      $model->pkit_redirect('db_error_page');
+      return;
+    }
+
+    $model->pkit_message( $err );
+    my $default_page = $model->pkit_get_default_page;
+    return $err if ( $page_id =~ /^$default_page$/ );
+    $model->pkit_redirect($default_page);
+    return;
+  }
+
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+
+pkit_on_error main purpose is to catch errors for some reason. Maybe you can not
+ get a database connection or your page can not be delivered in a special
+ charset or anywhere inside your modelcode an uncatched die "for unknown
+ reason"; is executed.
+</para>
+<para>
+If nowhere else in your code this error is handled, pkit_on_error is called
+ with the error message as second parameter and model as the first. This is
+ your chance to deliver a working page. At best with pkit_redirect or pkit_send.
+</para>
+<para>
+If an error happened inside pkit_on_error it is passed thru Apache and you get the internal server
+ error as before. pkit_on_error returns the error_msg that is logged. So you
+ can change the messsage if you like. If the returned error_msg is '' or undef
+ nothing is logged and pkit assumes, that the error is repaired. If you like
+ to log anyway add a warn $error_msg"; inside your pkit_on_error routine.
+</para>
+<para>
+Also pkit_on_error is no replacement for Apache::ErrorReport. pkit_on_error
+ is more a runtime error catcher for most cases. A::E reports errors more
+ clear with stacktrace and so on. Both can happy live together.
+</para>
+<para>
+Another advantage is that you need only pkit_on_error to catch the error even
+ if your application has millions of cases where it could fail. There is no
+ need to catch them all.
+</para>
+<para>
+If pkit_on_error is not defined in your modelclass or Common.pm, it is not used.
+</para>
+<para>
+pkit_on_error catch only fatal errors (die) NOT warnings.
+</para>
+<para>
+If your code likes to throw an error let it die.
      </para>
     </refsect1>
    </refentry>
@@ -1788,7 +1877,9 @@ Gets the session id
     </refnamediv>
     <refsynopsisdiv>
      <synopsis>
-  # the following two line are equivalent
+  # the following two line are equivalent, with one difference, if the session does
+  # not exist already then the second line creates a new session. The first line
+  # does not.
   my $session_id = $model->pkit_get_session_id;
   my $session_id = $model->session->{_session_id};
      </synopsis>
@@ -1973,6 +2064,10 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
       <para>
        If the XPath query in the name attribute returns a true value, then the text
        enclosed by the CONTENT_IF tag will be included in the template.
+      </para>
+      <para>
+      Please note: if you ask for loop_context_vars like (__first__, __odd__, __inner__ or __last__)
+      that they must be written in lowercase!.
       </para>
      </refsect1>
     </refentry>

@@ -34,7 +34,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.08';
+$VERSION = 1.08_01;
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -45,9 +45,15 @@ $VERSION = '1.08';
 sub startup {
   my ($class, $pkit_root, $server) = @_;
 
-  die 'must specify $server variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)' unless $server;
-
   my $s = Apache->server;
+
+  if ( defined $mod_perl::VERSION && $mod_perl::VERSION >= 1.26 ) {
+    $pkit_root = $s->dir_config('PKIT_ROOT')   || die "PKIT_ROOT is not defined! Put PerlSetVar PKIT_ROOT /your/root/path in your httpd.conf";
+    $server    = $s->dir_config('PKIT_SERVER') || die "PKIT_SERVER is not defined! Put PerlSetVar PKIT_SERVER servername in your httpd.conf";
+  } else {
+    $pkit_root || die 'must specify $pkit_root variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)';
+    $server    || die 'must specify $server variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)';
+  }
 
   # get user and group as specified by User and Group directives
   my $uid = $s->uid;
@@ -61,6 +67,10 @@ sub startup {
   my $config = Apache::PageKit::Config->new(config_dir => $config_dir,
 					    server => $server);
   $config->parse_xml;
+
+  die "No config data for your server '$server' maybe you mistyped something?"
+    unless exists $Apache::PageKit::Config::server_attr->{$config_dir}->{$server};
+
   my $cache_dir = $config->get_global_attr('cache_dir');
   my $view_cache_dir = $cache_dir ? $cache_dir . '/pkit_cache' :
     $pkit_root . '/View/pkit_cache';
@@ -164,7 +174,7 @@ sub handler ($$){
   };
   if($@){
     if($pk){
-      $pk->fatal_error($@);
+      $status_code = $pk->_fatal_error($@);
     } else {
       if(exists $INC{'Apache/ErrorReport.pm'}){
 	Apache::ErrorReport::fatal($@);
@@ -177,15 +187,27 @@ sub handler ($$){
 }
 
 # called in case die is trapped by eval
-sub fatal_error {
+sub _fatal_error {
   my ($pk, $error) = @_;
-  delete @$pk{qw/session page_session/};
   my $model = $pk->{model};
+  eval {
+    $error = $model->pkit_on_error($error) if $model->can('pkit_on_error');
+  };
+  # just in case we die again inside pkit_on_error
+  $error = $@ if ($@);
+
+  # save changes
+  delete @$pk{qw/session page_session/};
+
+  # the session and page_session references can not be used
+  # inside pkit_cleanup_code -- they are already deleted
   $model->pkit_cleanup_code if $model->can('pkit_cleanup_code');
-  if(exists $INC{'Apache/ErrorReport.pm'}){
+  if( exists $INC{'Apache/ErrorReport.pm'} && $error ){
     Apache::ErrorReport::fatal($error);
   }
-  die $error;
+  die $error if $error;
+
+  return ( defined $pk->{status_code} ? $pk->{status_code} : undef );
 }
 
 # utility function, concats parameters from request parameters into string
@@ -313,7 +335,7 @@ sub prepare_page {
   my $uri_prefix = $config->get_global_attr('uri_prefix') || '';
 
   if($uri_prefix){
-    $uri =~ s(^/$uri_prefix)(/);
+    $uri =~ s(^/$uri_prefix/*)(/); # */
   }
 
   if($model->can('pkit_fixup_uri')){
@@ -328,7 +350,6 @@ sub prepare_page {
   } else {
     $host = $apr->headers_in->{'Host'};
 
-    $uri_prefix =~ s!/$!!g;
     $uri_with_query = ((defined( $ENV{HTTPS} ) && $ENV{HTTPS} eq 'on') ? 'https' : 'http') . '://' . $host . ($uri_prefix ? '/' . $uri_prefix : '' ) . $uri;
   }
 #  my $pkit_selfurl;
@@ -369,6 +390,9 @@ sub prepare_page {
     $pk->{page_id} = $model->pkit_get_default_page;
   }
 
+  # store name and page_id for a static file, that require a login
+  my %static_file;
+
   # redirect "not found" pages
   unless ($pk->page_exists($pk->{page_id})){
     # first try to see if we can find a static file that we
@@ -383,34 +407,22 @@ sub prepare_page {
         last if ($filename);
       }
 
-      $pk->{page_id} = ($config->uri_match($pk->{page_id})
-	|| $config->get_global_attr('not_found_page'))
-	  || $model->pkit_get_default_page;
+      $pk->{page_id} = $config->uri_match($pk->{page_id})
+	|| $config->get_global_attr('not_found_page')
+	|| $model->pkit_get_default_page;
       unless ($pk->page_exists($pk->{page_id})){
-	# if not_found_page is static, the return DECLINED...
+	# if not_found_page is static, then return DECLINED...
 	$filename = $pk->static_page_exists($pk->{page_id});
       }
     }}
     if ($filename){
-      require MIME::Types;
-      my ($media_type, $content_encoding) = MIME::Types::by_suffix($filename);
-      if (defined $media_type) {
-        $apr->content_type($media_type);
-        if($media_type eq "text/html" && $pk->{use_gzip}){
-          my $gzipped = $view->get_static_gzip($filename);
-          if ($gzipped){
-            $apr->content_encoding("gzip");
-            $apr->send_http_header;
-            $apr->print($gzipped) unless $apr->header_only;
-            return DONE;
-          }
-        }
+      my $require_login  = $config->get_page_attr($pk->{page_id},'require_login') || 'no';
+      my $protect_static = $config->get_global_attr('protect_static') || 'yes';
+      if ( $require_login eq 'no' || $protect_static ne 'yes' ) {
+        return $pk->_send_static_file($filename);
       }
-
-      # set path_info to '', otherwise Apache tacks it on at the end
-      $apr->path_info('');
-      $apr->filename($filename);
-      return DECLINED;
+      $static_file{name}    = $filename;
+      $static_file{page_id} = $pk->{page_id};
     }
   }
 
@@ -431,7 +443,7 @@ sub prepare_page {
 
   if( $lang = $apr->param('pkit_lang') ){
     $session->{'pkit_lang'} = $lang if $session;
-  } elsif ( $session && ! exists $pk->{is_new_session} ){
+  } elsif ( $session && !exists $pk->{is_new_session} ){
     $lang = $session->{'pkit_lang'} if exists $session->{'pkit_lang'};
   }
 
@@ -522,6 +534,15 @@ sub prepare_page {
 
   $model->pkit_common_code if $model->can('pkit_common_code');
 
+  if ( $static_file{name} ) {
+    if ( $pk->{page_id} eq $static_file{page_id} ) {
+      # page_id is the same as we tested already (this may save some stat calls)
+      return $pk->_send_static_file($static_file{name});
+    } elsif ( my $filename = $pk->static_page_exists($pk->{page_id}) ) {
+      return $pk->_send_static_file($filename);
+    }
+  }
+
   # run the page code!
   $pk->page_code;
   # check for the statuscode that can be set with $model->pkit_status_code
@@ -545,6 +566,29 @@ sub prepare_page {
   }
 
   return OK;
+}
+
+sub _send_static_file {
+  my ( $pk, $filename )  = @_;
+  my $apr = $pk->{apr};
+  require MIME::Types;
+  my ($media_type) = MIME::Types::by_suffix($filename);
+      if (defined $media_type) {
+        $apr->content_type($media_type);
+        if($media_type eq "text/html" && $pk->{use_gzip} ne 'none') {
+          my $gzipped = $pk->{view}->get_static_gzip($filename); 
+          if ($gzipped){
+            $apr->content_encoding("gzip");
+            $apr->send_http_header;
+            $apr->print($gzipped) unless $apr->header_only;
+            return DONE;
+          }
+        }
+      }
+      # set path_info to '', otherwise Apache tacks it on at the end
+      $apr->path_info('');
+      $apr->filename($filename);
+      return DECLINED;
 }
 
 sub _check_gzip {
@@ -709,6 +753,9 @@ sub prepare_and_print_view {
       last if ($converted_data);
       $retcharset = undef;
     }
+
+    ## here no action is needed, if we did not convert the data to anything usefull.
+    ## we deliver in our default_output_charset.
 
     # correct the header
     $apr->content_encoding('') unless ($retcharset);
@@ -1308,8 +1355,23 @@ The following method is available to the user as Apache::PageKit API.
 
 This function should be called at server startup from your httpd.conf file:
 
+If you use PageKit >= 1.09 and mod_perl < 1.26, the follow the instructions
+for PageKit < 1.09.
+
+  PerlSetVar PKIT_ROOT /path/to/pagekit/files
+  PerlSetVar PKIT_SERVER staging
+  PerlHandler +Apache::PageKit
   <Perl>
-        Apache::PageKit->startup("/path/to/pagekit/files","staging");
+    Apache::PageKit->startup;
+  </Perl>
+
+PageKit < 1.09 should be started this way:
+
+  PerlSetVar PKIT_ROOT /path/to/pagekit/files
+  PerlSetVar PKIT_SERVER staging
+  PerlHandler +Apache::PageKit
+  <Perl>
+    Apache::PageKit->startup("/path/to/pagekit/files","staging");
   </Perl>
 
 Where the first argument is the root directory of the
@@ -1332,7 +1394,7 @@ L<Data::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 1.08
+This document describes Apache::PageKit module version 1.09
 
 =head1 NOTES
 
@@ -1385,15 +1447,16 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Anton Berezin
   Chris Hamilton
   David Christian
-  Daniel Gardner
   Rob Starkey
   Anton Permyakov
+  Daniel Gardner
   Andy Massey
   Michael Cook
   Michael Pheasant
   John Moose
   Sheldon Hearn
   Vladimir Sekissov
+  Gabriel Burka
 
 Also, thanks to Dan Von Kohorn for helping shape the initial architecture
 and for the invaluable support and advice. 

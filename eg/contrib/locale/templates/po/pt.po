@@ -29,7 +29,7 @@ msgstr "Você não preencheu todos os campos. Favor preencher os campos em <font c
 msgid "Your login/password is invalid. Please try again."
 msgstr "Sua identificação/senha é inválida. Tente novamente"
 
-msgid "You did not fill all of the fields.  Please try again."
+msgid "You did not fill all of the fields. Please try again."
 msgstr "Você não preencheu todos os campos. Tente novamente"
 
 #

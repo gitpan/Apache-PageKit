@@ -196,7 +196,7 @@ sub pkit_message {
     if ($@) {
       die "Charset $input_charset or $default_output_charset not supported by Text::Iconv";
     }
-    $message = $converter->convert($message);
+    $message = $converter->convert($message) || die "Can not convert page from $input_charset to $default_output_charset";;
   }
 
   my $array_ref = $model->output('pkit_messages') || [];
@@ -442,7 +442,7 @@ sub _change_params {
       } elsif ( $type eq 'ARRAY' ) {
         _change_array( $converter, $_ );
       } else {
-        $_ = $converter->convert($_);
+        $_ = $converter->convert($_) || die "Can not convert from default_input_charset to default_output_charset";
       }
     }
   }
@@ -456,7 +456,7 @@ sub _change_params {
       } elsif ( $type eq 'ARRAY' ) {
         _change_array( $converter, $_ );
       } else {
-        $_ = $converter->convert($_);
+        $_ = $converter->convert($_) || die "Can not convert from default_input_charset to default_output_charset";
       }
     }
   }
@@ -468,7 +468,7 @@ sub _change_params {
     } elsif ( $type eq 'ARRAY' ) {
       _change_array( $converter, $_[$i] );
     } else {
-      $_[$i] = $converter->convert($_[$i]);
+      $_[$i] = $converter->convert($_[$i]) || die "Can not convert from default_input_charset to default_output_charset";
     }
   }
 }
@@ -520,7 +520,7 @@ Method in derived class.
 
 T.J. Mather (tjmather@anidea.com)
 
-Boris Zentner (boris@m2b.de)
+Boris Zentner (borisz@users.sourceforge.net)
 
 =head1 COPYRIGHT
 

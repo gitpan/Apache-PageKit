@@ -21,8 +21,8 @@ sub new {
   }
   $self->{'server'} ||= 'Default';
   bless $self, $class;
-  my $reload = $self->get_server_attr('reload');
-  $self->reload if $reload && $reload eq 'yes';
+  my $reload = $self->get_server_attr('reload') || 'no';
+  $self->reload if $reload eq 'yes';
   return $self;
 }
 
@@ -52,6 +52,7 @@ sub parse_xml {
   # delete current init
   my $config_dir  = $config->{config_dir};
   $section_attr->{$config_dir} = {};
+  $server_attr->{$config_dir}  = {};
   $global_attr->{$config_dir}  = {};
   $page_attr->{$config_dir}    = {};
   $user_attr->{$config_dir}    = {};
@@ -91,6 +92,12 @@ sub parse_xml {
     $page_attr->{$config_dir}->{$page_id}->{require_login} = 'no';
   }
 
+  # remove leading or trailing /'s (if any)
+  for ( $global_attr->{$config_dir}->{'uri_prefix'} ) {
+    next unless $_;
+    s!/+$!!;
+    s!^/+!!;
+  }
 }
 
 sub get_global_attr {

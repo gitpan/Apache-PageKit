@@ -16,10 +16,6 @@ use HTML::Template::XPath ();
 
 use Storable ();
 
-use Carp ();
-
-use Data::Dumper;
-
 # how loading, filter and caching works on the templates.
 # 1. templates are pre-filtered, to convert MODEL_*,VIEW_* and PKIT_* tags
 # corresponding TMPL_ tags, and to run HTML::Clean
@@ -166,7 +162,7 @@ sub get_static_gzip {
 
   # is the cache entry valid or changed on disc?
   if(-f "$gzipped_filename"){
-    open FH, "<$gzipped_filename" || return undef;
+    open FH, "<$gzipped_filename" or return undef;
     # read mtime from first line
     chomp($gzip_mtime = <FH>);
 
@@ -245,7 +241,7 @@ sub template_file_exists {
 sub _create_static_zip {
   my ($view, $filename, $gzipped_filename) = @_;
   local $/ = undef;
-  open FH, "<$filename" || return undef;
+  open FH, "<$filename" or return undef;
   my $content = <FH>;
   close FH;
 
@@ -280,10 +276,10 @@ sub _fetch_from_file_cache {
     if (my @xml_params = sort keys %{$Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id}}) {
       my $param_obj = $view->{input_param_object};
       for my $xml_param (@xml_params){
-        my $value = $param_obj->param($xml_param) || next;
+        my $value = $param_obj->param($xml_param) || '';
 	$extra_param .= "&$xml_param=" . $value;
       }
-      $param_hash = Digest::MD5::md5_hex($extra_param) if $extra_param ne '';
+      $param_hash = Digest::MD5::md5_hex($extra_param);
     }
 
   my $cache_filename = "$view->{cache_dir}/$page_id.$pkit_view.$lang$param_hash";
@@ -426,7 +422,7 @@ sub _load_component {
 	(my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
 	die "charset ($default_input_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
       }
-      $template = $converter->convert($template);
+      $template = $converter->convert($template) || die "Can not convert page from $default_input_charset to utf-8";
     }
     $template_ref = \$template;
 
@@ -490,7 +486,10 @@ sub _load_page {
   # go through content files (which have had content filled in)
   while (my ($lang, $filtered_html) = each %$lang_tmpl){
 
-    $$filtered_html = $converter->convert($$filtered_html) if ($converter);
+    if ( $converter ) {
+      $$filtered_html = $converter->convert($$filtered_html) || die "Can not convert page from UTF-8 to $default_output_charset";
+    }
+    
     my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
     $view->_html_clean($filtered_html);
 
@@ -531,10 +530,10 @@ sub _load_page {
       my $param_obj = $view->{input_param_object};
 
       for my $xml_param (@xml_params){
-        my $value = $param_obj->param($xml_param) || next;
+        my $value = $param_obj->param($xml_param) || '';
 	$extra_param .= "&$xml_param=" . $value;
       }
-      $param_hash = Digest::MD5::md5_hex($extra_param) if $extra_param ne '';
+      $param_hash = Digest::MD5::md5_hex($extra_param);
     }
 
     # Store record

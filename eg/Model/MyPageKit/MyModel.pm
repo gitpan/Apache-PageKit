@@ -162,7 +162,7 @@ It is a good starting point for building your backend for your PageKit website.
 
 T.J. Mather (tjmather@thoughtstore.com)
 
-Boris Zentner (boris@m2b.de)
+Boris Zentner (boris@id9.de)
 
 =head1 COPYRIGHT
 

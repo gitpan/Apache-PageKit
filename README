@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 1.08 (Beta)
+	Version: 1.09 (Beta)
 
 Description
 -----------
@@ -76,7 +76,7 @@ Recommended
 
 Installation
 ------------
-PageKit 1.08
+PageKit >= 1.08
 	You must have a mod_perl enabled apache server. That's all.
 
         PageKit avoids the expat conflict by not using XML::Parser anymore.
@@ -219,6 +219,32 @@ Setup
 
 Configuration
 -------------
+
+PageKit >= 1.09 with mod_perl >= 1.26
+	If you use PageKit >= 1.09 and mod_perl < 1.26, the follow the instructions
+	for PageKit < 1.09.
+
+	Configuring PageKit is as easy as adding the following
+	to your httpd.conf
+
+		SetHandler perl-script
+		PerlSetVar PKIT_ROOT /path/to/pagekit/files
+		PerlSetVar PKIT_SERVER staging
+		PerlHandler +Apache::PageKit
+		<Perl>
+			Apache::PageKit->startup;
+		</Perl>
+
+		# Optional
+		PerlRequire /path/to/startup.pl
+		PerlModule Apache::ErrorReport
+		PerlSetVar ErrorReportHandler display
+
+	and changing the settings in
+
+		/path/to/pagekit/files/Config/Config.xml
+
+PageKit < 1.09
 
 	Configuring PageKit is as easy as adding the following
 	to your httpd.conf

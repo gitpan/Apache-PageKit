@@ -1,6 +1,26 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.09
+	- Add new global option protect_static (Boris Zentner)
+	- Remove some mystery chars (0xA0) (Boris Zentner)
+	- Add new hook pkit_on_error to catch and maybe repair fatal errors
+		(Boris Zentner)
+	! Simplified and more robust startup (Boris Zentner)
+	- Clear missing server section on reload (Boris Zentner)
+	- Die if a conversion from one charset to another is not possible.
+		Maybe a char is not part of the target charset.
+		(Boris Zentner, Gabriel Burka)
+	! Add protection of static pages with the require_login config
+		attribute. (Boris Zentner)
+	- Fix two cases where a filehandle can be used even if open failed
+		(Boris Zentner)
+	- Fix uri_prefix so that the url did not grow anymore (Boris Zentner)
+	- Remove unused modules Data::Dumper and Carp from View.pm (Boris Zentner)
+	- Fix to deliver static pages unzipped if desired (Anton Permyakov)
+	- Fix case where wrong cached file is used for xsl files with
+		reload="no" and first called without parameters in the
+		URL (Boris Zentner, Ben Ausden)
 1.08
 	- Added on-line editing tools
 	- Add Postgres support (Chris Hamilton)
