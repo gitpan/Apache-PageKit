@@ -74,6 +74,13 @@ sub newacct2 {
   $dbh->do($sql_str, {}, $user_id, $model->input('email'),
 				$login, $passwd);
 
+  # example of pkit_message being passed along with pkit_redirect
+  $model->pkit_message("This message was passed throught pkit_redirect");
+  $model->pkit_message("Another message passed throught pkit_redirect");
+
+  $model->pkit_message("This ERROR message was passed throught pkit_redirect",
+		      is_error => 1);
+
   $model->pkit_redirect("/?login=$login&passwd=$passwd&pkit_done=$pkit_done&pkit_login=1");
 }
 
@@ -90,7 +97,7 @@ MyPageKit::MyModel - Example Derived Model Class implementing Backend Code for p
 This module provides a example of a Derived Model component
 (Business Logic) of a PageKit website.
 
-It is also the code used for the http://www.pagekit.org/ web site.  It contains
+It is also the code used for old the http://www.pagekit.org/ web site.  It contains
 two methods, one for customizing the look and feel for the website, and
 another for processing new account sign ups.
 

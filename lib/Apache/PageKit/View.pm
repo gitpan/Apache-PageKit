@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.53 2001/05/16 22:13:41 tjmather Exp $
+# $Id: View.pm,v 1.54 2001/05/19 22:20:36 tjmather Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -119,7 +119,6 @@ sub fill_in_view {
 			   fobject => $view->{fillinform_objects} );
     }
   }
-
   if(exists $INC{'Apache/PKCMS/View.pm'}){
     Apache::PKCMS::View::add_edit_links($view, $record, \$output);
   }
@@ -446,7 +445,7 @@ sub _preparse_model_tags {
   sub process_selfurl_tag {
     my ($exclude_params_set, $exclude_params) = @_;
     $exclude_params = defined($exclude_params) ? 
-      join(" ",sort split("\s+",$exclude_params)) : "";
+      join(" ",sort split(/\s+/,$exclude_params)) : "";
     %$exclude_params_set->{$exclude_params} = 1;
     return qq{<TMPL_VAR NAME="pkit_selfurl$exclude_params">};
   }

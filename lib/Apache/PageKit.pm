@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.66 2001/05/16 22:13:41 tjmather Exp $
+# $Id: PageKit.pm,v 1.67 2001/05/19 22:20:36 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -32,7 +32,7 @@ use Apache::PageKit::Config ();
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.00';
+$VERSION = '1.01';
 
 # typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
@@ -371,13 +371,14 @@ sub prepare_page {
   }
 
   # add pkit_message from previous page, if that pagekit did a pkit_redirect
-  if(my @pkit_message = $apr->param('pkit_message')){
-    for my $message (@pkit_message){
+  print "hi<br>";
+  if(my @pkit_messages = $apr->param('pkit_messages')){
+    for my $message (@pkit_messages){
       $model->pkit_message($message);
     }
   }
-  if(my @pkit_error_message = $apr->param('pkit_error_message')){
-    for my $message (@pkit_error_message){
+  if(my @pkit_error_messages = $apr->param('pkit_error_messages')){
+    for my $message (@pkit_error_messages){
       $model->pkit_message($message, is_error => 1);
     }
   }
@@ -642,6 +643,17 @@ sub login {
   }
 
   $done =~ s/ /+/g;
+
+  if(my @pkit_messages = $apr->param('pkit_messages')){
+    for my $message (@pkit_messages){
+      $done .= "&pkit_messages=" . Apache::Util::escape_uri($message);
+    }
+  }
+  if(my @pkit_error_messages = $apr->param('pkit_error_messages')){
+    for my $message (@pkit_error_messages){
+      $done .= "&pkit_error_messages=" . Apache::Util::escape_uri($message);
+    }
+  }
 
   $apr->headers_out->set(Location => "$done");
   return 1;
@@ -1073,7 +1085,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 1.00
+This document describes Apache::PageKit module version 1.01
 
 =head1 NOTES
 
@@ -1128,7 +1140,9 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Boris Zentner
   Stu Pae
   Yann Kerhervé
+  Ben Ausden
   Chris Burbridge
+  Leonardo de Carvalho
 
 Thanks!
 

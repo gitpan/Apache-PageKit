@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 1.00 (Alpha)
+	Version: 1.01 (Alpha)
 
 Description
 -----------
@@ -15,7 +15,7 @@ Description
 	It does this by implementing a Model/View/Content/Controller (MVCC)
 	design paradigm:
 		- Model is user supplied Perl Classes
-		- View is set of HTML Templates
+		- View is set of PageKit Templates and/or XSLT files
 		- Content is set of XML Files
 		- Controller is PageKit
 
@@ -147,10 +147,7 @@ Setup
 -----
 	You should use the directories and files contained in the eg/
 	directory of the distribution as a starting point for your own
-	application.  In fact, the eg/Config/Config.dtd,
-	eg/Content/Content.dtd, and the eg/View/Default/Page/pkit_edit/
-	files are required for the sucessful operation of a pagekit
-	server.
+	application. 
 
 	Note that the example application uses DBD::CSV to store the
 	login data.  This is choosen because it will work on any platform
@@ -202,4 +199,4 @@ terms of the Ricoh Source Code Public License.
 
 You should have received a copy of the Ricoh Source Code Public
 License along with this program; if not, obtain one at
-http://www.pagekit.org/license 
+http://www.pagekit.org/license.html

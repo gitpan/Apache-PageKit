@@ -7,9 +7,9 @@ use HTML::Template;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.01';
+$VERSION = '0.03';
 
-# public methods 
+# public methods
 
 sub new {
   my ($class, @options) = @_;
@@ -132,8 +132,8 @@ sub _fill_in_content {
 }
 
 sub _fill_in_content_loop {
-  my ($xpt, $xpt_template_ref, $default_xml_filename, $tmpl, $context_xml_filename, $lang,
-      $loops, $check_for_other_lang, $context) = @_;
+  my ($xpt, $xpt_template_ref, $default_xml_filename, $tmpl,
+  $context_xml_filename, $lang, $loops, $check_for_other_lang, $context) = @_;
 
   my ($xpath) = ($xpt->_get_document_xpath($loops->[-1],$default_xml_filename))[1];
 
@@ -145,9 +145,6 @@ sub _fill_in_content_loop {
     $inner_param{$name} = {type => $tmpl->query(name => [ @$loops, $name ]),
 			   xml_filename => $xml_filename,
 			   xpath => $xpath};
-    # only use context if in same xml_filename
-    $inner_param{$name}->{use_context} = 1
-      if $xml_filename eq $context_xml_filename;
   }
 
   my $nodeset = $xpt->_get_xpath_nodeset(xml_filename => $context_xml_filename,
@@ -161,8 +158,7 @@ sub _fill_in_content_loop {
     my $loop_param = {};
     while (my ($name, $hash_ref) = each %inner_param){
       my $value;
-      # only use context if in same xml_filename
-      my $context = (exists $hash_ref->{use_context}) ? $node : undef;
+      my $context = $node;
       if($hash_ref->{type} eq 'LOOP'){
 	$value = $xpt->_fill_in_content_loop($xpt_template_ref, $default_xml_filename, $tmpl, $hash_ref->{xml_filename}, $lang, [ @$loops, $name], $check_for_other_lang, $node);
       } else {
@@ -274,30 +270,29 @@ sub _get_xpath_nodeset {
   my $nodeset = $xp->find($xpath, $context);
   my @nodelist = $nodeset->get_nodelist;
 
-  # pass 1, return node that has matching xml:lang tag
+  # first attempt get nodes whose ancestor-or-self[@xml:lang] eq $lang
   for my $node (@nodelist) {
-    my $node_lang = $node->getAttribute('xml:lang') || $xpt->{default_lang};
-    $return_nodeset->push($node) if $node_lang eq $lang;
+    # lifted from XPath::Function::lang
+    my $node_lang = $node->findvalue('(ancestor-or-self::*[@xml:lang]/@xml:lang)[last()]') || $xpt->{default_lang};
+    if (substr(lc($node_lang), 0, length($lang)) eq $lang) {
+      $return_nodeset->push($node);
+    }
   }
   return $return_nodeset if $return_nodeset->size > 0;
 
-  # pass 2, return node that has ancestor with matching xml:lang tag
+  # If no nodes are found in the preferred language, then return
+  # node(s) which are in the default language
   for my $node (@nodelist) {
-    my @nodes = $xp->findnodes(qq{ancestor::*[\@xml:lang = "$lang"]},$node);
-    $return_nodeset->push($node) if @nodes;
+    my $node_lang = $node->findvalue('(ancestor-or-self::*[@xml:lang]/@xml:lang)[last()]') || $xpt->{default_lang};
+    if (substr(lc($node_lang), 0, length($xpt->{default_lang})) eq $xpt->{default_lang}) {
+      $return_nodeset->push($node);
+    }
   }
   return $return_nodeset if $return_nodeset->size > 0;
 
-  # pass 3, return nodes in default language (better than all languages)
-  for my $node (@nodelist) {
-    my $node_lang = $node->getAttribute('xml:lang');
-    $return_nodeset->push($node) if $node_lang eq $xpt->{default_lang} ||
-      !$node_lang;
-  }
-  return $return_nodeset if $return_nodeset->size > 0;
-
-  # pass 4, just return all the nodes
+  # pass 3, just return all the nodes
   # (even thought it's not in the right language)
+  # this is undocumented and subject to change!
   return $nodeset;
 }
 
@@ -409,6 +404,12 @@ codes as keys and outputs as values.
 =head1 AUTHOR
 
 T.J. Mather (tjmather@anidea.com)
+
+=head1 BUGS
+
+If you use the same XPath query for a CONTENT_LOOP as well as a CONTENT_VAR
+tag, then HTML::Template will croak.  A workaround is to append a "/." at
+the end of the xpath query.
 
 =head1 COPYRIGHT
 

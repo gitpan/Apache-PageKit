@@ -2,6 +2,19 @@ Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
 
+1.01
+	- fix for split expression for <PKIT_SELFURL> tags (Boris Zentner)
+	- eg/View/Default/index.tmpl was missing from the distribution
+		(Leonardo de Carvalho)
+	- Fixed bug with passing pkit_message when pkit_redirect method
+		is called (Ben Ausden)
+	- Fixed bug with passing pkit_message when pkit_redirect method
+		redirects to a URL with a pkit_login parameter
+	- Fixed bug in XML/XPathTemplate.pm where context was not passed
+		for CONTENT_LOOP tags.
+	- Better language localization support in XML/XPathTemplate.pm.  Now
+		uses algorithm based on XPath's lang() function.
+
 1.00
 	- Moved most of POD documentation to DocBook, published
 		at http://www.pagekit.org/guide
