@@ -1,10 +1,12 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.6 2001/01/10 07:23:51 tjmather Exp $
+# $Id: Model.pm,v 1.10 2001/01/16 05:55:25 tjmather Exp $
 
 use integer;
 use strict;
 use HTML::FormValidator;
+
+use Apache::Constants qw(REDIRECT);
 
 sub new {
   my ($class) = @_;
@@ -123,16 +125,32 @@ sub content_param {
 
 # this is experimental and subject to change
 sub dispatch {
-  my ($model, $class, $method) = @_;
+  my ($model, $class, $method, @args) = @_;
   my $dispatch_model = $class->new;
-  $dispatch_model->{pkit_pk} = $model->{pkit_pk};
+  $dispatch_model->{pkit_pk} = $model->{pkit_pk} if exists $model->{pkit_pk};
   no strict 'refs';
-  return &{$class . '::' . $method}($dispatch_model);
+  return &{$class . '::' . $method}($dispatch_model, @args);
 }
 
-sub dbh {return shift->{pkit_pk}->{dbh};}
+sub dbh {
+  my $model = shift;
+  if (exists $model->{pkit_pk}){
+    return $model->{pkit_pk}->{dbh};
+  } else {
+    $Apache::Model::dbh ||= $model->pkit_dbi_connect;
+    return $Apache::Model::dbh;
+  }
+}
 sub apr {return shift->{pkit_pk}->{apr};}
 sub session {return shift->{pkit_pk}->{session};}
+
+sub pkit_redirect {
+  my ($model, $url) = @_;
+  my $pk = $model->{pkit_pk};
+  my $apr = $pk->{apr};
+  $apr->headers_out->set(Location => $url);
+  $pk->{status_code} = REDIRECT;
+}
 
 1;
 
@@ -280,9 +298,18 @@ and returns true if the request parameters are valid.
     return;
   }
 
+=item pkit_redirect
+
+Redirect to another URL.
+
+  $model->pkit_redirect("http://www.pagekit.org/");
+
+Redirects user to the PageKit home page.
+
 =back
 
-The following methods should be defined in your L<MyPageKit::Common> module:
+The following methods should be defined in your base module as defined
+by C<model_base_class> in Config.xml:
 
 =over 4
 

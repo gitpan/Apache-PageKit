@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.21 2001/01/10 07:23:51 tjmather Exp $
+# $Id: PageKit.pm,v 1.26 2001/01/16 07:27:51 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -10,6 +10,7 @@ use Apache::URI ();
 use Apache::Cookie ();
 use Apache::Request ();
 use Apache::Util ();
+use File::Find ();
 use HTML::FillInForm ();
 use HTML::Parser ();
 use HTML::Template ();
@@ -28,27 +29,38 @@ use strict;
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION %info_hash);
-$VERSION = '0.94';
+$VERSION = '0.95';
 
 # typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
 sub startup {
   my $pkit_root = shift;
 
+  my $s = Apache->server;
+
+  # get user and group as specified by User and Group directives
+  my $uid = $s->uid;
+  my $gid = $s->gid;
+
   # include user defined classes (Model) in perl search path
   unshift(@INC,"$pkit_root/Model");
-
-  # User defined base model class
-  require MyPageKit::Common;
 
   my $config_dir = $pkit_root . '/Config';
   my $config = Apache::PageKit::Config->new(config_dir => $config_dir);
   $config->parse_xml;
   my $page_dispatch_prefix = $config->get_global_attr('page_dispatch_prefix');
 
+  my $view_cache_dir = $config->get_global_attr('cache_dir') .
+    '/pagekit_view_cache';
+
+  # User defined base model class
+  my $model_base_class = $config->get_global_attr('model_base_class');
+  eval "require $model_base_class";
+
   # clean and pre-parse templates
   Apache::PageKit::View->preparse_templates($pkit_root . '/View',
-			$config->get_global_attr('html_clean_level'));
+			$config->get_global_attr('html_clean_level'),
+			$view_cache_dir);
 
   # Alias /pkit_edit/ urls to be dispatched to Apache::PageKit::Edit;
 # this might enabled for later versions (with Apache::PageKit::Edit)
@@ -58,21 +70,37 @@ sub startup {
 #  }
 
   my $content_dir = $pkit_root . '/Content';
+  my $content_cache_dir = $config->get_global_attr('cache_dir') . '/pagekit_content_cache';
   my $default_lang = $config->get_global_attr('default_lang') || 'en';
   my $content = Apache::PageKit::Content->new(content_dir => $content_dir,
-					default_lang => $default_lang);
+					default_lang => $default_lang,
+					cache_dir => $content_cache_dir);
   # cache content in files using Storable
   $content->parse_all;
+
+  my $change_owner_sub = sub {
+    chown $uid, $gid, $_;
+  };
+
+  # change ownership of cache files so that children can read them
+  File::Find::find($change_owner_sub,$view_cache_dir,$content_cache_dir);
 }
 
 sub handler {
   my $pk = Apache::PageKit->new;
   my $model = $pk->{model};
   my $status_code = $pk->prepare_page;
-  return $status_code unless $status_code eq OK;
+  unless ($status_code eq OK){
+    # save session
+    delete $pk->{session};
+    return $status_code
+  }
+
   $model->pkit_common_code if $model->can('pkit_common_code');
   $pk->prepare_view;
   $pk->print_view;
+
+  delete $pk->{session};
   return $status_code;
 }
 
@@ -137,6 +165,11 @@ sub prepare_page {
       || $config->get_global_attr('not_found_page')
       || $config->get_global_attr('default_page');
   }
+
+  # $pk->authenticate sets pkit_user in apr, which applications rely on
+  # to verify the autheticity of the user.  we prevent a hack of 
+  # setting the "pkit_user" through a request variable:
+  $apr->param(pkit_user => undef);
 
   # new registration and edit profile requires special handling
   # the page code needs to be called _before_ the login code runs
@@ -260,7 +293,7 @@ sub prepare_page {
   # run the page code!
   my $status_code = $pk->page_code unless $pk->{disable_code};
   $status_code ||= $pk->{status_code};
-  return $status_code if $status_code eq 'REDIRECT';
+  return $status_code if $status_code eq REDIRECT;
 
   # prepare navigation
   if ($config->get_page_attr($pk->{page_id},'use_bread_crumb') eq 'yes') {
@@ -330,9 +363,6 @@ sub print_view {
   return if $apr->header_only;
 
   $apr->print($$output_ref);
-
-  # save session
-  delete $pk->{session};
 }
 
 sub new {
@@ -350,7 +380,8 @@ sub new {
   $self->{config} = Apache::PageKit::Config->new(config_dir => $config_dir,
 						 server => $server);
   $self->{apr} = Apache::Request->new($r, POST_MAX => $self->{config}->get_global_attr('post_max'));
-  my $model = $self->{model} = MyPageKit::Common->new;
+  my $model_base_class = $self->{config}->get_global_attr('model_base_class');
+  my $model = $self->{model} = $model_base_class->new;
 
   $model->{pkit_pk} = $self;
 
@@ -363,11 +394,15 @@ sub new {
 
   $self->{view} = Apache::PageKit::View->new($self);
 
+  my $cache_dir = $self->{config}->get_global_attr('cache_dir') . '/pagekit_content_cache';
+
   my $default_lang = $self->{config}->get_global_attr('default_lang') || 'en';
   $self->{content} = Apache::PageKit::Content->new(content_dir => $content_dir,
 						default_lang => $default_lang,
 						lang_arrayref => $self->{view}->{lang},
-						reload => $self->{config}->get_server_attr('reload'));
+						reload => $self->{config}->get_server_attr('reload'),
+						cache_dir => $cache_dir,
+);
 
   return $self;
 }
@@ -476,6 +511,7 @@ sub login {
 
 sub authenticate {
   my ($pk) = @_;
+  my $apr = $pk->{apr};
 
   my $model = $pk->{model};
 
@@ -489,7 +525,8 @@ sub authenticate {
 
   return unless $auth_user;
 
-  $pk->{apr}->connection->user($auth_user);
+  $apr->connection->user($auth_user);
+  $apr->param(pkit_user => $auth_user);
 
   $pk->{view}->param(pkit_user => $auth_user);
 
@@ -518,9 +555,7 @@ sub setup_session {
 
   my $model = $pk->{model};
 
-  # here we pass the db handle, this is a undocumented feature
-  # and may go away
-  my $ss = $model->pkit_session_setup($pk->{dbh});
+  my $ss = $model->pkit_session_setup;
 
   unless($ss->{session_store_class} && $ss->{session_lock_class}){
     $pk->{session} = {};
@@ -633,7 +668,8 @@ In MyPageKit/Common.pm
   }
 
   sub pkit_session_setup {
-    my $dbh = &dbi_connect;
+    my $model = shift;
+    my $dbh = $model->dbh;
     return {
 	session_lock_class => 'MySQL',
 	session_store_class => 'MySQL',
@@ -985,7 +1021,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.94
+This document describes Apache::PageKit module version 0.95
 
 =head1 NOTES
 

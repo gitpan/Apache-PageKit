@@ -1,5 +1,25 @@
 Revision history for Perl extension Apache::PageKit.
 
+0.95
+	- Added method $model->pkit_redirect($url)
+	- Cache files are now 'chown'ed to the user and group
+		specified in the User and Group apache configuration
+		directives.  This is because the cache files are
+		generated under server startup, which is typically
+		run under 'root', but the cache files need to be
+		writeable by the Apache children, which run under
+		a non-root user.
+	- Made the Model base class (MyPageKit::Common) user
+		configurable, using the model_bass_class global
+		configuration option. This way two or more distinct
+		pagekit sites can operate on the same server.
+	- Added cache_dir global configuration option that
+		allows the administrator to specify the directory
+		to store the view and content cache.
+	- Fixed Apache::PageKit::Model->dbh so that it calls
+		MyPageKit::Common->pkit_dbi_connect if there isn't
+		already a database handle.
+
 0.94
 	- Replaced derived Apache::PageKit handler module (eg MyPageKit)
 		with MyPageKit::Common and Apache::PageKit->handler.
@@ -25,7 +45,7 @@ Revision history for Perl extension Apache::PageKit.
 0.93	Wed Jan 03 01:49:06 2001 EST
 	- Fixed documentation in Apache::PageKit::Model,
 		where output_param method was listed
-		as param
+		as param.
 	- Updated pagekit.org web site with links to
 		a browsable repository of source code
 		and more documentation.

@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.5 2001/01/01 00:38:07 tjmather Exp $
+# $Id: Config.pm,v 1.7 2001/01/15 00:24:55 tjmather Exp $
 
 use integer;
 use strict;
@@ -211,6 +211,11 @@ These settings are global in the sense that they apply over all pages and server
 
 =over 4
 
+=item cache_dir
+
+Specifies the directory where the HTML::Template file cache and the
+content cache files are stored.  Defaults to C</tmp>.
+
 =item cookies_not_set_page
 
 This is the page that gets displayed if the user attempts to log in,
@@ -223,6 +228,18 @@ Default page user gets when no page is specified.  Defaults to I<index>.
 =item login_page
 
 Page that gets displayed when user attempts to log in.  Defaults to I<login>.
+
+=item model_base_class
+
+Specifies the base Model class that typically contains code
+that used across entire the web application, including methods for
+authentication and connecting to the database.
+
+If you have multiple PageKit applications running on the same mod_perl
+server, then you'll need to specify a unique C<model_base_class>
+for each application.
+
+Defaults to L<MyPageKit::Common>.
 
 =item model_dispatch_prefix
 

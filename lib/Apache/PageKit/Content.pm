@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.6 2001/01/03 06:45:19 tjmather Exp $
+# $Id: Content.pm,v 1.7 2001/01/14 05:35:19 tjmather Exp $
 
 use strict;
 use XML::Parser ();
@@ -48,7 +48,7 @@ sub parse_all {
   closedir XML;
 
   # make sure cache dir exists
-  mkdir "$content->{content_dir}/cache",0755 unless (-d "$content->{content_dir}/cache");
+  mkdir "$content->{cache_dir}",0755 unless (-d "$content->{cache_dir}");
 
   # parse XML files
   for my $page_id (@page_ids){
@@ -60,10 +60,10 @@ sub parse_all {
 sub cleanup {
   my ($content) = @_;
 
-  opendir CACHE, "$content->{content_dir}/cache";
+  opendir CACHE, "$content->{cache_dir}";
   my @files = grep !/^\.\.?$/, readdir CACHE;
   for (@files){
-    unlink "$content->{content_dir}/cache/$_";
+    unlink "$content->{cache_dir}/$_";
   }
   closedir CACHE;
 }
@@ -104,7 +104,7 @@ sub parse_page {
       $memory_cache->{$page_id}->{$lang}->{pkit_file_cache} = 1;
     }
     # store in file as well
-    Storable::store $PARAM_HASH->{$lang}, "$content->{content_dir}/cache/$page_id.$lang.dat";
+    Storable::store $PARAM_HASH->{$lang}, "$content->{cache_dir}/$page_id.$lang.dat";
   }
 }
 
@@ -139,9 +139,9 @@ sub get_param {
     if(my $m_val = $memory_cache->{$page_id}->{$lang}->{$key}){
       # first check server process memory
       $value = $m_val if $m_val;
-    } elsif (-e "$content->{content_dir}/cache/$page_id.$lang.dat"){
+    } elsif (-e "$content->{cache_dir}/$page_id.$lang.dat"){
       # if not in memory, attempt to load from file
-      my $h2 = Storable::retrieve("$content->{content_dir}/cache/$page_id.$lang.dat");
+      my $h2 = Storable::retrieve("$content->{cache_dir}/$page_id.$lang.dat");
       $value = $h2->{$key} if exists $h2->{$key};
     }
   }
@@ -168,9 +168,9 @@ sub get_param_hashref {
       while(my ($k, $v) = each %$h){
         $param_hashref->{$k} = $v;
       }
-    } elsif (-e "$content->{content_dir}/cache/$page_id.$lang.dat"){
+    } elsif (-e "$content->{cache_dir}/$page_id.$lang.dat"){
       # if not in memory, attempt to load from file
-      my $h2 = Storable::retrieve("$content->{content_dir}/cache/$page_id.$lang.dat");
+      my $h2 = Storable::retrieve("$content->{cache_dir}/$page_id.$lang.dat");
       while(my ($k, $v) = each %$h2){
         $param_hashref->{$k} = $v;
       }

@@ -10,7 +10,8 @@ use Digest::MD5;
 print "ok 1\n";
 
 my $content = Apache::PageKit::Content->new(content_dir => "eg/Content",
-					default_lang => 'en');
+					default_lang => 'en',
+					cache_dir => '/tmp');
 
 $content->parse_all;
 

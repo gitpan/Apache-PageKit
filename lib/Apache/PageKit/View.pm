@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.15 2001/01/10 06:56:13 tjmather Exp $
+# $Id: View.pm,v 1.19 2001/01/16 07:27:51 tjmather Exp $
 
 use integer;
 use strict;
@@ -21,7 +21,7 @@ sub new($$) {
 
 #class method to clean, pre-parse templates
 sub preparse_templates {
-  my ($class, $template_root, $html_clean_level) = @_;
+  my ($class, $template_root, $html_clean_level, $cache_dir) = @_;
 
   # set to global variable so it is seen when called back
   # from HTML::Template
@@ -33,7 +33,7 @@ sub preparse_templates {
 		     HTML::Template->new(
 					 filename => "$File::Find::dir/$_",
 					 file_cache => 1,
-					 file_cache_dir => "$template_root/pkit_cache",
+					 file_cache_dir => "$cache_dir",
 					 file_cache_dir_mode => 0755,
 					 filter => \&preparse_filter
 					);
@@ -75,6 +75,8 @@ sub _init {
   my $apr = $pk->{apr};
   my $model = $pk->{model};
   my $session = $pk->{session};
+  my $config = $pk->{config};
+  my $cache_dir = $config->get_global_attr('cache_dir') . '/pagekit_view_cache';
 
   $view->{template_root} = $apr->dir_config('PKIT_ROOT') . "/View";
 
@@ -83,7 +85,7 @@ sub _init {
 			      die_on_bad_params=>0,
 			      # built in __FIRST__, __LAST__, etc vars
 			      loop_context_vars=>1,
-			      file_cache_dir => $view->{template_root} . '/pkit_cache',
+			      file_cache_dir => $cache_dir,
 			      filter => \&preparse_filter,
 			      global_vars=>1,
 			     };
@@ -187,8 +189,10 @@ sub prepare_template {
   my $pkit_view = $pk->{apr}->param('pkit_view');
   if ($pkit_view && -e "$view->{template_root}/$pkit_view/$template_name.tmpl"){
     $filename = "$view->{template_root}/$pkit_view/$template_name.tmpl";
-  } else {
+  } elsif (-e "$view->{template_root}/Default/$template_name.tmpl") {
     $filename = "$view->{template_root}/Default/$template_name.tmpl";
+  } else {
+    return "Error could not locate $view->{template_root}/Default/$template_name.tmpl";
   }
 
   my $template = HTML::Template->new_file($filename,

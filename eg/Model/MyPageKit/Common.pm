@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.1 2001/01/10 06:56:13 tjmather Exp $
+# $Id: Common.pm,v 1.2 2001/01/16 07:27:50 tjmather Exp $
 
 use strict;
 
@@ -22,7 +22,8 @@ sub pkit_dbi_connect {
 
 sub pkit_session_setup {
   # uncomment if you need use a $dbh object in your session setup
-  #my $dbh = &dbi_connect;
+  #my $model = shift;
+  #my $dbh = $model->dbh;
 
   my %session_setup = (
 		       session_store_class => 'File',
