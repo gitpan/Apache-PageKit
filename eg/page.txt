@@ -1,9 +1,0 @@
-page_id	error_page	parent_id	use_nav	nav_title	html_title	require_login	view	is_popup	popup_width	popup_height	new_credential
-index			no	Home	Welcome to PageKit.org	no	std	no			no
-examples		index	yes	Examples	PageKit.org | Examples	no	std	no			no
-newacct1		examples	yes	New Account	PageKit.org | New Account	no	std	no			no
-newacct2	newacct1	newacct1	yes	Account Created	PageKit.org | New Account	no	std	no			yes
-login1		examples	yes	Login	PageKit.org | Login	no	std	no			no
-login2	login1	login1	no			no	std	no			yes
-customize		examples	yes	Customize	PageKit.org | Customize	no	std	no			no
-license		index	no		RICOH SOURCE CODE PUBLIC LICENSE 1.0 - PageKit Application Framework	no	std	no			no

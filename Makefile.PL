@@ -19,5 +19,6 @@ WriteMakefile(
 				HTML::FillInForm => 0,
 				HTML::Template => 0,
 				Mail::Mailer => 0,
-				URI::Escape => 0}, # e.g., Module::Name => 1.1
+				XML::Parser => 0,
+				URI::Escape => 0},
 );

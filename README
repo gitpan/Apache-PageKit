@@ -1,0 +1,6 @@
+PageKit is a set of Perl modules that provides an application framework and uses mod_perl and
+HTML::Template. It employs a Model/View/Content/Controller approach to design, with complete
+separation of Perl from HTML. PageKit includes session management, authentication, form validation,
+sticky HTML forms, multiple views/co-branding, modules and a simple content management system.
+
+For more detailed docs, read the perldoc page.

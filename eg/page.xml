@@ -1,0 +1,82 @@
+<?xml version="1.0" ?>
+<!DOCTYPE pagekit SYSTEM "./pagekit.dtd">
+<SITE>
+  <PAGE page_id = "customize"
+    view = "std"
+    use_nav = "yes"
+    is_popup = "no"
+    nav_title = "Customize"
+    require_login = "no"
+    parent_id = "examples"
+    new_credential = "no">
+    <TMPL_VAR NAME = "html_title">PageKit.org | Customize</TMPL_VAR>
+  </PAGE>
+  <PAGE page_id = "examples"
+    view = "std"
+    use_nav = "yes"
+    is_popup = "no"
+    nav_title = "Examples"
+    require_login = "no"
+    parent_id = "index"
+    new_credential = "no">
+    <TMPL_VAR NAME = "html_title">PageKit.org | Examples</TMPL_VAR>
+  </PAGE>
+  <PAGE page_id = "index"
+    view = "std"
+    use_nav = "no"
+    is_popup = "no"
+    nav_title = "Home"
+    require_login = "no"
+    new_credential = "no">
+    <TMPL_VAR NAME = "html_title">Welcome to PageKit.org</TMPL_VAR>
+  </PAGE>
+  <PAGE page_id = "license"
+    view = "std"
+    use_nav = "no"
+    is_popup = "no"
+    require_login = "no"
+    parent_id = "index"
+    new_credential = "no">
+    <TMPL_VAR NAME = "html_title">RICOH SOURCE CODE PUBLIC LICENSE 1.0 - PageKit Application Framework</TMPL_VAR>
+  </PAGE>
+  <PAGE page_id = "login1"
+    view = "std"
+    use_nav = "yes"
+    is_popup = "no"
+    nav_title = "Login"
+    require_login = "no"
+    parent_id = "examples"
+    new_credential = "no">
+    <TMPL_VAR NAME = "html_title">PageKit.org | Login</TMPL_VAR>
+  </PAGE>
+  <PAGE page_id = "login2"
+    view = "std"
+    use_nav = "no"
+    is_popup = "no"
+    require_login = "no"
+    parent_id = "login1"
+    error_page = "login1"
+    new_credential = "yes">
+  </PAGE>
+  <PAGE page_id = "newacct1"
+    view = "std"
+    use_nav = "yes"
+    is_popup = "no"
+    nav_title = "New Account"
+    require_login = "no"
+    parent_id = "examples"
+    new_credential = "no">
+    <TMPL_VAR NAME = "html_title">PageKit.org | New Account</TMPL_VAR>
+  </PAGE>
+  <PAGE page_id = "newacct2"
+    view = "std"
+    use_nav = "yes"
+    is_popup = "no"
+    nav_title = "Account Created"
+    require_login = "no"
+    parent_id = "newacct1"
+    error_page = "newacct1"
+    new_credential = "yes">
+    <TMPL_VAR NAME = "html_title">PageKit.org | New Account</TMPL_VAR>
+  </PAGE>
+</SITE>

@@ -1,14 +1,48 @@
 <h1><font color="<TMPL_VAR NAME="link_color">">page</font>kit.org: Website for Apache::PageKit</h1>
 
 PageKit<SUP>TM</SUP> is a set of Perl modules that provides an application framework
-uses <a href="http://perl.apache.org">mod_perl</a>
-and HTML::Template.  It is based on the
-Model/View/Controller approach to design, with complete seperation of
-Perl from HTML.  It includes session management, authentication, form
-validation, sticky html forms, multiple views/co-branding, modules and
-a simple content management system.
+and uses <a href="http://perl.apache.org">mod_perl</a>
+and HTML::Template.  
+It employs a Model/View/Content/Controller approach to design, with complete separation of
+Perl from HTML. PageKit includes session management, authentication, form validation,
+sticky HTML forms, multiple views/co-branding, modules and a simple content
+management system.
+<p>
+Documentation and downloads are available from
+<a href="http://search.cpan.org/search?dist=Apache-PageKit">CPAN</a>.
+<p>
+To browse the <a href="http://sourceforge.net/cvs/?group_id=9597">CVS</a> or join a 
+<a href="http://sourceforge.net/mail/?group_id=9597">mailing list</a>, visit
+<a href="http://sourceforge.net/projects/pagekit/">Sourceforge</a>.
 <p>
 For PageKit services, including commercial support, contact <a href="mailto:pagekit@thoughtstore.com">pagekit@thoughtstore.com</a>.
+<p>
+This site serves as a demo of some of the capabilities of PageKit.  The complete source
+code for pagekit.org is located in the eg/ directory of the distribution.
+<p>
+<TMPL_INCLUDE NAME="../Include/begin_cell.tmpl">
+<h2>News</h2>
+<table>
+	<tr>
+		<td valign="top">
+			<b>August 28th, 2000</b>
+		</td>
+		<td>
+			<b>Release of PageKit 0.02</b><br>
+			Added XML support for attributes and content
+		</td>
+	</tr>
+	<tr>
+		<td valign="top">
+			<b>August 24th, 2000</b>
+		</td>
+		<td>
+			<b>Release of PageKit 0.01</b><br>
+			Initial Release
+		</td>
+	</tr>
+</table>
+<TMPL_INCLUDE NAME="../Include/end_cell.tmpl">
 <p>
 <TMPL_INCLUDE NAME="../Include/begin_cell.tmpl">
 <h2>Examples</h2>
@@ -18,3 +52,4 @@ For PageKit services, including commercial support, contact <a href="mailto:page
 <br>
 <PKIT_LINK PAGE="customize">Customize Site Page</PKIT_LINK>
 <TMPL_INCLUDE NAME="../Include/end_cell.tmpl">
+

@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.32 2000/08/24 19:21:53 tjmather Exp $
+# $Id: PageKit.pm,v 1.3 2000/08/28 20:30:43 tjmather Exp $
 
 # CPAN Modules required for pagekit
 use Apache::URI ();
@@ -14,6 +14,7 @@ use HTML::Parser ();
 use HTML::Template ();
 use Mail::Mailer ();
 use URI::Escape ();
+use XML::Parser ();
 
 # PageKit modules
 use Apache::PageKit::Info ();
@@ -26,14 +27,7 @@ use strict;
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION %info_hash);
-$VERSION = '0.01';
-
-# we store info as a hash, key'ed on the virtual server
-# this subroutine is called when a new child is initiated
-sub _child_init {
-  my $r = Apache->request;
-  $info_hash{$r->dir_config("PKIT_PAGE_INFO_FILE")} = Apache::PageKit::Info->new();
-}
+$VERSION = '0.02';
 
 sub _params_as_string {
   my ($apr) = @_;
@@ -101,8 +95,8 @@ sub prepare_page {
   # validate data
   if ($validator && !$validator->validate($pk)){
     # invalid data, redirect to error_page
-    if(my $page_id = $info->get_param('error_page')){
-      $pk->{disable_code} = 1 if $info->get_param('error_page_run_code') ne 'yes';
+    if(my $page_id = $info->get_attr('error_page')){
+      $pk->{disable_code} = 1 if $info->get_attr('error_page_run_code') ne 'yes';
       $pk->{page_id} = $page_id;
     } else {
       die "error_page not specified for page $pk->{page_id}";
@@ -111,7 +105,7 @@ sub prepare_page {
 
   # new registration and edit profile requires special handling
   # the page code needs to be called _before_ the authenticate code runs
-  if($info->get_param('new_credential') eq 'yes'){
+  if($info->get_attr('new_credential') eq 'yes'){
     $pk->page_code unless $pk->{disable_code};
   }
 
@@ -160,7 +154,7 @@ sub prepare_page {
     $apr->param('pkit_check_cookie','');
     # goto home page when user logouts (if from page that requires login) 
     my $add_message = "";
-    unless ($info->get_param('require_login') eq "no"){
+    unless ($info->get_attr('require_login') eq "no"){
       $pk->{page_id} = $pk->{login_page};
       $add_message = "You can log back in again below:";
     }
@@ -182,7 +176,7 @@ sub prepare_page {
     }
     $view->param('pkit_loginout_link', $link);
 
-    if ($info->get_param('require_login') eq 'recent' &&
+    if ($info->get_attr('require_login') eq 'recent' &&
 	$pk->{session}->{last_activity} + $pk->{recent_login_timeout} < time()){
       # user is logged in, but has not been active recently
 
@@ -210,7 +204,7 @@ sub prepare_page {
       }
     }
 
-    if($info->get_param('require_login') =~ /^(yes|recent)$/){
+    if($info->get_attr('require_login') =~ /^(yes|recent)$/){
       # this page requires that the user has a valid cookie
       $pk->{page_id} = $pk->{login_page};
       $apr->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
@@ -220,14 +214,14 @@ sub prepare_page {
   }
 
   # prepare navigation
-  if ($info->get_param('use_nav',$pk->{page_id}) eq 'yes') {
+  if ($info->get_attr('use_nav',$pk->{page_id}) eq 'yes') {
     my $nav_page_id = $pk->{page_id};
     my $pkit_nav = [];
     while ($nav_page_id) {
-      unshift @$pkit_nav, { name => $info->get_param('nav_title',$nav_page_id),
-	       	       page => $nav_page_id
-		    };
-      $nav_page_id = $info->get_param('parent_id',$nav_page_id);
+      unshift @$pkit_nav, { name => $info->get_attr('nav_title',$nav_page_id),
+			    page => $nav_page_id
+			  };
+      $nav_page_id = $info->get_attr('parent_id',$nav_page_id);
     }
     $view->param('pkit_nav', $pkit_nav);
   }
@@ -249,12 +243,12 @@ sub prepare_page {
 sub prepare_view {
   my ($pk) = @_;
 
-  return if $pk->{info}->get_param('use_template') eq 'no';
+  return if $pk->{info}->get_attr('use_template') eq 'no';
 
   my $view = $pk->{view};
 
   # set up page template and run module code
-  $view->prepare_page unless $pk->{info}->get_param('use_template') eq 'no';
+  $view->prepare_page unless $pk->{info}->get_attr('use_template') eq 'no';
 
   $view->prepare_entire_page;
 }
@@ -278,18 +272,18 @@ sub print_view {
   if ($apr->dir_config('SEARCH_ENGINE_HEADERS') == 1 &&
       # set Last-Modified header and content-length fields so that search engines can
       # spider site if page is quasi-static (i.e if doesn't require login)
-      $info->get_param('require_login') !~ /^(yes|recent)$/){
+      $info->get_attr('require_login') !~ /^(yes|recent)$/){
     $apr->set_last_modified(time());
     $apr->header_out('Content-Length',length($$output_ref));
   }
 
   # set expires to now so prevent caching
-  #$apr->no_cache(1) if $apr->param('pkit_logout') || $info->get_param('cache') eq 'no';
+  #$apr->no_cache(1) if $apr->param('pkit_logout') || $info->get_attr('cache') eq 'no';
   # see http://support.microsoft.com/support/kb/articles/Q234/0/67.ASP
   # and http://www.pacificnet.net/~johnr/meta.html
-  $apr->header_out('Expires','-1') if $apr->param('pkit_logout') || $info->get_param('browser_cache') eq 'no' || $apr->connection->user;
+  $apr->header_out('Expires','-1') if $apr->param('pkit_logout') || $info->get_attr('browser_cache') eq 'no' || $apr->connection->user;
 
-  return if $pk->{info}->get_param('use_template') eq 'no';
+  return if $pk->{info}->get_attr('use_template') eq 'no';
 
   $apr->content_type('text/html');
   $apr->send_http_header if $apr->is_initial_req;
@@ -331,10 +325,10 @@ sub new {
   bless $self, $class;
 
   # get info by virtual host
-  my $info = $info_hash{$r->dir_config("PKIT_PAGE_INFO_FILE")} || $self->_child_init($r);
+#  my $info = $info_hash{$r->dir_config("PKIT_PAGE_INFO_FILE")} || $self->_child_init($r);
 
   $self->{apr} = Apache::Request->new($r, POST_MAX => $self->{post_max});
-  $self->{info} = $info->associate_pagekit($self);
+  $self->{info} = Apache::PageKit::Info::get_info($self);
   $self->{validator} = Apache::PageKit::FormValidator->new($self->{form_validator_input_profile})
     if $self->{form_validator_input_profile};
   $self->{view} = Apache::PageKit::View->new($self);
@@ -604,18 +598,33 @@ Perl Module that inherits from Apache::PageKit:
 
   use Apache::Constants qw(OK REDIRECT DECLINED);
 
+  # hash reference to input profile for HTML::FormValidator
+  # this is a simple example where there is only one e-mail field.
+  my $input_profile = {
+		       page_that_processes_html_form => {
+			    required => [ qw( email ) ],
+			    constraints => {
+					    email => "email",
+					   },
+			    messages => {
+					 email => "The E-mail address, <b>%%VALUE%%</b>, is invalid.",
+					},
+		       },
+		      }
+
   sub handler {
     $dbh = DBI->connect("DBI:mysql:db","user","passwd");
-    my $pk = Apache::MyPageKit->new(
-				    page_dispatch_prefix => 'MyPageKit::PageCode',
-				    module_dispatch_prefix => 'MyPageKit::ModuleCode',
-                                    dbh => $dbh,
-				    session_handler_class => 'Apache::Session::MySQL',
-				    session_args => {
-						     Handle => $dbh,
-						     LockHandle => $dbh,
-                                                    },
-                                   );
+    my $pk = __PACKAGE__->new(
+			      page_dispatch_prefix => 'MyPageKit::PageCode',
+			      module_dispatch_prefix => 'MyPageKit::ModuleCode',
+			      dbh => $dbh,
+			      form_validator_input_profile => $input_profile,
+			      session_handler_class => 'Apache::Session::MySQL',
+			      session_args => {
+					       Handle => $dbh,
+					       LockHandle => $dbh,
+					      },
+			     );
 
     my $status_code = $pk->prepare_page;
     return $status_code unless $status_code eq OK;
@@ -648,7 +657,7 @@ Perl Module that inherits from Apache::PageKit:
 In httpd.conf
 
   PerlSetVar PKIT_ERROR_HANDLER email
-  PerlSetVar PKIT_PAGE_INFO_FILE /www/pagekit/page.txt
+  PerlSetVar PKIT_PAGE_INFO_FILE /www/pagekit/page.xml
   PerlSetVar PKIT_PRODUCTION on
   PerlSetVar PKIT_TEMPLATE_ROOT /www/pagekit/template
   PerlSetVar PKIT_COOKIE_DOMAIN .pagekit.org
@@ -661,7 +670,7 @@ In httpd.conf
 
 PageKit is a set of Perl modules that provides an application framework
 based on mod_perl and HTML::Template.  It is based on the
-Model/View/Controller approach to design, with complete seperation of
+Model/View/Content/Controller approach to design, with complete seperation of
 Perl from HTML.  It includes session management, authentication, form
 validation, sticky html forms, multiple views/co-branding, modules and includes, and
 a simple content management system.
@@ -707,13 +716,17 @@ An L<Apache::PageKit::View> object, which interfaces with the HTML::Template tem
 
 =over 4
 
-=item I<Model/View/Controller> approach to design
+=item I<Model/View/Content/Controller> approach to design
 
 The Model is the user provided classes, which encapsulate the business logic
 behind the web site.
 
 The View is a set of L<HTML::Template> templates.  L<Apache::PageKit::View>
 acts as a bridge between the templates and the controller.
+
+The Content is stored in an XML File specified by C<PKIT_PAGE_INFO_FILE>.
+You may also store the content in the HTML::Template templates, if you don't
+need to seperate the View from the Content.
 
 The Controller is a subclass of L<Apache::PageKit>, which reads the client request,
 accesses the back end, and uses L<Apache::PageKit::View> to fill in the data needed
@@ -725,18 +738,28 @@ By using L<HTML::Template>, this application enforces an important divide -
 design and programming.  Designers can edit HTML without having to deal with
 any Perl, while programmers can edit the Perl code with having to deal with any HTML.
 
+=item Seperation of Content from Design with XML (Forthcoming)
+
+By using the C<E<lt>TMPL_VARE<gt>> and C<E<lt>TMPL_LOOPE<gt>> elements in the C<PKIT_PAGE_INFO_FILE>,
+you can autofill the corresponding HTML::Template C<E<lt>TMPL_VARE<gt>>
+and C<E<lt>TMPL_LOOPE<gt>> tags.
+
+This is an easy way of using XML with HTML::Template that doesn't require the use
+of stylesheets.
+
 =item Page based attributes
 
-Many of the attributes of each Page are managed from a tab-delimited file.
+The attributes of each Page are stored in an XML file specified by C<PKIT_PAGE_INFO_FILE>.
 This makes it easy to change Pages across the site.  L<Apache::PageKit::Info>
-provides a wrapper around this text file.
+provides a wrapper around this XML file.
 
 For example, to protect
-a page, all you have to do is change its C<require_login> attribute to I<yes>, instead
+a page, all you have to do is change the  C<require_login> attribute of the
+XML C<E<lt>PAGEE<gt>> tag to I<yes>, instead
 of modifying the Perl code or moving the script to a protected directory.
 
 To change a page to a popup, all you have to do is set C<is_popup> to I<yes>, and all
-the links to that page across the site will magically become javascript popup links.
+the links to that page across the site will automagically become javascript popup links.
 
 =item Automatic Dispatching of URIs
 
@@ -763,7 +786,10 @@ C<recent_login_timeout> seconds.
 =item Form Validation
 
 Uses L<HTML::FormValidator> to provide easy form validation.  Highlights
-fields in red that user filled incorrectly by using the C<E<lt>PKIT_ERRORFONT NAME="FIELD_NAME"E<gt> E<lt>E<sol>PKIT_ERRORFONTE<gt>> tag.
+fields in red that user filled incorrectly by using the
+C<E<lt>PKIT_ERRORFONT NAME="FIELD_NAME"E<gt> E<lt>/PKIT_ERRORFONTE<gt>> tag.
+To use, pass a hash reference to the constructor using the
+C<form_validator_input_profile> option.
 
 =item Sticky HTML Forms
 
@@ -784,7 +810,7 @@ is having the same web site branded differently for different companies.
 PageKit can easily share Perl code and HTML templates across multiple pages using
 modules.  To only share HTML, includes can be used.
 
-=item Content Management System
+=item Content Management System (Forthcoming)
 
 An authorized user can edit the HTML Templates for
 views, pages, modules and includes online by simply clicking on
@@ -832,7 +858,7 @@ Called as a last step to output filled in view template.
 =item message
 
 Displays a special message to the user.  The message can displayed using the
-C<E<lt>TMPL_LOOP NAME="PKIT_MESSAGE"E<gt> E<lt>E<sol>TMPL_LOOPE<gt>> code.
+C<E<lt>TMPL_LOOP NAME="PKIT_MESSAGE"E<gt> E<lt>/TMPL_LOOPE<gt>> code.
 
 To add a message,
 
@@ -872,7 +898,8 @@ See the L<HTML::Template> manpage for description of the <TMPL_VAR>,
 =item <PKIT_ERRORFONT NAME="FIELD_NAME"> </PKIT_ERRORFONT>
 
 This tag highlights fields in red that L<Apache::PageKit::FormValidator>
-reported as being filled in incorrectly.
+reported as being filled in incorrectly.  An input profile must be passed to
+C<form_validator_input_profile> option for this to work.
 
 =item <PKIT_JAVASCRIPT>
 
@@ -882,7 +909,7 @@ This tag includes Javascript code (if necessary) for popup windows.
 
 These tags gets converted to <A HREF="LINK_FOR_PAGE_143"> </A> tags.
 Given a page ID, it determines what the link should be.  If
-PKIT_PAGE_DOMAIN is turned on, the link may include the domain name
+C<PKIT_PAGE_DOMAIN> is turned on, the link may include the domain name
 for that page.  If C<is_popup> is I<yes>, then the link will be a
 javascript popup.  If C<is_secure> is I<yes>, then the link will use
 the C<https://> protocal.
@@ -979,6 +1006,12 @@ Default page user gets when no page is specified.  Defaults to I<index>.
 When set to 1, automatically fills in HTML forms with values from the C<$apr> 
 (L<Apache::Request>) object.  Defaults to 1.
 
+=item form_validator_input_profile
+
+Specifies a hash reference to the
+L<HTML::FormValidator|HTML::FormValidator/INPUT PROFILE SPECIFICATION>
+input profile to be used.
+
 =item login_page
 
 Page that gets displayed when user attempts to log in.  Defaults to I<login>.
@@ -1068,9 +1101,9 @@ can be used to map to pages.  Default is off.
 
 =item PKIT_PAGE_INFO_FILE
 
-  PKIT_PAGE_INFO_FILE /www/site/page.txt
+  PKIT_PAGE_INFO_FILE /www/site/page.xml
 
-Tab delimited file containing page attributes.
+XML file containing page attributes and content.
 
 =item PKIT_PRODUCTION
 
@@ -1142,6 +1175,10 @@ that is displayed.
 
 If set to I<yes>, then page_code on error_page is run.  Defaults to I<no>.
 
+=item internal_title
+
+Title of page displayed on Content Management System. (Forthcoming)
+
 =item is_popup
 
 If set to I<yes>, links to this page popup a window using javascript.
@@ -1157,7 +1194,7 @@ in the C<domain> field.
 
 =item nav_title
 
-Title used in navigation bar - used in C<E<lt>TMPL_LOOP NAME="PKIT_NAV"E<gt> E<lt>E<sol>TMPL_LOOPE<gt>> tag.
+Title used in navigation bar - used in C<E<lt>TMPL_LOOP NAME="PKIT_NAV"E<gt> E<lt>/TMPL_LOOPE<gt>> tag.
 
 =item new_credential
 
@@ -1171,7 +1208,7 @@ authenticates the user.
 
 Value should be a regular expression.
 Servers requests whose URL (after the host name) match the regular expression.
-For example, C<^member\E<sol>\d*$> matches http://yourdomain.tld/member/4444.
+For example, C<^member\/\d*$> matches http://yourdomain.tld/member/4444.
 
 =item parent_id
 
@@ -1200,7 +1237,7 @@ If set to I<shared>, enables C<shared_cache> option of L<HTML::Template>.
 =item use_nav
 
 If set to I<yes>, creates navigation bar in location specified by
-C<E<lt>TMPL_LOOP NAME="PKIT_NAV"E<gt> E<lt>E<sol>TMPL_LOOPE<gt>> in the template.
+C<E<lt>TMPL_LOOP NAME="PKIT_NAV"E<gt> E<lt>/TMPL_LOOPE<gt>> in the template.
 
 =item use_template
 
@@ -1252,7 +1289,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.01
+This document describes Apache::PageKit module version 0.02
 
 =head1 NOTES
 
@@ -1282,6 +1319,8 @@ mailing list at http://lists.sourceforge.net/mailman/listinfo/pagekit-users
 Associate sessions with authenticated user ID.
 
 Use path_info for the url to pass along session IDs when cookies are disabled.
+
+Make Content Management System work.
 
 =head1 AUTHOR
 

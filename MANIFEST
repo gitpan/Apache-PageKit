@@ -1,5 +1,5 @@
 Changes
-eg/page.txt
+eg/page.xml
 eg/startup.pl
 eg/perl/MyPageKit.pm
 eg/perl/MyPageKit/ModuleCode.pm
@@ -23,4 +23,5 @@ PageKit/Error.pm
 PageKit/Info.pm
 PageKit/FormValidator.pm
 PageKit/View.pm
+README
 test.pl

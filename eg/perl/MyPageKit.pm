@@ -1,6 +1,6 @@
 package MyPageKit;
 
-# $Id: MyPageKit.pm,v 1.7 2000/08/24 18:02:04 tjmather Exp $
+# $Id: MyPageKit.pm,v 1.2 2000/08/28 20:31:24 tjmather Exp $
 
 use strict;
 
@@ -155,3 +155,37 @@ sub auth_session_key {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+MyPageKit - Example subclass for pagekit.org website
+
+=head1 DESCRIPTION
+
+This is included to provide a example of a Apache::PageKit subclass.
+
+It is also the code behind the http://www.pagekit.org/ web site.
+
+It is a good starting point for building your own subclass.
+
+=head1 AUTHOR
+
+T.J. Mather (tjmather@thoughtstore.com)
+
+=head1 COPYRIGHT
+
+Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.  PageKit is a trademark
+of ThoughtStore, Inc.
+
+=head1 LICENSE
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the Ricoh Source Code Public License for more details.
+
+You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
+
+You should have received a copy of the Ricoh Source Code Public License along with this program;
+if not, obtain one at http://www.pagekit.org/license

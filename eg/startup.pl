@@ -1,4 +1,4 @@
-# $Id: startup.pl,v 1.3 2000/08/17 16:21:10 tjmather Exp $
+# $Id: startup.pl,v 1.1.1.1 2000/08/25 02:57:38 tjmather Exp $
 
 use strict;
 

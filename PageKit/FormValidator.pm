@@ -1,6 +1,6 @@
 package Apache::PageKit::FormValidator;
 
-# $Id: FormValidator.pm,v 1.9 2000/08/24 19:21:53 tjmather Exp $
+# $Id: FormValidator.pm,v 1.2 2000/08/28 20:31:24 tjmather Exp $
 
 use integer;
 use strict;
@@ -133,7 +133,8 @@ T.J. Mather (tjmather@thoughtstore.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.
+Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.  PageKit is a trademark
+of ThoughtStore, Inc.
 
 =head1 LICENSE
 

@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.21 2000/08/24 19:33:29 tjmather Exp $
+# $Id: View.pm,v 1.2 2000/08/28 20:31:24 tjmather Exp $
 
 use integer;
 use strict;
@@ -41,7 +41,7 @@ sub prepare_module {
   my $template_name = "/Module/" . $module_id;
 
   my $options = {};
-  my $template_cache = $info->get_param('template_cache');
+  my $template_cache = $info->get_attr('template_cache');
   if($template_cache eq 'shared'){
     $options->{shared_cache} = 1;
   } elsif ($template_cache eq 'normal'){
@@ -66,7 +66,7 @@ sub prepare_page {
   my $template_name = "/Page/" . $page_id;
 
   my $options = {};
-  my $template_cache = $info->get_param('template_cache');
+  my $template_cache = $info->get_attr('template_cache');
   if($template_cache eq 'shared'){
     $options->{shared_cache} = 1;
   } elsif ($template_cache eq 'normal'){
@@ -132,13 +132,18 @@ sub prepare_template {
 sub _apply_param {
   my ($view, $template) = @_;
 
-  my $page_id = $view->{pk}->{page_id};
-  foreach my $key ($view->{pk}->{info}->avail_param){
-    $template->param($key,$view->{pk}->{info}->get_param($key))
+  my $pk = $view->{pk};
+
+  my $page_id = $pk->{page_id};
+
+  # get params from XML file
+  my $param_hashref = $pk->{info}->get_param_hashref;
+  while (my ($key, $value) = each %$param_hashref){
+    $template->param($key,$value)
       if $template->query(name => $key) eq 'VAR';
   }
   foreach my $key ($view->{pk}->{apr}->param){
-    $template->param($key,$view->{pk}->{apr}->param($key))
+    $template->param($key,$pk->{apr}->param($key))
       if $template->query(name => $key) eq 'VAR';
   }
   foreach my $key ($view->param){
@@ -153,7 +158,7 @@ sub prepare_entire_page {
   my $apr = $pk->{apr};
   my $info = $pk->{info};
 
-  my $page_view = $info->get_param('view');
+  my $page_view = $info->get_attr('view');
 
   my $template_name = "/View/" . $page_view;
 
@@ -179,15 +184,15 @@ sub prepare_entire_page {
   my $pkit_link_ref = sub {
     my ($page_id, $query_string) = @_;
 
-    my $protocal = ($info->get_param('is_secure',$page_id) eq 'yes') ? 'https://' : 'http://';
+    my $protocal = ($info->get_attr('is_secure',$page_id) eq 'yes') ? 'https://' : 'http://';
 
-    if($info->get_param('is_popup',$page_id) eq 'yes'){
+    if($info->get_attr('is_popup',$page_id) eq 'yes'){
       $view->param(java_script_code => 1);
       my $domain = (split(':',$apr->headers_in->{'Host'}))[0];
-      my $popup_height = $info->get_param('popup_height',$page_id);
-      my $popup_width = $info->get_param('popup_width',$page_id);
+      my $popup_height = $info->get_attr('popup_height',$page_id);
+      my $popup_width = $info->get_attr('popup_width',$page_id);
       return qq{<a href="javascript:openWindow('http://} . $domain . qq{/} . $page_id . $query_string . qq{',$popup_width,$popup_height)">};
-    } elsif ($apr->dir_config('PKIT_PAGE_DOMAIN') eq 'on' && (my $domain = $info->get_param('domain',$page_id))){
+    } elsif ($apr->dir_config('PKIT_PAGE_DOMAIN') eq 'on' && (my $domain = $info->get_attr('domain',$page_id))){
       return qq{<a href="$protocal$domain/$page_id$query_string">};
     } else {
       return qq{<a href="/$page_id$query_string">};
@@ -364,7 +369,8 @@ T.J. Mather (tjmather@thoughtstore.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved
+Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.  PageKit is a trademark
+of ThoughtStore, Inc.
 
 =head1 LICENSE
 
