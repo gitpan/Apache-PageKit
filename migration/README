@@ -1,6 +1,9 @@
 Please remember to BACK UP YOUR FILES before attempting to run migration
 scripts.
 =============================================================
+Migration from 1.09 to 1.10
+
+=============================================================
 Migration from 1.08 to 1.09
 
 1. Static pages can be protected with the reqire_login attribute in the

@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.93 2002/04/30 09:27:39 borisz Exp $
+# $Id: View.pm,v 1.87 2002/03/22 23:12:04 tjmather Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -28,8 +28,9 @@ use Storable ();
 #    * filename - filename of template source
 #    * include_mtimes - a hash ref with file names as keys and mtimes as values
 #        (contains all of the files included by the <PKIT_COMPONENT> tags
-#    * component_ids - an array ref containing component_ids that have
-#        code associated with them
+#    * component_ids - an array ref containing an array ref of component_ids and a hash ref 
+#	with the parameters for the compoent, that may have
+#       code associated with them
 #    * has_form - 1 if contains <form> tag, 0 otherwise.  used to
 #        determine whether to apply HTML::FillInForm module
 # the objects themselves are keyed by page_id, pkit_view and lang
@@ -56,20 +57,24 @@ use Storable ();
 use vars qw /%replace_start_tags %replace_end_tags $key_value_pattern/;
 
 %replace_start_tags = (
-                               MESSAGES  => '<TMPL_LOOP NAME="PKIT_MESSAGES">',
-                               IS_ERROR  => '<TMPL_IF NAME="PKIT_IS_ERROR">',
-                               NOT_ERROR => '<TMPL_UNLESS NAME="PKIT_IS_ERROR">',
-                               HOSTNAME  => '<TMPL_VAR NAME="PKIT_HOSTNAME">',
-                               MESSAGE   => '<TMPL_VAR NAME="PKIT_MESSAGE">',
-                               ERRORSTR  => '<TMPL_VAR NAME="PKIT_ERRORSTR">',
-                               REALURL   => '<TMPL_VAR NAME="PKIT_REALURL">',
+                               MESSAGES     => '<TMPL_LOOP NAME="PKIT_MESSAGES">',
+                               IS_ERROR     => '<TMPL_IF NAME="PKIT_IS_ERROR">',
+                               NOT_ERROR    => '<TMPL_UNLESS NAME="PKIT_IS_ERROR">',
+                               HAVE_MESSAGES  => '<TMPL_IF NAME="PKIT_MESSAGES">',
+                               HAVE_NOT_MESSAGES => '<TMPL_UNLESS NAME="PKIT_MESSAGES">',
+                               HOSTNAME     => '<TMPL_VAR NAME="PKIT_HOSTNAME">',
+                               MESSAGE      => '<TMPL_VAR NAME="PKIT_MESSAGE">',
+                               ERRORSTR     => '<TMPL_VAR NAME="PKIT_ERRORSTR">',
+                               REALURL      => '<TMPL_VAR NAME="PKIT_REALURL">',
   );
 
 %replace_end_tags = (
-                             VIEW      => '</TMPL_IF>',
-                             IS_ERROR  => '</TMPL_IF>',
-                             NOT_ERROR => '</TMPL_UNLESS>',
-                             MESSAGES  => '</TMPL_LOOP>'
+                             VIEW         => '</TMPL_IF>',
+                             IS_ERROR     => '</TMPL_IF>',
+                             NOT_ERROR    => '</TMPL_UNLESS>',
+                             HAVE_MESSAGES  => '</TMPL_IF>',
+                             HAVE_NOT_MESSGAES => '</TMPL_UNLESS>',
+                             MESSAGES     => '</TMPL_LOOP>'
   );
 
 #                        --------------------- $1 --------------------------
@@ -328,7 +333,6 @@ sub _html_clean {
   $$html_code_ref = ${$h->data()};
 }
 
-# returns the component_ids included
 sub _include_components {
   my ($view, $page_id, $html_code_ref, $pkit_view) = @_;
 
@@ -337,6 +341,7 @@ sub _include_components {
   } else {
     $$html_code_ref =~ s%<\s*PKIT_COMPONENT($key_value_pattern+)\s*/?>(<\s*/PKIT_COMPONENT\s*>)?%&get_component($page_id,$1,$view,$pkit_view)%eig;
   }
+
   sub get_component {
     my ($page_id, $params, $view, $pkit_view) = @_;
     my %params = ();
@@ -354,13 +359,18 @@ sub _include_components {
       while ($component_id =~ s![^/]*/\.\./!!) {};
     }
 
+    my $cid_key = join '', $component_id, sort %params;
+    unless ( $view->{component_ids_hash}->{$cid_key}++ ) {
+      push @{ $view->{component_ids} }, [ $component_id , \%params ];
+    }
+    
     # check for recursive pkit_components
-    $view->{component_ids_hash}->{$component_id}++;
-    if($view->{component_ids_hash}->{$component_id} > 100){
+    if($view->{component_ids_hash}->{$cid_key} > 100){
       die "Likely recursive PKIT_COMPONENTS for component_id $component_id and giving up.";
     }
 
     my $template_ref = $view->_load_component($page_id, $component_id, $pkit_view, \%params);
+    push @{ $view->{component_ids_arrayref_with_params} }, [ $component_id => \%params ];
     $$template_ref =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$params{uc($+)}!egi if (keys %params);
     return $$template_ref;
   }
@@ -424,7 +434,7 @@ sub _load_component {
 	(my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
 	die "charset ($default_input_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
       }
-      $template = $converter->convert($template) || die "Can not convert page from $default_input_charset to utf-8";
+      $template = $converter->convert($template) || die "Can not convert page from $default_input_charset to utf-8" if $template;
     }
     $template_ref = \$template;
 
@@ -433,7 +443,7 @@ sub _load_component {
   }
 
   if($view->{can_edit} eq 'yes'){
-    Apache::PageKit::Edit::add_component_edit_stubs($view, $template_ref, $pkit_view);
+    Apache::PageKit::Edit::add_component_edit_stubs($view, $page_id, $template_ref, $pkit_view);
   }
 
   $view->_include_components($page_id,$template_ref,$pkit_view);
@@ -489,9 +499,9 @@ sub _load_page {
   while (my ($lang, $filtered_html) = each %$lang_tmpl){
 
     if ( $converter ) {
-      $$filtered_html = $converter->convert($$filtered_html) || die "Can not convert page from UTF-8 to $default_output_charset";
+      $$filtered_html = $converter->convert($$filtered_html) || die "Can not convert page from UTF-8 to $default_output_charset" if $$filtered_html;
     }
-    
+
     my $exclude_params_set = $view->_preparse_model_tags($filtered_html);
     $view->_html_clean($filtered_html);
 
@@ -509,14 +519,13 @@ sub _load_page {
     if($@){
       die "Can't load template (MODEL TAGS) for $page_id: $@"
     }
-    my @component_ids = keys %{$view->{component_ids_hash}};
     my $record = {
 		  exclude_params_set => $exclude_params_set,
 		  filename => $template_file,
 		  html_template => $tmpl,
 		  include_mtimes => $view->{include_mtimes},
-		  component_ids => \@component_ids,
-		  has_form => $has_form
+		  component_ids => $view->{component_ids},
+		  has_form => $has_form,
 		 };
 
     # make directories, if approriate
@@ -586,22 +595,31 @@ sub _preparse_model_tags {
     $$html_code_ref =~ s%<(!--)?\s*(?:MODEL|PKIT)_(VAR|LOOP|IF|ELSE|UNLESS)($key_value_pattern*)\s*/?(?(1)--)>%<TMPL_$2$3>%sig;
 
     $$html_code_ref =~
+      s^<(!--)?\s*PKIT_ERROR(?:FONT|SPAN)$key_value_pattern?\s*(?(1)--)>(.*?)<(!--)?\s*/PKIT_ERROR(?:FONT|SPAN)\s*(?(8)--)>^
+        my $name = $4 || $5 || $6 || $3;
+	if ( $name ) {
+          qq{<TMPL_VAR NAME="PKIT_ERRORSPAN_BEGIN_$name">$7<TMPL_VAR NAME="PKIT_ERRORSPAN_END_$name">};
+	} else {
+	  my $text = $7;
+	  ( my $errorspan_begin_tag = $view->{errorspan_begin_tag} ) =~ s/<(!--)?\s*PKIT_ERRORSTR\s*(?(1)--)>/$view->{default_errorstr}/gi;
+	  $errorspan_begin_tag . $text . $view->{errorspan_end_tag}
+	} ^seig;
+
+    $$html_code_ref =~
       s%<(!--)?\s*PKIT_SELFURL$key_value_pattern?\s*/?(?(1)--)>% &process_selfurl_tag($exclude_params_set, $4 || $5 || $6 || $3 ) %seig;
 
-    $$html_code_ref =~ s%<(!--)?\s*/PKIT_(VIEW|IS_ERROR|NOT_ERROR|MESSAGES)\s*(?(1)--)>%     $replace_end_tags{uc($2)}   %seig;
-    $$html_code_ref =~ s%<(!--)?\s*PKIT_(MESSAGES|IS_ERROR|NOT_ERROR)\s*(?(1)--)>%           $replace_start_tags{uc($2)} %seig;
+    $$html_code_ref =~ s%<(!--)?\s*/PKIT_(VIEW|IS_ERROR|NOT_ERROR|MESSAGES|HAVE_MESSAGES|HAVE_NOT_MESSAGES)\s*(?(1)--)>%     $replace_end_tags{uc($2)}   %seig;
+    $$html_code_ref =~ s%<(!--)?\s*PKIT_(MESSAGES|IS_ERROR|NOT_ERROR|HAVE_MESSAGES|HAVE_NOT_MESSAGES)\s*(?(1)--)>%           $replace_start_tags{uc($2)} %seig;
     $$html_code_ref =~ s%<(!--)?\s*PKIT_(HOSTNAME|MESSAGE|ERRORSTR|REALURL)\s*/?(?(1)--)>% $replace_start_tags{uc($2)} %seig;
 
     $$html_code_ref =~
       s^<(!--)?\s*PKIT_VIEW$key_value_pattern\s*/?(?(1)--)>^ sprintf '<TMPL_IF NAME="PKIT_VIEW:%s">', $4 || $5 || $6 || $3; ^sieg; #"
 
-    $$html_code_ref =~
-      s^<(!--)?\s*PKIT_ERROR(?:FONT|SPAN)$key_value_pattern(?(1)--)\s*>(.*?)<(!--)?\s*/PKIT_ERROR(?:FONT|SPAN)\s*(?(8)--)>^ my $font = $4 || $5 || $6 || $3; qq{<TMPL_VAR NAME="PKIT_ERRORSPAN_BEGIN_$font">$7<TMPL_VAR NAME="PKIT_ERRORSPAN_END_$font">}; ^seig;
-  }
+   }
   else {
 
       if ( $$html_code_ref =~ m%<PKIT_(?:VAR|LOOP|IF|UNLESS)(?:$key_value_pattern)*/?>%i ) {
-      warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, PKIT_NOT_ERROR or PKIT_MESSAGE instead";
+      warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_HAVE_MESSAGES, PKIT_NOT_MESSAGES, PKIT_IS_ERROR, PKIT_NOT_ERROR or PKIT_MESSAGE instead";
     }
 
     # remove tags
@@ -615,16 +633,25 @@ sub _preparse_model_tags {
     $$html_code_ref =~ s%<(?:MODEL|PKIT)_(VAR|LOOP|IF|ELSE|UNLESS)($key_value_pattern*)/?>%<TMPL_$1$2>%sig;
 
     $$html_code_ref =~
+      s^<PKIT_ERROR(?:FONT|SPAN)$key_value_pattern?>(.*?)</PKIT_ERROR(?:FONT|SPAN)>^
+        my $name = $3 || $4 || $5 || $2;
+	if ( $name ) {
+          qq{<TMPL_VAR NAME="PKIT_ERRORSPAN_BEGIN_$name">$6<TMPL_VAR NAME="PKIT_ERRORSPAN_END_$name">};
+	} else {
+	  my $text = $6;
+	  ( my $errorspan_begin_tag = $view->{errorspan_begin_tag} ) =~ s/<PKIT_ERRORSTR>/$view->{default_errorstr}/gi;
+	  $errorspan_begin_tag . $text . $view->{errorspan_end_tag}
+	} ^seig;
+
+    $$html_code_ref =~
       s%<PKIT_SELFURL$key_value_pattern?/?>% &process_selfurl_tag($exclude_params_set, $3 || $4 || $5 || $2 ) %seig;
 
-    $$html_code_ref =~ s%</PKIT_(VIEW|IS_ERROR|NOT_ERROR|MESSAGES)>%    $replace_end_tags{uc($1)}   %seig;
-    $$html_code_ref =~ s%<PKIT_(MESSAGES|IS_ERROR|NOT_ERROR)>%          $replace_start_tags{uc($1)}%seig;
+    $$html_code_ref =~ s%</PKIT_(VIEW|IS_ERROR|NOT_ERROR|MESSAGES|HAVE_MESSAGES|HAVE_NOT_MESSAGES)>%    $replace_end_tags{uc($1)}   %seig;
+    $$html_code_ref =~ s%<PKIT_(MESSAGES|IS_ERROR|NOT_ERROR|HAVE_MESSAGES|HAVE_NOT_MESSAGES)>%          $replace_start_tags{uc($1)}%seig;
     $$html_code_ref =~ s%<PKIT_(HOSTNAME|MESSAGE|ERRORSTR|REALURL)/?>%$replace_start_tags{uc($1)}%seig;
 
     $$html_code_ref =~
       s^<PKIT_VIEW$key_value_pattern/?>^ sprintf '<TMPL_IF NAME="PKIT_VIEW:%s">', $3 || $4 || $5 || $2; ^sieg; #"
-    $$html_code_ref =~
-      s^<PKIT_ERROR(?:FONT|SPAN)$key_value_pattern>(.*?)</PKIT_ERROR(?:FONT|SPAN)>^ my $font = $3 || $4 || $5 || $2; qq{<TMPL_VAR NAME="PKIT_ERRORSPAN_BEGIN_$font">$6<TMPL_VAR NAME="PKIT_ERRORSPAN_END_$font">}; ^seig;
   }
 
   my @a = keys %$exclude_params_set;

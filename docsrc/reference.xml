@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.54 2002/04/25 15:48:07 borisz Exp $
+$Id: reference.xml,v 1.49 2002/03/22 19:59:13 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -2267,6 +2267,7 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refsynopsisdiv>
       <synopsis>
        <![CDATA[<PKIT_ERRORFONT NAME="lastname"> Last Name </PKIT_ERRORFONT> <input name="lastname"> ]]>
+       <![CDATA[<PKIT_ERRORFONT> new for PageKit 1.10 </PKIT_ERRORFONT> ]]>
       </synopsis>
      </refsynopsisdiv>
      <refsect1>
@@ -2276,6 +2277,8 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
       </para>
       <para>
        This tag highlights fields in red that Model reported as being filled in incorrectly.
+       Or, since version 1.10 of pkit it is possible to suppress the NAME attribute.
+       Then the field is always colored or whatever you want.
       </para>
      </refsect1>
     </refentry>
@@ -2289,16 +2292,74 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refsynopsisdiv>
       <synopsis>
        <![CDATA[<PKIT_ERRORSPAN NAME="lastname"> Last Name </PKIT_ERRORSPAN> <input name="lastname"> ]]>
+       <![CDATA[<PKIT_ERRORSPAN> new for PageKit 1.10 </PKIT_ERRORSPAN> ]]>
       </synopsis>
      </refsynopsisdiv>
      <refsect1>
       <title>Description</title>
       <para>
        This tag highlights fields in red that Model reported as being filled in incorrectly.
+       Or, since version 1.10 of pkit it is possible to suppress the NAME attribute.
+       Then the field is always colored or whatever you want.
       </para>
      </refsect1>
-
     </refentry>
+
+    <refentry id="pkit.have_messages">
+     <refnamediv>
+      <refname>PKIT_HAVE_MESSAGES</refname>
+      <refpurpose>
+       Include the block between <PKIT_HAVE_MESSAGES> and </PKIT_HAVE_MESSAGES> only,
+       if one or more messages are avail.
+      </refpurpose>
+     </refnamediv>
+     <refsynopsisdiv>
+      <synopsis>
+       <![CDATA[<PKIT_HAVE_MESSAGES>
+                   Here are some messages for you: <p>
+                  <PKIT_MESSAGES>
+                  <PKIT_IS_ERROR><font color="<PKIT_ERRORSTR>"></PKIT_IS_ERROR>
+                  <PKIT_MESSAGE>
+                  <PKIT_IS_ERROR></font></PKIT_IS_ERROR>
+	          <p>
+         </PKIT_MESSAGES>
+        </PKIT_HAVE_MESSAGES>]]>
+
+      </synopsis>
+     </refsynopsisdiv>
+     <refsect1>
+      <title>Description</title>
+      <para>
+        Include the block between <PKIT_HAVE_MESSAGES> and </PKIT_HAVE_MESSAGES> only,
+        if one or more messages are avail.
+      </para>
+     </refsect1>
+    </refentry>
+    <refentry id="pkit.have_not_messages">
+     <refnamediv>
+      <refname>PKIT_HAVE_NOT_MESSAGES</refname>
+      <refpurpose>
+       Include the block between <PKIT_HAVE_NOT_MESSAGES> and </PKIT_HAVE_NOT_MESSAGES> only,
+       if no messages are avail.
+      </refpurpose>
+     </refnamediv>
+     <refsynopsisdiv>
+      <synopsis>
+       <![CDATA[<PKIT_HAVE_NOT_MESSAGES>
+                   No messages for you! <p>
+        </PKIT_HAVE_NOT_MESSAGES>]]>
+
+      </synopsis>
+     </refsynopsisdiv>
+     <refsect1>
+      <title>Description</title>
+      <para>
+        Include the block between <PKIT_HAVE_NOT_MESSAGES> and </PKIT_HAVE_NOT_MESSAGES> only,
+        if no messages are avail.
+      </para>
+     </refsect1>
+    </refentry>
+
     <refentry id="pkit.hostname">
      <refnamediv>
       <refname>PKIT_HOSTNAME</refname>
@@ -2333,7 +2394,7 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refsynopsisdiv>
       <synopsis>
        <![CDATA[<PKIT_MESSAGES>
-                <PKIT_IS_ERROR><font color="<PKIT_ERRORSTR</PKIT_IS_ERROR>
+                <PKIT_IS_ERROR><font color="<PKIT_ERRORSTR>"></PKIT_IS_ERROR>
                 <PKIT_MESSAGE>
                 <PKIT_IS_ERROR></font></PKIT_IS_ERROR>
 	        <p>
@@ -2342,11 +2403,11 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
       </synopsis>
       <synopsis>
        <![CDATA[<PKIT_MESSAGES>
-         <PKIT_IS_ERROR><font color="<PKIT_ERRORSTR<PKIT_MESSAGE></font></PKIT_IS_ERROR>
+         <PKIT_IS_ERROR><font color="<PKIT_ERRORSTR>"><PKIT_MESSAGE></font></PKIT_IS_ERROR>
        </PKIT_MESSAGES>
 
        <PKIT_MESSAGES>
-         <PKIT_NOT_ERROR><font color="<PKIT_ERRORSTR<PKIT_MESSAGE></font></PKIT_NOT_ERROR>
+         <PKIT_NOT_ERROR><font color="<PKIT_ERRORSTR>"><PKIT_MESSAGE></font></PKIT_NOT_ERROR>
        </PKIT_MESSAGES>]]>
 
       </synopsis>

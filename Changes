@@ -1,6 +1,32 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.10
+	- Fix replace <PKIT_ERRORSTR> even inside pkit_message strings.
+		(Boris Zentner)
+	- Use parameters for Apache::PageKit->startup if we can not 
+		find PKIT_ROOT and or PKIT_SERVER for
+		mod_perl >= 1.06 (Boris Zentner)
+	- Add patch to use <PKIT_ERRORSPAN> and <PKIT_ERRORFONT>
+		without a name attribute. (Boris Zentner)
+	- Add: component subs are called with component-parameters.
+		See pkit_component_params_hashref (Boris Zentner)
+	! Component code is called inorder from top to the bottom
+		(Boris Zentner)
+	- Fix: bug, where path relative components are not listed as
+		an edit component. (Boris Zentner, Gabriel Burca)
+	- Fix a errormessage is fixed, that report file is out of 
+		the root_dir even if the file is not found.
+		(Boris Zentner, Gabriel Burca)
+	- Fix: write the session data and destroy the db connection
+		even if an error transpires (Boris Zentner)
+	- Fix: defer delivery of static pages if parameters are attached to
+		the URI. This allows to login/logout even with a static
+		default page (Boris Zentner)
+	- Fix iconv conversion: it is perfect legal to convert an empty
+		string '' to another charset (Boris Zentner)
+	- Add new tags <PKIT_HAVE_MESSAGES> and <PKIT_HAVE_NOT_MESSAGES>
+		(Boris Zentner, Sebastian Feuerstack)
 1.09
 	- Fix: case where something.xml was added to the mtimes hash even
 		if it does not exists (only if all your content came from

@@ -121,22 +121,22 @@ sub add_edit_links {
 }
 
 sub add_component_edit_stubs {
-  my ( $view, $html_code_ref, $pkit_view ) = @_;
+  my ( $view, $page_id, $html_code_ref, $pkit_view ) = @_;
 
   # insert edit stubs (PKIT_EDIT_COMPONENT), before each PKIT_COMPONENT tag,
   # for online editing tools to use
   
   if ( $view->{relaxed_parser} eq 'yes' ) {
     $$html_code_ref =~
-      s%<(!--)?\s*PKIT_COMPONENT($key_value_pattern+)\s*/?(?(1)--)?>(?:<(!--)?\s*/PKIT_COMPONENT\s*(?(1)--)>)?%_build_component_edit_stub($view, $pkit_view, $2)%eig;
+      s%<(!--)?\s*PKIT_COMPONENT($key_value_pattern+)\s*/?(?(1)--)?>(?:<(!--)?\s*/PKIT_COMPONENT\s*(?(1)--)>)?%_build_component_edit_stub($view, $pkit_view, $page_id, $2)%eig;
   } else {
     $$html_code_ref =~
-      s%<\s*PKIT_COMPONENT($key_value_pattern+)\s*/?>(<\s*/PKIT_COMPONENT\s*>)?%_build_component_edit_stub($view, $pkit_view, $1)%eig;
+      s%<\s*PKIT_COMPONENT($key_value_pattern+)\s*/?>(<\s*/PKIT_COMPONENT\s*>)?%_build_component_edit_stub($view, $pkit_view, $page_id, $1)%eig;
   }
     ###$$html_code_ref =~ s!(<[^>]*)?(<PKIT_COMPONENT $key_value_pattern>)!<font size="-1"><a href="/pkit_edit/open_file?file=$3">(edit $3)</a></font><br>$2!sig;
 
   sub _build_component_edit_stub {
-    my ( $view, $pkit_view, $params ) = @_;
+    my ( $view, $pkit_view, $page_id, $params ) = @_;
     my %params;
 
     while ( $params =~ m!$key_value_pattern!g ) {
@@ -149,11 +149,26 @@ sub add_component_edit_stubs {
         $params{NAME} = $2;
       }
     }
+
     $params{NAME} =~ s!^/+!!;
-    my $template_file = $view->_find_template( $pkit_view, $params{NAME} );
+
+    my $template_file;
+    my $component_id;
+
+    # search relative to the page_id path
+    if ( ( $component_id = $page_id ) =~ s!/([^/]+)$!/$params{NAME}! ) {
+      $template_file = $view->_find_template( $pkit_view, $component_id );
+    }
+
+    # if the template_dile is not found search as abs path
+    unless ( $template_file ) {
+      $component_id  = $params{NAME};
+      $template_file = $view->_find_template( $pkit_view, $component_id ) || die "$component_id not found";
+    }
+    
     my $pkit_root = Apache->request->dir_config('PKIT_ROOT');
     die "Filename ($template_file) points outside PKIT_ROOT ($pkit_root)" unless ( $template_file =~ s!^$pkit_root/!! );
-    return qq{<PKIT_EDIT_COMPONENT NAME="$params{NAME}"><PKIT_COMPONENT $params>};
+    return qq{<PKIT_EDIT_COMPONENT NAME="$component_id"><PKIT_COMPONENT $params>};
   }
 }
 

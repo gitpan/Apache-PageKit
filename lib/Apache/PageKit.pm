@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.191 2002/04/30 09:27:39 borisz Exp $
+# $Id: PageKit.pm,v 1.175 2002/03/13 22:41:15 borisz Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -34,7 +34,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.09';
+$VERSION = 1.09_01;
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -48,8 +48,8 @@ sub startup {
   my $s = Apache->server;
 
   if ( defined $mod_perl::VERSION && $mod_perl::VERSION >= 1.26 ) {
-    $pkit_root = $s->dir_config('PKIT_ROOT')   || die "PKIT_ROOT is not defined! Put PerlSetVar PKIT_ROOT /your/root/path in your httpd.conf";
-    $server    = $s->dir_config('PKIT_SERVER') || die "PKIT_SERVER is not defined! Put PerlSetVar PKIT_SERVER servername in your httpd.conf";
+    $pkit_root = $s->dir_config('PKIT_ROOT')   || $pkit_root || die "PKIT_ROOT is not defined! Put PerlSetVar PKIT_ROOT /your/root/path in your httpd.conf";
+    $server    = $s->dir_config('PKIT_SERVER') || $server    || die "PKIT_SERVER is not defined! Put PerlSetVar PKIT_SERVER servername in your httpd.conf";
   } else {
     $pkit_root || die 'must specify $pkit_root variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)';
     $server    || die 'must specify $server variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)';
@@ -137,13 +137,13 @@ sub startup {
 sub handler ($$){
   my $class = shift;
 
-  my ($pk, $status_code);
+  my ($pk, $model, $status_code);
 
   $| = 1;
 
   eval {
     $pk = $class->new;
-    my $model = $pk->{model};
+    $model = $pk->{model};
     my $apr = $pk->{apr};
     my $view = $pk->{view};
     my $config = $pk->{config};
@@ -152,8 +152,12 @@ sub handler ($$){
     if ($status_code eq OK && $use_template ne 'no'){
       COMPONENT: {
         $pk->open_view;
-        for my $component_id (@{$view->{record}->{component_ids}}){
-	  $pk->component_code($component_id);
+#        for my $component_id (@{$view->{record}->{component_ids}}){
+#	  $pk->component_code($component_id);
+	local $pk->{component_params_hashref};
+        for my $component_id_params_ref (@{$view->{record}->{component_ids}}){
+	  $pk->{component_params_hashref} = $component_id_params_ref->[1];
+	  $pk->component_code($component_id_params_ref->[0]);
           if ( defined $pk->{status_code} ) {
             $status_code = $pk->{status_code};
             last COMPONENT;
@@ -165,22 +169,25 @@ sub handler ($$){
       }
     }
 
+  };
+  
+  if ( $pk ) {
+    
+    $status_code = $pk->_fatal_error($@) if ( $@ );
+
     # save changes
     delete @$pk{qw/session page_session/};
+  }
 
-    # the session and page_session references can not be used
-    # inside pkit_cleanup_code -- they are already deleted
-    $model->pkit_cleanup_code if $model->can('pkit_cleanup_code');
-  };
-  if($@){
-    if($pk){
-      $status_code = $pk->_fatal_error($@);
-    } else {
-      if(exists $INC{'Apache/ErrorReport.pm'}){
-	Apache::ErrorReport::fatal($@);
-      }
-      die $@;
+  # the session and page_session references can not be used
+  # inside pkit_cleanup_code -- they are already deleted
+  $model->pkit_cleanup_code if $model && $model->can('pkit_cleanup_code');
+
+  if($@ and !$pk){
+    if(exists $INC{'Apache/ErrorReport.pm'}){
+      Apache::ErrorReport::fatal($@);
     }
+    die $@;
   }
 
   return $status_code || OK;
@@ -419,7 +426,12 @@ sub prepare_page {
       my $require_login  = $config->get_page_attr($pk->{page_id},'require_login') || 'no';
       my $protect_static = $config->get_global_attr('protect_static') || 'yes';
       if ( $require_login eq 'no' || $protect_static ne 'yes' ) {
-        return $pk->_send_static_file($filename);
+        # return the static page only, if no parameters are attached to the uri
+	# otherwise we can not login logout and so on when one the default or index
+	# or whatever page is static.
+	# if we have some parameters, defer the delivery of the page after the
+	# auth check
+        return $pk->_send_static_file($filename) unless ( $apr->param );
       }
       $static_file{name}    = $filename;
       $static_file{page_id} = $pk->{page_id};
@@ -825,6 +837,7 @@ sub new {
   my $relaxed_parser = $config->get_global_attr('relaxed_parser') || 'no';
   my $errorspan_begin_tag = $config->get_global_attr('errorspan_begin_tag') || q{<font color="<PKIT_ERRORSTR>">};
   my $errorspan_end_tag   = $config->get_global_attr('errorspan_end_tag')   || q{</font>};
+  my $default_errorstr   = $config->get_global_attr('default_errorstr')   || '#ff0000';
 
   my $template_class = $config->get_global_attr('template_class') || 'HTML::Template';
   $self->{view} = Apache::PageKit::View->new(view_dir => "$pkit_root/View",
@@ -841,6 +854,7 @@ sub new {
                                              relaxed_parser => $relaxed_parser,
                                              errorspan_begin_tag => $errorspan_begin_tag,
                                              errorspan_end_tag => $errorspan_end_tag,
+                                             default_errorstr => $default_errorstr,
                                              template_class => $template_class,
 					    );
 
@@ -1391,7 +1405,7 @@ L<Data::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 1.09
+This document describes Apache::PageKit module version 1.10
 
 =head1 NOTES
 
@@ -1454,8 +1468,9 @@ Fixes, Bug Reports, Docs have been generously provided by:
   John Moose
   Sheldon Hearn
   Vladimir Sekissov
-  Gabriel Burka
+  Gabriel Burca
   Tomasz Konefal
+  Michael Wojcikiewicz
 
 Also, thanks to Dan Von Kohorn for helping shape the initial architecture
 and for the invaluable support and advice. 

@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.77 2002/04/30 09:27:39 borisz Exp $
+# $Id: Model.pm,v 1.74 2002/03/14 14:41:38 borisz Exp $
 
 use integer;
 use strict;
@@ -170,6 +170,10 @@ sub pkit_validate_input {
   }
 }
 
+sub pkit_component_params_hashref {
+  return $_[0]->{pkit_pk}->{component_params_hashref};
+}
+
 sub pkit_input_hashref {
   my $model = shift;
   return $model->{pkit_input_hashref} if
@@ -198,8 +202,11 @@ sub pkit_message {
     if ($@) {
       die "Charset $input_charset or $default_output_charset not supported by Text::Iconv";
     }
-    $message = $converter->convert($message) || die "Can not convert page from $input_charset to $default_output_charset";;
+    $message = $converter->convert($message) || die "Can not convert page from $input_charset to $default_output_charset" if $message;
   }
+
+  my $default_error_str = $model->pkit_get_config_attr( GLOBAL => 'default_errorstr' ) || "#ff0000";
+  $message  =~ s/<(!--)?\s*PKIT_ERRORSTR\s*(?(1)--)>/$default_error_str/gi;
 
   my $array_ref = $model->output('pkit_messages') || [];
   push @$array_ref, {pkit_message  => $message,
@@ -451,7 +458,7 @@ sub _change_params {
       } elsif ( $type eq 'ARRAY' ) {
         _change_array( $converter, $_ );
       } else {
-        $_ = $converter->convert($_) || die "Can not convert from default_input_charset to default_output_charset";
+        $_ = $converter->convert($_) || die "Can not convert from default_input_charset to default_output_charset" if $_;
       }
     }
   }
@@ -465,7 +472,7 @@ sub _change_params {
       } elsif ( $type eq 'ARRAY' ) {
         _change_array( $converter, $_ );
       } else {
-        $_ = $converter->convert($_) || die "Can not convert from default_input_charset to default_output_charset";
+        $_ = $converter->convert($_) || die "Can not convert from default_input_charset to default_output_charset" if $_;
       }
     }
   }
@@ -477,7 +484,7 @@ sub _change_params {
     } elsif ( $type eq 'ARRAY' ) {
       _change_array( $converter, $_[$i] );
     } else {
-      $_[$i] = $converter->convert($_[$i]) || die "Can not convert from default_input_charset to default_output_charset";
+      $_[$i] = $converter->convert($_[$i]) || die "Can not convert from default_input_charset to default_output_charset" if $_[$i];
     }
   }
 }

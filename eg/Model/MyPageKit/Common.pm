@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.20 2002/04/03 13:31:14 borisz Exp $
+# $Id: Common.pm,v 1.19 2002/01/08 16:45:12 borisz Exp $
 
 use strict;
 
