@@ -1,5 +1,68 @@
 Revision history for Perl extension Apache::PageKit.
 
+0.97
+	- Login code has been rewritten.  To attempt a login, the
+		pkit_login request parameter must be set.
+		The new_credential configuration option is no longer
+		supported.
+	- added can_edit to server config section Config.dtd file.
+	- Names in <CONTENT_VAR> and <CONTENT_LOOP> tags are
+		XPath queries
+	- Removed support for navigation bars, since they didn't fit
+		in well with the new Content and View modules.  Might
+		add them back if there is demand and I can find an
+		clean way of doing it (using XPointers in content
+		XML file???)
+	- Removed support for $model->content_param, since content
+		is now compiled into template and it is not possible
+		to get or set the tags run time.
+	- Automically converts UTF-8 Encoding to latin1 encodeing,
+		if Unicode::String is loaded (Yann Kerhervé)
+	- fixed bug with pre-parsing content from sub-directories
+	- input_param now works with parameters containing multiple values
+	- Add $model->pkit_set_errorfont($field), used mark <PKIT_ERRORFONT>
+		tags for errors.
+	- Added pkit_root method, gets PageKit root directory
+	- no longer escape pkit_done
+	- works with mod_proxy_add_uri.c apache module, using X-Original-URI header
+	- Removed PKIT_LOGINOUT_LINK, this tag was
+		not necessary and cluttered the API,
+		see migration/README for details
+	- removed search_engine_headers config option
+	- server_id is now passed to startup, solves
+		problem with server options not being
+		loaded properly at startup.
+	- Added pkit_get_session_id
+	- Added pkit_fixup_uri method (META needs docs)
+	- Added request_param_in_tmpl global attribute, which
+		supplements request_param_in_tmpl page attribute
+	- Added $model->pkit_output_filter, a hook that can
+		be used to filter the output
+	- Added <PKIT_VAR NAME="HOSTNAME">, which specifies
+		current host name.
+	- Added $model->pkit_get_server_id - gets server id from 
+		Config.xml file.
+	- Added $model->pkit_get_default_page - put in so that
+		it can be overridden in derived model class
+	- content inside <CONTENT_VAR>, etc tags should be
+		PCDATA, not CDATA - application should escape
+		and unescape data as necessary.
+	- <PKIT_VAR NAME="LOGINOUT_LINK"> now has a forward slash
+		in front of the login link.
+	- if cache_dir is not set, default to the PKIT_ROOT/View/cache
+		and PKIT_ROOT/Content/cache
+	- moved html_clean_level from global section to server section
+	- added pkit_post_common_code hook, similar to
+		pkit_common_code, but called after page code is
+		executed.
+	- Added <CONTENT_(IF|UNLESS|ELSE)> tags.
+	- Fixed typo with login/out message.
+	- Components can now have content associated with them
+		(needs testing)
+	- Fixed problems with Content caching when page_id contains
+		'/' - content cache files are now determined my using
+		a MD5 hash
+
 0.96
 	- added $model->pkit_input_hashref method, gets inputs
 		(request params) as a reference to hash

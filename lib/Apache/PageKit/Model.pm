@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.16 2001/02/02 09:19:24 tjmather Exp $
+# $Id: Model.pm,v 1.23 2001/04/25 21:28:46 tjmather Exp $
 
 use integer;
 use strict;
@@ -15,9 +15,43 @@ sub new {
   return $self;
 }
 
+sub pkit_get_session_id {
+  my $model = shift;
+  return $model->{pkit_pk}->{session}->{_session_id};
+}
+
+sub pkit_get_server_id {
+  my $model = shift;
+  my $apr = $model->{pkit_pk}->{apr};
+  return $apr->dir_config('PKIT_SERVER') if $apr;
+}
+
+sub pkit_root {
+  my $model = shift;
+  my $apr = $model->{pkit_pk}->{apr};
+  return $apr->dir_config('PKIT_ROOT') if $apr;
+}
+
+sub pkit_get_orig_uri {
+  my $model = shift;
+  return $model->{pkit_pk}->{orig_uri};
+}
+
 sub pkit_user {
   my $model = shift;
   return $model->{pkit_pk}->{view}->param('pkit_user');
+}
+
+sub pkit_set_errorfont {
+  my ($model, $field) = @_;
+
+  my $begin_name = "PKIT_ERRORFONT_BEGIN_$field";
+  # should change color to be user configurable...
+  my $begin_value = qq{<font color="#ff000">};
+  my $end_name = "PKIT_ERRORFONT_END_$field";
+  my $end_value = qq{</font>};
+  $model->output_param($begin_name => $begin_value);
+  $model->output_param($end_name => $end_value);
 }
 
 sub pkit_validate_input {
@@ -45,13 +79,7 @@ sub pkit_validate_input {
   }
 
   for my $field (@$missings, @$invalids){
-    my $begin_name = "PKIT_ERRORFONT_BEGIN_$field";
-    # should change color to be user configurable...
-    my $begin_value = qq{<font color="#ff000">};
-    my $end_name = "PKIT_ERRORFONT_END_$field";
-    my $end_value = qq{</font>};
-    $model->output_param($begin_name => $begin_value);
-    $model->output_param($end_name => $end_value);
+    $model->pkit_set_errorfont($field);
   }
   if(@$invalids || @$missings){
     if(@$invalids){
@@ -115,24 +143,53 @@ sub pkit_get_page_id {
 # currently input_param is just a wrapper around $apr
 sub input_param {
   my $model = shift;
-  return unless exists $model->{pkit_pk};
-  return $model->{pkit_pk}->{apr}->param(@_);
+  if (exists $model->{pkit_pk} && exists $model->{pkit_pk}->{apr}){
+    if(wantarray){
+      # deal with multiple value containing parameters
+      my @list = $model->{pkit_pk}->{apr}->param(@_);
+      return @list;
+    } else {
+      return $model->{pkit_pk}->{apr}->param(@_);
+    }
+  } else {
+    return $model->_param("input",@_);
+  }
 }
 
 # currently output_param is just a wrapper around $view
 sub output_param {
   my $model = shift;
-  return unless exists $model->{pkit_pk};
-  return $model->{pkit_pk}->{view}->param(@_);
+  if (exists $model->{pkit_pk}){
+    return $model->{pkit_pk}->{view}->param(@_);
+  } else {
+    return $model->_param("output",@_);
+  }
 }
 
-# used to access and set values of <CONTENT_VAR> and <CONTENT_LOOP> tags
-sub content_param {
-  my ($model, @p) = @_;
-  for my $i (0 .. @p/2){
-    $p[$i] = "content:".$p[$i];
+# used internally when there is no pkit_pk object
+sub _param {
+  my ($model, $type, @p) = @_;
+  my ($name, $value);
+
+  # deal with case of setting mul. params with hash ref.
+  if (ref($p[0]) eq 'HASH'){
+    my $hash_ref = shift(@p);
+    push(@p, %$hash_ref);
   }
-  $model->output_param(@p);
+  if (@p > 1){
+    die "param called with odd number of parameters" unless ((@p % 2) == 0);
+    while(($name, $value) = splice(@p, 0, 2)){
+      $model->{"pkit_${type}_param"}->{$name} = $value;
+    }
+  } else {
+    $name = $p[0];
+  }
+  return $model->{"pkit_${type}_param"}->{$name};
+}
+
+# put here so that it can be overriden in derived classes
+sub pkit_get_default_page {
+  return shift->{pkit_pk}->{config}->get_global_attr('default_page');
 }
 
 # this is experimental and subject to change
@@ -146,10 +203,11 @@ sub dispatch {
 
 sub dbh {
   my $model = shift;
-  if (exists $model->{pkit_pk}){
+  if (exists $model->{pkit_pk}->{dbh}){
     return $model->{pkit_pk}->{dbh};
   } else {
-    $Apache::Model::dbh ||= $model->pkit_dbi_connect;
+    $Apache::Model::dbh = $model->pkit_dbi_connect
+      unless defined($Apache::Model::dbh) && $Apache::Model::dbh->ping;
     return $Apache::Model::dbh;
   }
 }
@@ -168,7 +226,13 @@ sub pkit_query {
   my ($model, @p) = @_;
   my $pk = $model->{pkit_pk};
   my $view = $pk->{view};
-  return $view->query(@p);
+
+  # will need to change once Template-Toolkit is supported
+  unless(exists $view->{record}){
+    $pk->open_view;
+  }
+
+  return $view->{record}->{html_template}->query(@p);
 }
 
 1;
@@ -283,11 +347,6 @@ Basically a wrapper to the L<HTML::Template/"query()"> method of HTML::Template:
 
   my $type = $model->pkit_query(name => 'foo');
 
-=item content_param
-
-Similar to C<output_param> but sets content variables associated with
-the <CONTENT_VAR> and <CONTENT_LOOP> tags.
-
 =item apr
 
 Returns the L<Apache::Request> object.
@@ -335,6 +394,18 @@ Redirect to another URL.
 
 Redirects user to the PageKit home page.
 
+Note that this method automically adds the host name, if the url
+does not include C<http://>.
+
+=item pkit_set_errorfont
+
+Sets the corresponding C<&lt;PKIT_ERRORFONT&gt;> tag in the template.  Useful
+for implementing your own custom constraints.
+
+  $model->pkit_set_errorfont('state');
+
+Sets C<&lt;PKIT_ERRORFONT NAME="state"&gt;> to C<&lt;font color="red"&gt;>
+
 =item pkit_validate_input
 
 Takes an hash reference containing a L<HTML::FormValidator> input profile
@@ -347,9 +418,35 @@ and returns true if the request parameters are valid.
     # user must have not filled out name field, 
     # i.e. $apr->param('name') = $model->input_param('name') is
     # not set, so go back to original form
+    # if you used a <PKIT_ERRORFONT NAME="name"> tag, then it will be set to
+    # red
     $model->pkit_internal_redirect('orig_form');
     return;
   }
+
+=item pkit_get_orig_uri
+
+Gets the original URI requested.
+
+=item pkit_get_server_id
+
+Gets the server_id for the server, as specified by the
+C<PKIT_SERVER> directive in the httpd.conf file.
+
+=item pkit_get_session_id
+
+Gets the session id if you have set up session management using
+L<pkit_session_setup>.  Note the following code is equivalent:
+
+  my $session_id = $model->pkit_get_session_id;
+  my $session_id = $model->session->{_session_id};
+
+=item pkit_root
+
+Gets the PageKit root directory, as defined by PKIT_ROOT in your
+httpd.conf file.
+
+  my $pkit_root = $model->pkit_root
 
 =back
 
@@ -365,19 +462,63 @@ through C<$model-E<gt>dbh>.
 
 =item pkit_session_setup
 
-Returns hash reference to session setup arguments.
+Returns hash reference to L<Apache::PageKit::Session> session setup arguments.
 
 =item pkit_auth_credential
 
 Verifies the user-supplied credentials and return a session key.  The
-session key can be any string - often you'll use the user ID and
-a MD5 hash of a a secret key, user ID, password.
+session key is a string that is stored on the user's computer using cookies.
+Often you'll use the user ID and a MD5 hash of a a secret key, user ID, password.
+
+Note that the string returned should not contain any commas, spaces, or semi-colons.
 
 =item pkit_auth_session_key
 
 Verifies the session key (previously generated by C<auth_credential>)
 and return the user ID.
 This user ID will be fed to C<$model-E<gt>input_param('pkit_user')>.
+
+=item pkit_common_code
+
+Code that gets called before the page and component code for every page on
+the site.
+
+=item pkit_post_common_code
+
+Code that gets called after the page and component code is executed.
+Note that this is experimental and may change in future releases.
+
+One use for this is to cleanup any database handlers:
+
+sub pkit_post_common_code {
+  my $model = shift;
+  my $dbh = $model->dbh;
+  $dbh->disconnect;
+}
+
+Although a better solution is to use L<Apache::DBI>.
+
+=item pkit_output_filter
+
+Filters the output from the PageKit handler.  Should only use when necessary,
+a better option is to modify the templates directly.
+
+Here we filter the image links to that they point to the secure site if we
+are on a secure page (the only good use of pkit_output_filter that I know of)
+
+  sub pkit_output_filter {
+    my ($model, $output_ref) = @_;
+    if($model->apr->parsed_uri->scheme eq 'https'){
+      $$output_ref =~ s(http://images.yourdomain.com/)(https://images.yourdomain.com/)g;
+    }
+  }
+
+=item pkit_get_default_page
+
+If no page is specified, then this subroutine will return the page_id
+of the page that should be displayed.  You only have to provide this
+routine if you wish to override the default method, which simply
+returns the C<default_page> attribute as listed in the C<Config.xml> file.
 
 =back
 
@@ -391,7 +532,7 @@ T.J. Mather (tjmather@anidea.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.  PageKit is
+Copyright (c) 2000, 2001 AnIdea Corporation.  All rights Reserved.  PageKit is
 a trademark of AnIdea Corporation.
 
 =head1 LICENSE

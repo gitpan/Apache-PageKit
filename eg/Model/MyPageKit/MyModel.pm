@@ -12,7 +12,7 @@ sub customize {
   my $model = shift;
   my $session = $model->session;
   my $change_flag;
-  for ($model->input_param){
+  for (grep /color$/, $model->input_param){
     $session->{$_} = $model->input_param($_);
     $model->output_param($_ => $model->input_param($_));
     $change_flag = 1;
@@ -26,12 +26,11 @@ sub newacct2 {
   my $dbh = $model->dbh;
 
   my $input_profile = {
-		  required => [ qw( pkit_model email login passwd1 passwd2 ) ],
+		  required => [ qw( email login passwd1 passwd2 ) ],
 		  constraints => {
 				  email => "email",
 				  login => { constraint => sub {
-					       my ($new_login, $model) = @_;
-					       my $dbh = $model->dbh;
+					       my ($new_login) = @_;
 
 					       # check to make sure login isn't already used
 					       my $sql_str = "SELECT login FROM pkit_user WHERE login = ?";
@@ -40,7 +39,7 @@ sub newacct2 {
 					       # login isn't used, return true
 					       return 1;
 					     },
-					     params => [ qw( login pkit_model )]
+					     params => [ qw( login )]
 					   },
 				  passwd1 => { constraint => sub { return $_[0] eq $_[1]; },
 					       params => [ qw( passwd1 passwd2 ) ]
@@ -58,21 +57,24 @@ sub newacct2 {
 		 };
   # validate user input
   unless($model->pkit_validate_input($input_profile)){
-    $model->pkit_set_page_id('newacct1');
+    $model->pkit_internal_redirect('newacct1');
     return;
   }
+
+  my $login = $model->input_param('login');
+  my $passwd = $model->input_param('passwd1');
+
+  # page to return to after user is logged in
+  my $pkit_done = $model->input_param('pkit_done');
 
   # make up userID
   my $user_id = substr(MD5->hexhash(MD5->hexhash(time(). {}. rand(). $$)), 0, 8);
 
   my $sql_str = "INSERT INTO pkit_user (user_id,email,login,passwd) VALUES (?,?,?,?)";
   $dbh->do($sql_str, {}, $user_id, $model->input_param('email'),
-				$model->input_param('login'),
-				$model->input_param('passwd1'));
+				$login, $passwd);
 
-  $model->input_param('pkit_credential_0', $model->input_param('login'));
-  $model->input_param('pkit_credential_1', $model->input_param('passwd1'));
-  $model->input_param('pkit_remember', 'on');
+  $model->pkit_redirect("/?login=$login&passwd=$passwd&pkit_done=$pkit_done&pkit_login=1");
 }
 
 1;

@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.9 2001/01/23 03:40:21 tjmather Exp $
+# $Id: Config.pm,v 1.13 2001/04/25 22:06:39 tjmather Exp $
 
 use integer;
 use strict;
@@ -66,6 +66,7 @@ sub get_global_attr {
 
 sub get_server_attr {
   my ($config, $key) = @_;
+#  print "$key - $config->{server}\n";
   return $server_attr->{$config->{config_dir}}->{$config->{server}}->{$key};
 }
 
@@ -261,6 +262,12 @@ Seconds that user's session has to be inactive before a user is asked
 to verify a password on pages with the C<require_login> attribute
 set to I<recent>.  Defaults to 3600 (1 hour).
 
+=item request_param_in_tmpl
+
+If set to yes, then <MODEL_VAR> tags in template automatically get filled in
+with corresponding request values across all pages.  Can be overriden
+by the corresponding page attribute.  Defaults to no.
+
 =item session_expires
 
 Sets the expire time for the cookie that stores the session id on 
@@ -288,6 +295,12 @@ tag of Config.xml
 
 =over 4
 
+=item can_edit
+
+If set to C<yes>, enables on-line editing tools that are provided with
+PageKit CMS.  PageKit CMS is a Commercial Content Management System for
+PageKit and should be released by May 2001.
+
 =item cookie_domain
 
 Domain for that cookies are issued.  Note that you must have
@@ -310,18 +323,6 @@ optimizations.  Defaults to level 9.
 
 If set to I<yes>, check for new content and config xml files
 on each request.  Should be set to I<no> on production servers.
-Default is I<no>.
-
-=item search_engine_headers
-
-If set to I<yes>, sends I<Content-Length> and I<Last-Modified> headers
-on pages that
-don't require a login.  Some search engines might that these headers be set
-in order to index a page.
-
-META: I'm not sure if this works or is necessary with search engines.
-Please send me any comments or suggestions.
-
 Default is I<no>.
 
 =back
@@ -368,14 +369,12 @@ database, such as pages that process new registration and forms that set a new l
 If set to I<yes>, then it reissues the cookie that contains the credentials and
 authenticates the user.
 
-=item parent_id
-
-Parent page id - used for navigation bar.
-
 =item request_param_in_tmpl
 
 If set to yes, then <MODEL_VAR> tags in template automatically get filled in
-with corresponding request values.  Defaults to no.
+with corresponding request values.  Defaults to the value set
+by the global request_param_in_tmpl attribute, or if that is not set, then
+it defaults to I<no>.
 
 =item require_login
 
@@ -394,11 +393,6 @@ If set to I<shared>, enables C<shared_cache> option of L<HTML::Template>.
 Value should be a regular expression.
 Servers requests whose URL (after the host name) match the regular expression.
 For example, C<^member\/\d*$> matches http://yourdomain.tld/member/4444.
-
-=item use_bread_crumb
-
-If set to I<yes>, creates bread crumb trail in location specified by
-C<E<lt>PKIT_LOOP NAME="BREAD_CRUMB"E<gt> E<lt>/PKIT_LOOPE<gt>> in the template.
 
 =item use_template
 

@@ -1,4 +1,4 @@
-eg/ directory - www.pagekit.org example website
+pagekit.org/ directory - www.pagekit.org example website
 ===============================================
 
 This directory contains the complete working PageKit application
@@ -17,12 +17,6 @@ Config/Config.xml
 Configuration XML file.
 
 Content/
-This directory contains all of the XML content files.
-
-Content/Content.dtd
-Document Type Definition for XML content files
-
-Content/xml/
 Directory containing source XML for Content
 
 Model/

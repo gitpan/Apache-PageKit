@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<!DOCTYPE CONFIG SYSTEM "./Config.dtd">
+<!DOCTYPE CONFIG SYSTEM "./PageKit_Config-0.97.dtd">
 <CONFIG>
 <GLOBAL
 	login_page="login1"
@@ -14,23 +14,7 @@
 	reload="yes"/>
 </SERVERS>
 <PAGES>
-  <PAGE id="customize" use_bread_crumb="yes" require_login="no" parent_id="examples" request_param_in_tmpl="yes">
-  </PAGE>
-  <PAGE id="examples" use_bread_crumb="yes" require_login="no" parent_id="index">
-  </PAGE>
-  <PAGE id="index" use_bread_crumb="no" require_login="no" template_cache="no">
-  </PAGE>
-  <PAGE id="license" use_bread_crumb="no" require_login="no" parent_id="index">
-  </PAGE>
-  <PAGE id="language" use_bread_crumb="yes" parent_id="examples">
-  </PAGE>
-  <PAGE id="login1" use_bread_crumb="yes" require_login="no" parent_id="examples">
-  </PAGE>
-  <PAGE id="login2" use_bread_crumb="no" require_login="no" parent_id="login1" error_page="login1" new_credential="yes">
-  </PAGE>
-  <PAGE id="newacct1" use_bread_crumb="yes" require_login="no" parent_id="examples">
-  </PAGE>
-  <PAGE id="newacct2" use_bread_crumb="yes" require_login="no" parent_id="newacct1" error_page="newacct1" new_credential="yes">    
+  <PAGE id="customize" request_param_in_tmpl="yes">
   </PAGE>
 </PAGES>
 </CONFIG>

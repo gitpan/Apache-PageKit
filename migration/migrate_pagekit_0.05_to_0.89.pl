@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
-# Migratation scripts from Apache::PageKit 0.05 to 0.06
-# usage: ./migrate_pagekit_0.05_to_0.06.pl /home/tjmather/anidea/page.xml /home/tjmather/anidea/
+# Migratation scripts from Apache::PageKit 0.05 to 0.89
+# usage: ./migrate_pagekit_0.05_to_0.89.pl /home/tjmather/anidea/page.xml /home/tjmather/anidea/
 
 # note that this script is not perfect and will not 
 # work in all cases
@@ -21,7 +21,7 @@ use strict;
 # This script takes the following inputs:
 # 1. page.xml (page cnf and data)
 # and outputs:
-# 1. Controller/Config.xml (global/server/page config)
+# 1. Config/Config.xml (global/server/page config)
 # 2. Content/XML/ (page data)
 
 # STEP 1 Load XML Data From page.xml
@@ -34,9 +34,9 @@ use strict;
   mkdir "$root_dir/Content", 0755;
   mkdir "$root_dir/Content/xml", 0755;
   mkdir "$root_dir/Content/cache", 0755;
-  mkdir "$root_dir/Controller", 0755;
+  mkdir "$root_dir/Config", 0755;
 
-  open CONFIG, ">$root_dir/Controller/Config.xml.deleteme";
+  open CONFIG, ">$root_dir/Config/Config.xml.deleteme";
 
   print CONFIG "<CONFIG>\n";
   print CONFIG "<GLOBAL/>\n";

@@ -3,9 +3,9 @@ Apache::PageKit
 
 Status
 ------
-Version: 0.94 (Alpha)
-API is subject to change, and should stabilize as
-we approach version 1.00 (First Beta Release)
+	Version: 0.97 (Alpha)
+	API is subject to change, and should stabilize as
+	we approach version 1.00 (First Beta Release)
 
 Description
 -----------
@@ -42,12 +42,14 @@ Requirements
 	- Apache 1.3.x compiled _without_ expat
 	- libapreq
 	- Apache::Session 1.5
+	- Digest::MD5
 	- HTML::FillInForm
 	- HTML::Template 2.2
 	- HTML::Clean
 	- Mail::Mailer
 	- expat library
 	- XML::Parser
+	- XML::XPath
 
 Required for make test
 ----------------------
@@ -57,6 +59,11 @@ Required for make test
 	- SQL::Statement
 	- Text::CSV_XS
 	- Apache::Reload
+
+Recommended
+-----------
+	- Apache::DBI (*strongly* recommended if you use DBI)
+	- Unicode::String (useful for converting accented characters in Content)
 
 Installation
 ------------
@@ -96,6 +103,37 @@ Installation
 	You will be prompted for the location of your mod_perl enabled server.
 	This will be used to start a running PageKit enabled web server
 	for testing.
+
+	If you have any problems with the install, and have read this
+	README file throughly, please e-mail me (tjmather@anidea.com)
+	and I will try to see what I can do.  I'm trying hard to make
+	the install as easy as possible, and will welcome suggestions
+	for documentation additions or improvements.
+
+Troubleshooting
+---------------
+
+	In order for make test to pass, you must have mod_perl 1.25
+	or greater.  Also, if 3_httpd fails, you can find the error
+	in find t/error_log.
+
+	To run a more verbose make test, try
+
+		make test TEST_VERBOSE=1
+
+	Also, if you type
+
+		make start_httpd
+
+	you can start a pagekit enabled web server on port 8228.
+	You can kill this with
+
+		make kill_httpd
+
+	Finally, you can check t/httpd.conf for the settings.  In
+	particular, you may have to change 'nobody' to the user
+	that you are running under if you get permission denied
+	errors.
 
 Upgrading
 ---------

@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.4 2001/01/22 03:30:35 tjmather Exp $
+# $Id: Common.pm,v 1.5 2001/04/25 15:52:35 tjmather Exp $
 
 use strict;
 
@@ -56,10 +56,10 @@ sub pkit_common_code {
 }
 
 sub pkit_auth_credential {
-  my ($model, @credentials) = @_;
+  my ($model) = @_;
   my $dbh = $model->dbh;
-  my $login = $credentials[0];
-  my $passwd = $credentials[1];
+  my $login = $model->input_param('login');
+  my $passwd = $model->input_param('passwd');
 
   unless ($login ne "" && $passwd ne ""){
     $model->pkit_message("You did not fill all of the fields.  Please try again.",

@@ -1,4 +1,63 @@
 =============================================================
+Migration from 0.96 to 0.97
+
+1. The DTD for the Config file is now PageKit_Config-0.97.dtd.  You
+should update Config/Config.xml to reflect this and copy
+PageKit_Config-0.97.dtd into the Config directory.
+
+2. Support for navigation bars has been removed.  If you had been using
+them, please contact me and I will help you work around this.  If there
+is sufficient demand, I will try to implement navigation bars again in a more
+clean and robust manner (XPointers in Content XML files, with hooks in
+Model code??).  Note that these template variable will no longer work:
+<PKIT_LOOP NAME="BREAD_CRUMB"> and <PKIT_VAR NAME="LAST_CRUMB">.  However,
+it is recommended that you keep the parent_id in your Config.xml file, as
+this might be used in the future.
+
+3. $model->content_param no longer works, since content is now compiled into
+the template and it is not possible to get or set the tags run time.
+Instead you can simply place <MODEL_VAR> tags into the content and set
+them from the model.
+
+4. <PKIT_VAR NAME="LOGINOUT_LINK"> has been removed since
+it isn't really elegant and can easily be replaced.  To replace, use
+something like:
+
+<MODEL_IF NAME="PKIT_USER">
+	<a href="/login_page?pkit_done=http://yoursite/page_to_view_after_login">Log In</a>
+<MODEL_ELSE>
+	<a href="<PKIT_VAR NAME="SELFURL">pkit_logout=1">Log Out</a>
+</MODEL_IF>
+
+5. The content part of pagekit has been rewritten from the
+ground up.  You should use the included migrate_pagekit_0.96_to_0.97.pl
+file to update your content file.
+
+*********NOTE that this doesn't seem to work with CDATA sections - I'm not
+sure why - if you figure why, let me know.  Otherwise, just do what I did,
+convert this CDATA sections to PCDATA, escaping any <, >, and & characters
+along the way.
+
+6. The html_clean_level option has been moved
+from the Global section to the Server section of the
+configuration file.  If you have specifed the 'html_clean_level'
+option in your Config.xml file, you
+have to move the attribute(s) from the <GLOBAL> tag to
+<SERVER> tag.
+
+7. Login code has been rewriten.  To login, you must set the 'pkit_login'
+to a true value.  In addition, the 'new_credential' option is no longer
+supported.  Instead, you should make sure that 'require_login' is set to
+'no' and perform a pkit_redirect in the model code to a URL that logs
+the user in.  See newacct2 in eg/Model/MyPageKit/MyModel.pm for an
+example of how this should work.  In addition, you must rewrite
+pkit_auth_credential to take the credentials from the input_param method.
+
+8. <PKIT_COMPONENT> can no longer be set dynamically.  If you were using
+this feature, please contact me and I'll see what I can do.  If there is
+sufficient demand, I will put support for this back in.
+
+=============================================================
 Migration from 0.94 to 0.95
 
 1. A couple of new configuration options have been added to
