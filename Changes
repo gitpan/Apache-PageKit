@@ -1,5 +1,16 @@
 Revision history for Perl extension Apache::PageKit.
 
+0.93
+	- Fixed documentation in Apache::PageKit::Model,
+		where output_param method was listed
+		as param
+	- Updated pagekit.org web site with links to
+		a browsable repository of source code
+		and more documentation.
+	- Fixed problem with make test, with language
+		cache files conflicting b/c of different
+		default languages in test.
+
 0.92
 	- Rewrote Model class so that Model classes are
 		standalone and not dependent on the PageKit

@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.2 2001/01/01 00:38:07 tjmather Exp $
+# $Id: Model.pm,v 1.3 2001/01/03 06:45:19 tjmather Exp $
 
 use integer;
 use strict;
@@ -197,7 +197,7 @@ you can set the userID when the user gets authenticated:
 
   $model->input_param(pkit_user => $userID);
 
-=item param
+=item output_param
 
 This is similar to the L<HTML::Template|HTML::Template/param> method.  It is
 used to set <MODEL_*> template variables.
@@ -215,7 +215,7 @@ It can also be used to set multiple parameters at once:
 
 =item content_param
 
-Similar to C<param> but sets content variables associated with
+Similar to C<output_param> but sets content variables associated with
 the <CONTENT_VAR> and <CONTENT_LOOP> tags.
 
 =item pkit_message

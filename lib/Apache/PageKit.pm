@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.17 2001/01/01 02:25:03 tjmather Exp $
+# $Id: PageKit.pm,v 1.18 2001/01/03 06:45:19 tjmather Exp $
 
 # CPAN Modules required for pagekit
 use Apache::URI ();
@@ -653,8 +653,8 @@ In httpd.conf
   SetHandler perl-script
   PerlSetVar PKIT_ROOT /path/to/pagekit/files
 
-  # this comes before PerlHandler so that PKIT_ROOT/Module gets added to @INC
   PerlModule Apache::PageKit
+  # this comes before PerlHandler so that PKIT_ROOT/Module gets added to @INC
   <Perl>
         Apache::PageKit::startup("/path/to/pagekit/files");
   </Perl>

@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.5 2001/01/01 02:25:03 tjmather Exp $
+# $Id: Content.pm,v 1.6 2001/01/03 06:45:19 tjmather Exp $
 
 use strict;
 use XML::Parser ();
@@ -166,13 +166,13 @@ sub get_param_hashref {
 	not exists $memory_cache->{$page_id}->{$lang}->{pkit_file_cache}){
       # first check server process memory
       while(my ($k, $v) = each %$h){
-        $param_hashref->{$k} = $h->{$k};
+        $param_hashref->{$k} = $v;
       }
     } elsif (-e "$content->{content_dir}/cache/$page_id.$lang.dat"){
       # if not in memory, attempt to load from file
       my $h2 = Storable::retrieve("$content->{content_dir}/cache/$page_id.$lang.dat");
       while(my ($k, $v) = each %$h2){
-        $param_hashref->{$k} = $h2->{$k};
+        $param_hashref->{$k} = $v;
       }
     }
   }
@@ -255,6 +255,7 @@ sub CONTENT_LOOP {
 sub CONTENT_LOOP_ {
   if(scalar @LOOP_NAME_STACK == 1){
     $PARAM_HASH->{$xml_lang}->{"content:" . $LOOP_NAME_STACK[0]} = $LOOP_ARRAY_REF_STACK[-1];
+    $xml_lang = undef;
   } else {
     # nested LOOP element
     $ITEM_HASH_REF_STACK[-2]->{"content:" . $LOOP_NAME_STACK[-1]} = $LOOP_ARRAY_REF_STACK[-1];

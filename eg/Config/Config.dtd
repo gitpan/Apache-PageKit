@@ -27,6 +27,7 @@
         browser_cache           CDATA   #IMPLIED
 	fill_in_form		(yes|auto|no)	"auto"
         internal_title          CDATA   #IMPLIED
+	in_use			(yes|no)	"yes"
         new_credential          CDATA   #IMPLIED
         parent_id               CDATA   #IMPLIED
         require_login           CDATA   #IMPLIED
