@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.67 2001/05/19 22:20:36 tjmather Exp $
+# $Id: PageKit.pm,v 1.68 2001/05/21 14:49:42 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -32,7 +32,7 @@ use Apache::PageKit::Config ();
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.01';
+$VERSION = '1.02';
 
 # typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
@@ -371,7 +371,6 @@ sub prepare_page {
   }
 
   # add pkit_message from previous page, if that pagekit did a pkit_redirect
-  print "hi<br>";
   if(my @pkit_messages = $apr->param('pkit_messages')){
     for my $message (@pkit_messages){
       $model->pkit_message($message);
@@ -897,148 +896,11 @@ provides methods common across the site.
 For example, if you wish to support authentication, it must
 include the two methods C<pkit_auth_credential> and C<pkit_auth_session_key>.
 
-For more information, visit http://www.pagekit.org/ or
-http://sourceforge.net/projects/pagekit/
+For more information, visit http://www.pagekit.org/
 
-=head1 OBJECTS
-
-Each C<$pk> object contains the following objects:
-
-=over 4
-
-=item $pk->{apr}
-
-An L<Apache::Request> object.  This gets the request parameters and can also
-be used to set the default values in HTML form when C<fill_in_form> is set.
-
-=item $pk->{config}
-
-An L<Apache::PageKit::Config> object, which loads and accesses 
-global, server and page attributes.
-
-=item $pk->{model}
-
-An L<MyPageKit::Common> class object, derived from L<Apache::PageKit::Model>.
-
-=item $pk->{session}
-
-Returns a reference to a hash tied to L<Apache::PageKit::Session>.
-
-=item $pk->{view}
-
-An L<Apache::PageKit::View> object, which interfaces with the HTML::Template templates.
-
-=back
-
-=head1 Features
-
-=over 4
-
-=item I<Model/View/Content/Controller> approach to design
-
-The Model is the user provided classes, which encapsulate the business logic
-behind the web site.
-
-The View is a set of L<HTML::Template> templates.  L<Apache::PageKit::View>
-acts as a bridge between the templates and the controller.
-
-The Content is stored in XML files in the Content/xml directory.
-You may also store the content in the HTML::Template templates, if you don't
-need to seperate the View from the Content.
-
-The Controller is a subclass of L<Apache::PageKit>, which reads the client request,
-accesses the back end, and uses L<Apache::PageKit::View> to fill in the data needed
-by the templates.
-
-=item Seperation of Perl from HTML
-
-By using L<HTML::Template>, this application enforces an important divide - 
-design and programming.  Designers can edit HTML without having to deal with
-any Perl, while programmers can edit the Perl code with having to deal with any HTML.
-
-=item Seperation of Content from Design with XML
-
-Content can be stored in XML files and the Design can be stored in HTML
-template files or in XSL style sheets.
-
-Content can be associated with HTML template files by using the
-L<XML::XPathTemplate> module.
-
-If you need a more powerful solution for managing large amounts of data,
-PageKit also has support for XSLT transformations using the L<XML::LibXSLT>
-module.
-
-=item Page based attributes
-
-The attributes of each Page are stored in the Config/Config.xml file.
-This makes it easy to change attributes of pages across the site.
-L<Apache::PageKit::Config> provides a wrapper around this XML file.
-
-For example, to require a login for
-a page, all you have to do is change the C<require_login> attribute of the
-XML C<E<lt>PAGEE<gt>> tag to I<yes>, instead
-of modifying the Perl code or moving the script to a protected directory.
-
-=item Automatic Dispatching of URIs
-
-Apache::PageKit translates C<$r-E<gt>uri> into a class and method in the user provided
-classes.  In the example in the synopsis,
-the URI C</account/update> will map to C<MyPageKit::PageCode::account-E<gt>page_update>.
-
-=item Easy error handling.
-
-Both warnings and fatal errors can be displayed on the screen for easy debugging
-in a development environment, or e-mailed to the site adminstrator in a production
-environment, as specified in the Apache C<ServerAdmin> configuration directive.
-
-You have to require L<Apache::PageKit::Error> to turn on error handling.
-
-=item Session Management
-
-Provides easy access to a hash tied to L<Apache::PageKit::Session>.
-
-=item Authentication
-
-Restricts access to pages based on the C<require_login> attribute.  If C<require_login>
-is set to I<recent>, then PageKit requires that session is currently active in the last
-C<recent_login_timeout> seconds.
-
-=item Form Validation
-
-Uses L<HTML::FormValidator> to provide easy form validation.  Highlights
-fields in red that user filled incorrectly by using the
-C<E<lt>PKIT_ERRORFONT NAME="FIELD_NAME"E<gt> E<lt>/PKIT_ERRORFONTE<gt>> tag.
-To use, pass an input profile to the validate method of L<Apache::PageKit::Model> from your perl code option.
-
-=item Sticky HTML Forms
-
-Uses L<HTML::FillInForm> to implement Sticky CGI Forms.
-
-One useful application is after a user submits an HTML form without filling out
-a required field.  PageKit will display the HTML form with all the form 
-elements containing the submitted info.
-
-=item Multiple Views/Co-branding
-
-Any page can have multiple views, by using the C<pkit_view> request parameter.
-One example is Printable pages.  Another
-is having the same web site branded differently for different companies.
-
-=item Components
-
-PageKit can easily share HTML templates across multiple pages using
-components.  In addition, you may specify Perl code that gets called every
-time a component is used by adding a I<component_id> method to the Model.
-
-=item Language Localization
-
-You may specify language properties by the C<xml:lang> attribute
-for tags in the XML content files.
-
-The language displayed is based on the
-user's preference, defaulting to the browser settings.
-
-=back
+Most of the docs have been moved out of POD to DocBook.  The sources can
+be found in the docsrc directory of the distribution, and the HTML output
+can be found at http://www.pagekit.org/guide
 
 =head1 METHODS
 
@@ -1085,7 +947,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 1.01
+This document describes Apache::PageKit module version 1.02
 
 =head1 NOTES
 

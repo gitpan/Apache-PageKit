@@ -2,6 +2,10 @@ Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
 
+1.02
+	- Got rid of extraneous 'print "hi"' statement in PageKit.pm
+		(Boris Zentner, Leonardo de Carvalho)
+
 1.01
 	- fix for split expression for <PKIT_SELFURL> tags (Boris Zentner)
 	- eg/View/Default/index.tmpl was missing from the distribution
