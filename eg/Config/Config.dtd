@@ -30,6 +30,7 @@
 	in_use			(yes|no)	"yes"
         new_credential          CDATA   #IMPLIED
         parent_id               CDATA   #IMPLIED
+	request_param_in_tmpl	CDATA	"no"
         require_login           CDATA   #IMPLIED
         template_cache		CDATA   #IMPLIED
         use_bread_crumb         CDATA   #IMPLIED

@@ -12,11 +12,10 @@ $more_directives = <<END;
 PerlSetVar PKIT_ROOT $pwd/eg
 PerlSetVar PKIT_SERVER staging
 SetHandler perl-script
-PerlModule Apache::PageKit
+PerlHandler +Apache::PageKit
 <Perl>
 	Apache::PageKit::startup("$pwd/eg");
 </Perl>
-PerlHandler +MyPageKit
 PerlInitHandler +Apache::Reload
 
 # Error Handling

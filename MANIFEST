@@ -9,7 +9,7 @@ eg/Content/xml/language.xml
 eg/Content/xml/license.xml
 eg/Content/xml/login1.xml
 eg/Content/xml/newacct1.xml
-eg/Model/MyPageKit.pm
+eg/Model/MyPageKit/Common.pm
 eg/Model/MyPageKit/MyModel.pm
 eg/README
 eg/View/Default/Component/begin_cell.tmpl
@@ -37,6 +37,7 @@ lib/Apache/PageKit/Model.pm
 lib/Apache/PageKit/Session.pm
 lib/Apache/PageKit/View.pm
 lib/HTML/FormValidator.pm
+migration/README
 README
 t/2_content.t
 t/3_httpd.t

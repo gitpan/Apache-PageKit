@@ -1,6 +1,9 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.18 2001/01/03 06:45:19 tjmather Exp $
+# $Id: PageKit.pm,v 1.21 2001/01/10 07:23:51 tjmather Exp $
+
+# required for UNIVERSAL->can
+require 5.005;
 
 # CPAN Modules required for pagekit
 use Apache::URI ();
@@ -25,7 +28,7 @@ use strict;
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION %info_hash);
-$VERSION = '0.92';
+$VERSION = '0.94';
 
 # typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
@@ -34,6 +37,9 @@ sub startup {
 
   # include user defined classes (Model) in perl search path
   unshift(@INC,"$pkit_root/Model");
+
+  # User defined base model class
+  require MyPageKit::Common;
 
   my $config_dir = $pkit_root . '/Config';
   my $config = Apache::PageKit::Config->new(config_dir => $config_dir);
@@ -57,6 +63,17 @@ sub startup {
 					default_lang => $default_lang);
   # cache content in files using Storable
   $content->parse_all;
+}
+
+sub handler {
+  my $pk = Apache::PageKit->new;
+  my $model = $pk->{model};
+  my $status_code = $pk->prepare_page;
+  return $status_code unless $status_code eq OK;
+  $model->pkit_common_code if $model->can('pkit_common_code');
+  $pk->prepare_view;
+  $pk->print_view;
+  return $status_code;
 }
 
 sub _params_as_string {
@@ -137,7 +154,7 @@ sub prepare_page {
   } else {
     $pkit_selfurl = $uri_with_query . '?';
   }
-  $model->output_param(PKIT_SELFURL => $pkit_selfurl);
+  $view->param(PKIT_SELFURL => $pkit_selfurl);
 
   # make sure that we have a subdomain so cookies work
   # ie. redirect domain.tld -> www.domain.tld
@@ -152,7 +169,7 @@ sub prepare_page {
   $pkit_done =~ s/"/\%22/g;
   $pkit_done =~ s/&/\%26/g;
   $pkit_done =~ s/\?/\%3F/g;
-  $model->output_param("pkit_done",$pkit_done);
+  $view->param("pkit_done",$pkit_done);
 
   my $auth_user;
 
@@ -200,10 +217,10 @@ sub prepare_page {
     } else {
       $link .= '?pkit_logout=yes';
     }
-    $model->output_param('pkit_loginout_link', $link);
+    $view->param('pkit_loginout_link', $link);
 
     if ($config->get_page_attr($pk->{page_id},'require_login') eq 'recent' &&
-	$model->{session}->{last_activity} + $config->get_global_attr('recent_login_timeout') < time()){
+	$pk->{session}->{last_activity} + $config->get_global_attr('recent_login_timeout') < time()){
       # user is logged in, but has not been active recently
 
       # display verify password form
@@ -211,11 +228,11 @@ sub prepare_page {
 			$config->get_global_attr('login_page');
       # pkit_done parameter is used to return user to page that they originally requested
       # after login is finished
-      $model->output_param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
+      $view->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
     }
   } else {
     # user is not logged in, display "log in" link
-    $model->output_param('pkit_loginout_link', $config->get_global_attr('login_page') . "?pkit_done=$pkit_done");
+    $view->param('pkit_loginout_link', $config->get_global_attr('login_page') . "?pkit_done=$pkit_done");
 
     # check if cookies should be set
     if($apr->param('pkit_check_cookie') eq 'on'){
@@ -234,7 +251,7 @@ sub prepare_page {
     if($config->get_page_attr($pk->{page_id},'require_login') =~ /^(yes|recent)$/){
       # this page requires that the user has a valid cookie
       $pk->{page_id} = $config->get_global_attr('login_page');
-      $model->output_param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
+      $view->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
       $model->pkit_message("This page requires a login.");
       $pk->logout;
     }
@@ -255,12 +272,12 @@ sub prepare_page {
 			  };
       $nav_page_id = $config->get_page_attr($nav_page_id,'parent_id');
     }
-    $model->output_param('pkit_cookie_crumb', $pkit_cookie_crumb);
+    $view->param('pkit_cookie_crumb', $pkit_cookie_crumb);
   }
 
   # deal with different views
   if(my $pkit_view = $apr->param('pkit_view')){
-    $model->output_param('pkit_view:' . $pkit_view => 1);
+    $view->param('pkit_view:' . $pkit_view => 1);
   }
 
   return OK;
@@ -315,11 +332,10 @@ sub print_view {
   $apr->print($$output_ref);
 
   # save session
-  delete $model->{session};
+  delete $pk->{session};
 }
 
 sub new {
-
   my $class = shift;
   my $r = Apache->request;
   my $self = {@_};
@@ -334,12 +350,14 @@ sub new {
   $self->{config} = Apache::PageKit::Config->new(config_dir => $config_dir,
 						 server => $server);
   $self->{apr} = Apache::Request->new($r, POST_MAX => $self->{config}->get_global_attr('post_max'));
-  $self->{model} = Apache::PageKit::Model->new($self->{apr});
+  my $model = $self->{model} = MyPageKit::Common->new;
 
-  $self->{model}->{dbh} = $self->{dbh};
+  $model->{pkit_pk} = $self;
+
+  $self->{dbh} = $model->pkit_dbi_connect if $model->can('pkit_dbi_connect');
 
   # session handling
-  if($self->{session_lock_class} && $self->{session_store_class}){
+  if($model->can('pkit_session_setup')){
     $self->setup_session;
   }
 
@@ -403,22 +421,10 @@ sub call_model_code {
   my $model = $pk->{model};
 
   # extract class and method from perl subroutine
-  my ($model_class, $method) = $perl_sub =~ m!^(.+?)::([^:]+)$!;
+  my ($model_class, $method) = ($perl_sub =~ m!^(.+?)::([^:]+)$!);
 
-  # re-bless model into derived Model class
-  bless $model, $model_class;
-
-  my $return_val;
-  # call the code
-  {
-    no strict 'refs';
-    $return_val = &{$model_class . '::' . $method}($model);
-  }
-
-  # retrieve the outputs from $model_object and put in $pk->{view} object
-  my $new_page_id = $model->pkit_get_page_id;
-  $pk->{page_id} = $new_page_id if $new_page_id;
-  $return_val;
+  # dispatch message to model class
+  $model->dispatch($model_class,$method);
 }
 
 sub login {
@@ -427,12 +433,13 @@ sub login {
   my $apr = $pk->{apr};
   my $view = $pk->{view};
   my $config = $pk->{config};
-  my $session = $pk->{model}->{session};
+  my $session = $pk->{session};
+  my $model = $pk->{model};
 
   my $remember = $apr->param('pkit_remember');
   my $done = $apr->param('pkit_done') || $config->get_global_attr('default_page');
 
-  my $ses_key = $pk->auth_credential(@credentials);
+  my $ses_key = $model->pkit_auth_credential(@credentials);
 
   $ses_key || return 0;
 
@@ -442,7 +449,7 @@ sub login {
   $session->{last_activity} = time();
 
   # save session
-  delete $pk->{model}->{session};
+  delete $pk->{session};
 
   my $cookie = Apache::Cookie->new($apr,
 				   -name => 'id',
@@ -470,19 +477,21 @@ sub login {
 sub authenticate {
   my ($pk) = @_;
 
+  my $model = $pk->{model};
+
   my %cookies = Apache::Cookie->fetch;
 
   return unless $cookies{'id'};
 
   my %ticket = $cookies{'id'}->value;
 
-  my $auth_user = $pk->auth_session_key(\%ticket);
+  my $auth_user = $model->pkit_auth_session_key(\%ticket);
 
   return unless $auth_user;
 
   $pk->{apr}->connection->user($auth_user);
 
-  $pk->{model}->input_param(pkit_user => $auth_user);
+  $pk->{view}->param(pkit_user => $auth_user);
 
   return $auth_user;
 }
@@ -507,8 +516,14 @@ sub logout {
 sub setup_session {
   my ($pk) = @_;
 
-  unless(exists $pk->{session_lock_class} && exists $pk->{session_store_class}){
-    $pk->{model}->{session} = {};
+  my $model = $pk->{model};
+
+  # here we pass the db handle, this is a undocumented feature
+  # and may go away
+  my $ss = $model->pkit_session_setup($pk->{dbh});
+
+  unless($ss->{session_store_class} && $ss->{session_lock_class}){
+    $pk->{session} = {};
     return;
   }
 
@@ -532,8 +547,8 @@ sub setup_session {
   # set up session handler class
   my %session;
 
-  my $session_lock_class = $pk->{session_lock_class};
-  my $session_store_class = $pk->{session_store_class};
+  my $session_lock_class = $ss->{session_lock_class};
+  my $session_store_class = $ss->{session_store_class};
 
   {
     local $Apache::PageKit::Error::in_use = 'no';
@@ -544,11 +559,11 @@ sub setup_session {
      Generate => 'MD5',
      Serialize => 'Storable',
      create_unknown => 1,
-     %{$pk->{session_args}}
+     %{$ss->{session_args}}
     };
   }
 
-  $pk->{model}->{session} = \%session;
+  $pk->{session} = \%session;
 
   if($is_new_session){
     # set cookie in users browser
@@ -597,40 +612,39 @@ Apache::PageKit - Application framework using mod_perl and HTML::Template
 
 =head1 SYNOPSIS
 
-Perl Module that inherits from Apache::PageKit:
+In httpd.conf
 
-  package MyPageKit;
+  SetHandler perl-script
+  PerlSetVar PKIT_ROOT /path/to/pagekit/files
 
-  use Apache::PageKit;
+  PerlHandler +Apache::PageKit
+  <Perl>
+        Apache::PageKit::startup("/path/to/pagekit/files");
+  </Perl>
 
-  use vars qw(@ISA);
-  @ISA = qw(Apache::PageKit);
+In MyPageKit/Common.pm
 
-  use Apache::Constants qw(OK REDIRECT DECLINED);
+  package MyPageKit::Common;
 
-  sub handler {
-    $dbh = DBI->connect("DBI:mysql:db","user","passwd");
-    my $pk = __PACKAGE__->new(
-			      dbh => $dbh,
-			      session_lock_class => 'MySQL',
-			      session_store_class => 'MySQL',
-			      session_args => {
-					       Handle => $dbh,
-					       LockHandle => $dbh,
-					      },
-			     );
+  use base 'Apache::PageKit::Model';
 
-    my $status_code = $pk->prepare_page;
-    return $status_code unless $status_code eq OK;
-
-    $pk->prepare_view;
-
-    $pk->print_view;
-
-    return $status_code;
+  sub pkit_dbi_connect {
+    return DBI->connect("DBI:mysql:db","user","passwd");
   }
 
-  sub auth_credential {
+  sub pkit_session_setup {
+    my $dbh = &dbi_connect;
+    return {
+	session_lock_class => 'MySQL',
+	session_store_class => 'MySQL',
+	session_args => {
+			Handle => $dbh,
+			LockHandle => $dbh,
+			},
+	};
+  }
+
+  sub pkit_auth_credential {
     my ($pk, @credentials) = @_;
 
     # create a session key from @credentials
@@ -639,7 +653,7 @@ Perl Module that inherits from Apache::PageKit:
     return $ses_key;
   }
 
-  sub auth_session_key {
+  sub pkit_auth_session_key {
     my ($pk, $ses_key) = @_;
 
     # check whether $ses_key is valid, if so return user id in $user_id
@@ -647,18 +661,6 @@ Perl Module that inherits from Apache::PageKit:
 
     return $ok ? $user_id : undef;
   }
-
-In httpd.conf
-
-  SetHandler perl-script
-  PerlSetVar PKIT_ROOT /path/to/pagekit/files
-
-  PerlModule Apache::PageKit
-  # this comes before PerlHandler so that PKIT_ROOT/Module gets added to @INC
-  <Perl>
-        Apache::PageKit::startup("/path/to/pagekit/files");
-  </Perl>
-  PerlHandler +MyPageKit
 
 =head1 DESCRIPTION
 
@@ -669,9 +671,11 @@ authentication, form validation, co-branding, and a content management system.
 Its goal is to solve all the common problems of web programming, and to make
 the creation and maintenance of dynamic web sites fast, easy and enjoyable.
 
-You have to write a module that inherits from Apache::PageKit and provides a handler
-for the PerlHandler request phase.  If you wish to support authentication, it must
-include the two methods C<auth_credential> and C<auth_session_key>.
+You have to write a module named MyPageKit::Common
+that inherits from Apache::PageKit::Model and
+provides methods common across the site.
+For example, if you wish to support authentication, it must
+include the two methods C<pkit_auth_credential> and C<pkit_auth_session_key>.
 
 For more information, visit http://www.pagekit.org/ or
 http://sourceforge.net/projects/pagekit/
@@ -699,11 +703,11 @@ stored in the XML files.
 
 =item $pk->{model}
 
-A L<Apache::PageKit::Model> object, or a derived class.
+An L<MyPageKit::Common> class object, derived from L<Apache::PageKit::Model>.
 
-=item $pk->{model}->{session}
+=item $pk->{session}
 
-A reference to a hash tied to L<Apache::PageKit::Session>.
+Returns a reference to a hash tied to L<Apache::PageKit::Session>.
 
 =item $pk->{view}
 
@@ -825,24 +829,6 @@ The following methods are available to the user as Apache::PageKit API.
 
 =over 4
 
-=item new
-
-Constructor object.
-
-  $pk = __PACKAGE__->new(
-			 dbh => $dbh,
-			 session_lock_manager => 'MySQL',
-			 session_object_store => 'MySQL',
-			 session_args => {
-					  Handle => $dbh,
-					  LockHandle => $dbh,
-					 },
-			);
-
-The session_* arguments are uses to set up the session handling.
-The dbh argument is used to set up a database object that can be used
-by the model and is acessible from C<$model-E<gt>{dbh}>.
-
 =item prepare_page
 
 This executes all of the back-end business logic need for preparing the page, including
@@ -864,26 +850,12 @@ This function should be called at server startup from your httpd.conf file:
         Apache::PageKit::startup("/path/to/pagekit/files");
   </Perl>
 
-The first argument should be the root diretory of the PageKit application.
-This function loads /path/to/pagekit/files/Model into the perl search
-path so that you can call the PerlHandler from there.  It also loads
+Where the first (and only) argument is the root directory of the
+PageKit application.
+It loads /path/to/pagekit/files/Model into the perl search
+path so that PageKit can make calls into MyPageKit::Common and
+other Model classes.  It also loads
 the Config and Content XML files and pre-parses the View template files.
-
-=item auth_credential
-
-You must define the method yourself in your subclass of C<Apache::PageKit>.
-
-Verify the user-supplied credentials and return a session key.  The
-session key can be any string - often you'll use the user ID and
-a MD5 hash of a a secret key, user ID, password.
-
-=item auth_session_key
-
-You must define the method yourself in your subclass of C<Apache::PageKit>.
-
-Verify the session key (previously generated by C<auth_credential>)
-and return the user ID.
-This user ID will be fed to C<$model-E<gt>input_param('pkit_user')>.
 
 =back
 
@@ -899,6 +871,13 @@ See the L<HTML::Template> manpage for description of these tags.
 
 Calls the component code (if applicable) and includes the template for
 the component I<component_id>.
+
+Note that components get dynamically loaded at runtime.  For example you
+can do the following:
+
+  <MODEL_LOOP NAME="foo">
+    <PKIT_COMPONENT NAME="<MODEL_VAR NAME="bar">">
+  </MODEL_LOOP>
 
 =item <PKIT_ERRORFONT NAME="FIELD_NAME"> </PKIT_ERRORFONT>
 
@@ -917,10 +896,6 @@ Template should contain code that looks like
     <PKIT_UNLESS NAME="__LAST__"><a href="/<tmpl_var name="page">"></PKIT_UNLESS><PKIT_VAR NAME="NAME"><PKIT_UNLESS NAME="__LAST__"></a></PKIT_UNLESS>
     <PKIT_UNLESS NAME="__LAST__"> &gt; </PKIT_UNLESS>
   </PKIT_LOOP>
-
-=item <PKIT_IF NAME="INTERNET_EXPLORER"> </PKIT_IF>
-
-Set to 1 if User-Agent is a Microsoft Internet Explorer browser.
 
 =item <PKIT_VAR NAME="LOGINOUT_LINK">
 
@@ -943,10 +918,6 @@ Template should contain something that looks like
 This code will display error message seperated by the HTML C<E<lt>pE<gt>> tag,
 highlighting error messages in red.
 
-=item <PKIT_IF NAME="NETSCAPE"> </PKIT_IF>
-
-Set to 1 if User-Agent is a Netscape browser.
-
 =item <PKIT_VAR NAME="SELFURL">
 
 The URL of the current page, including CGI parameters.
@@ -960,35 +931,9 @@ Set to true if C<pkit_view> request parameter equals I<view>.
 
 =head1 OPTIONS
 
-=head2 Constructor Arguments
-
-These arguments are global in the sense that they apply over all pages and servers.
-
-=over 4
-
-=item dbh
-
-L<DBI> database handler object, used by Model class.
-
-=item session_args
-
-Reference to an hash containing options for the C<session_lock_class> and
-C<session_store_class>.
-
-=item session_lock_class
-
-The lock manager class that should be used for L<Apache::PageKit::Session> session handling.
-
-=item session_store_class
-
-The object store class that should be used for L<Apache::PageKit::Session> session handling.
-
-=back
-
-=head2 Other configuration variables
-
 Global, server and page configuration variables are described in
-the L<Apache::PageKit::Config> perldoc page.
+the L<Apache::PageKit::Config> perldoc page.  In addition you
+can set up the session management in L<MyPageKit::Common>.
 
 =head1 REQUEST PARAMETERS
 
@@ -1040,7 +985,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.92
+This document describes Apache::PageKit module version 0.94
 
 =head1 NOTES
 
@@ -1083,7 +1028,7 @@ Make content sharable across pages.
 
 Move Apache::PageKit::Error to seperate distribtuion.
 
-Add <PKIT_SELFURL_WITHOUT:param1:param2> tag.
+Add <PKIT_SELFURL_WITHOUT param1 param2> tag.
 
 =head1 AUTHOR
 

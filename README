@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-Version: 0.92 (Alpha)
+Version: 0.94 (Alpha)
 API is subject to change, and should stabilize as
 we approach version 1.00 (First Beta Release)
 
@@ -37,6 +37,7 @@ Description
 
 Requirements
 ------------
+	- perl 5.005 or greater
 	- mod_perl 1.24_01 (lastest version requir'd for make test only)
 	- libapreq
 	- Apache::Session 1.5
@@ -74,11 +75,10 @@ Configuration
 
 		SetHandler perl-script
 		PerlSetVar PKIT_ROOT /path/to/pagekit/files
-		PerlModule Apache::PageKit
+		PerlHandler +Apache::PageKit
 		<Perl>
 			Apache::PageKit::startup("/path/to/pagekit/files");
 		</Perl>
-		PerlHandler +MyPageKit
 
 	and changing the settings in
 

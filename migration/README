@@ -1,0 +1,13 @@
+Migration from 0.93 to 0.94
+
+1. MyPageKit has been replaced with MyPageKit::Model.
+
+To update rename MyPageKit to MyPageKit::Model and rename
+auth_credential and auth_session_key to pkit_auth_credential and
+pkit_session_credential.  Modify methods to take $model as
+first argument instead of $pk.
+
+Also, replace handler with pkit_dbi_connect, pkit_session_setup,
+and pkit_common_code.  See the code in eg/Model/MyPageKit/Common.pm
+for an example of how to do this.
+

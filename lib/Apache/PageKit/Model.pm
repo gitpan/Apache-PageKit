@@ -1,21 +1,21 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.3 2001/01/03 06:45:19 tjmather Exp $
+# $Id: Model.pm,v 1.6 2001/01/10 07:23:51 tjmather Exp $
 
 use integer;
 use strict;
 use HTML::FormValidator;
 
 sub new {
-  my ($class, $apr) = @_;
-  my $self = {apr => $apr};
+  my ($class) = @_;
+  my $self = {};
   bless $self, $class;
   return $self;
 }
 
-sub pkit_is_error_field {
-  my ($model, $field) = @_;
-  return exists $model->{pkit_error_fields}->{$field};
+sub pkit_user {
+  my $model = shift;
+  return $model->{pkit_pk}->{view}->param('pkit_user');
 }
 
 sub pkit_validate_input {
@@ -43,13 +43,19 @@ sub pkit_validate_input {
   for my $field (keys %fdat){
     $valids->{$field} ||= "";
   }
-  $model->{pkit_error_fields} = {};
   for my $field (@$missings, @$invalids){
-    $model->{pkit_error_fields}->{$field} = 1;
+    my $begin_name = "PKIT_ERRORFONT_BEGIN_$field";
+    # should change color to be user configurable...
+    my $begin_value = qq{<font color="#ff000">};
+    my $end_name = "PKIT_ERRORFONT_END_$field";
+    my $end_value = qq{</font>};
+    $model->output_param($begin_name => $begin_value);
+    $model->output_param($end_name => $end_value);
   }
   if(@$invalids || @$missings){
     if(@$invalids){
       foreach my $field (@$invalids){
+	next unless exists $input_profile->{messages}->{$field};
 	my $value = $fdat{$field};
 	# gets error message for that field which was filled in incorrectly
 	my $msg = $input_profile->{messages}->{$field};
@@ -86,45 +92,24 @@ sub pkit_message {
 
 sub pkit_set_page_id {
   my ($model, $page_id) = @_;
-  $model->{pkit_page_id} = $page_id;
+  $model->{pkit_pk}->{page_id} = $page_id;
 }
 
 sub pkit_get_page_id {
   my ($model) = @_;
-  return $model->{pkit_page_id};
+  return $model->{pkit_pk}->{page_id};
 }
 
 # currently input_param is just a wrapper around $apr
 sub input_param {
   my $model = shift;
-  return $model->{apr}->param(@_);
+  return $model->{pkit_pk}->{apr}->param(@_);
 }
 
-# param method - can be called in two forms
-# when passed two arguments ($name, $value), it sets the value of the 
-# $name attributes to $value
-# when passwd one argument ($name), retrives the value of the $name attribute
-# used to access and set values of <MODEL_*> tags
+# currently output_param is just a wrapper around $view
 sub output_param {
-  my ($model, @p) = @_;
-
-  unless(@p){
-    # the no-parameter case - return list of parameters
-    return () unless defined($model) && $model->{'pkit_parameters'};
-    return () unless @{$model->{'pkit_parameters'}};
-    return @{$model->{'pkit_parameters'}};
-  }
-  my ($name, $value);
-  if (@p > 1){
-    die "param called with odd number of parameters" unless ((@p % 2) == 0);
-    while(($name, $value) = splice(@p, 0, 2)){
-      $model->_add_parameter($name);
-      $model->{pkit_param}->{$name} = $value;
-    }
-  } else {
-    $name = $p[0];
-  }
-  return $model->{pkit_param}->{$name};
+  my $model = shift;
+  return $model->{pkit_pk}->{view}->param(@_);
 }
 
 # used to access and set values of <CONTENT_VAR> and <CONTENT_LOOP> tags
@@ -136,12 +121,18 @@ sub content_param {
   $model->output_param(@p);
 }
 
-sub _add_parameter {
-  my ($content, $param) = @_;
-  return unless defined $param;
-  push (@{$content->{'pkit_parameters'}},$param)
-    unless defined($content->{$param});
+# this is experimental and subject to change
+sub dispatch {
+  my ($model, $class, $method) = @_;
+  my $dispatch_model = $class->new;
+  $dispatch_model->{pkit_pk} = $model->{pkit_pk};
+  no strict 'refs';
+  return &{$class . '::' . $method}($dispatch_model);
 }
+
+sub dbh {return shift->{pkit_pk}->{dbh};}
+sub apr {return shift->{pkit_pk}->{apr};}
+sub session {return shift->{pkit_pk}->{session};}
 
 1;
 
@@ -160,19 +151,30 @@ This module also contains a wrapper to L<HTML::FormValidator>.
 It validates the form data from the L<Apache::Request> object contained
 in the L<Apache::PageKit> object.
 
+When deriving classes from Apache::PageKit::Model, keep in mind that
+all methods and hash keys that begin with pkit_ are reserved for
+future use.
+
 =head1 SYNOPSIS
 
-  my $model = Apache::PageKit::Model->new($apr);
+Method in derived class.
 
-  my $ok = $model->pkit_validate_input($input_profile);
+  sub my_method {
+    my $model = shift;
 
-  if($ok){
-    # get validated, filtered form data
-    $fdat = map { $_ => $model->input_param($_) } $model->input_param;
-  } else {
-    # not valid, check to see error fields
-    if($model->is_error_field('name'));
-    $model->pkit_message('You filled your name incorrecty.');
+    # get database handle, session
+    my $dbh = $model->dbh;
+    my $session = $model->session;
+
+    # get inputs (from request parameters)
+    my $foo = $model->input_param('bar');
+
+    # do some processing
+
+    ...
+
+    # set outputs in template
+    $model->output_param(result => $result);
   }
 
 =head1 METHODS 
@@ -208,15 +210,39 @@ Sets the parameter USERNAME to "John Doe".
 That is C<E<lt>MODEL_VAR NAME="USERNAME"E<gt>> will be replaced
 with "John Doe".
 
-It can also be used to set multiple parameters at once:
+It can also be used to set multiple parameters at once by passing a hash:
 
   $model->output_param(firstname => $firstname,
                lastname => $lastname);
+
+Alternatively you can pass a hash reference:
+
+  $model->output_param({firstname => $firstname,
+               lastname => $lastname});
 
 =item content_param
 
 Similar to C<output_param> but sets content variables associated with
 the <CONTENT_VAR> and <CONTENT_LOOP> tags.
+
+=item apr
+
+Returns the L<Apache::Request> object.
+
+  my $apr = $model->apr;
+
+=item dbh
+
+Returns a database handle, as specified by the C<MyPageKit::Model::dbi_connect>
+method.
+
+  my $dbh = $model->dbh;
+
+=item session
+
+Returns a hash tied to <Apache::PageKit::Session>
+
+  my $session = $model->session;
 
 =item pkit_message
 
@@ -238,12 +264,48 @@ Sets the page_id. This is usually used "redirect" to different template.
 
   $model->pkit_set_page_id($page_id);
 
-=item pkit_get_page_id
+=item pkit_validate_input
 
-Used internally by PageKit (if nowhere else) to retreive the Page ID
-set by C<pkit_set_page_id>.
+Takes an hash reference containing a L<HTML::FormValidator> input profile
+and returns true if the request parameters are valid.
 
-  my $page_id = $model->pkit_get_page_id;
+  # very simple validation, just check to see if name field was filled out
+  my $input_profile = {required => [ qw ( name ) ]};
+  # validate user input
+  unless($model->pkit_validate_input($input_profile)){
+    # user must have not filled out name field, 
+    # i.e. $apr->param('name') = $model->input_param('name') is
+    # not set, so go back to original form
+    $model->pkit_set_page_id('orig_form');
+    return;
+  }
+
+=back
+
+The following methods should be defined in your L<MyPageKit::Common> module:
+
+=over 4
+
+=item pkit_dbi_connect
+
+Returns database handler, C<$dbh>, which can be accessed by rest of Model
+through C<$model-E<gt>dbh>.
+
+=item pkit_session_setup
+
+Returns hash reference to session setup arguments.
+
+=item pkit_auth_credential
+
+Verifies the user-supplied credentials and return a session key.  The
+session key can be any string - often you'll use the user ID and
+a MD5 hash of a a secret key, user ID, password.
+
+=item pkit_auth_session_key
+
+Verifies the session key (previously generated by C<auth_credential>)
+and return the user ID.
+This user ID will be fed to C<$model-E<gt>input_param('pkit_user')>.
 
 =back
 

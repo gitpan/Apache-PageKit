@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.13 2001/01/01 02:25:03 tjmather Exp $
+# $Id: View.pm,v 1.15 2001/01/10 06:56:13 tjmather Exp $
 
 use integer;
 use strict;
@@ -56,7 +56,7 @@ sub preparse_filter {
   # "compile" PageKit templates into HTML::Templates
   $$html_code_ref =~ s!<MODEL_(VAR|LOOP|IF|ELSE|UNLESS)!<TMPL_$1!sig;
   $$html_code_ref =~ s!</MODEL_(LOOP|IF|UNLESS)!</TMPL_$1!sig;
-#  $$html_code_ref =~ s!<PKIT_ERRORFONT +NAME *= *"?(.*?)"?>!
+  $$html_code_ref =~ s!<PKIT_ERRORFONT (NAME=)?"?([^"]*?)"?>(.*?)</PKIT_ERRORFONT>!<TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_$2">$3<TMPL_VAR NAME="PKIT_ERRORFONT_END_$2">!sig;
   $$html_code_ref =~ s!<PKIT_(VAR|LOOP|IF|UNLESS) +NAME *= *("?)__(FIRST|INNER|ODD|LAST)!<TMPL_$1 NAME=$2__$3!sig;
   $$html_code_ref =~ s!<PKIT_(VAR|LOOP|IF|UNLESS) +NAME *= *("?)!<TMPL_$1 NAME=$2PKIT_!sig;
   $$html_code_ref =~ s!<PKIT_ELSE!<TMPL_ELSE!sig;
@@ -74,7 +74,7 @@ sub _init {
 
   my $apr = $pk->{apr};
   my $model = $pk->{model};
-  my $session = $model->{session};
+  my $session = $pk->{session};
 
   $view->{template_root} = $apr->dir_config('PKIT_ROOT') . "/View";
 
@@ -87,14 +87,6 @@ sub _init {
 			      filter => \&preparse_filter,
 			      global_vars=>1,
 			     };
-
-  # set PKIT_NETSCAPE or PKIT_INTERNET_EXPLORER tag
-  my $agent = $apr->header_in('User-Agent');
-  if($agent =~ /MSIE/){
-    $model->output_param(PKIT_INTERNET_EXPLORER => 1);
-  } elsif ($agent =~ /Mozilla/){
-    $model->output_param(PKIT_NETSCAPE => 1);
-  }
 
   # get Locale settings
   my @accept_language = map {substr($_,0,2) } split(", ",$apr->header_in('Accept-Language'));
@@ -168,17 +160,6 @@ sub prepare_output {
 
   my @params = $apr->param;
 
-  my $pkit_errorfont_ref = sub {
-    my ($name, $text) = @_;
-    if($model && $model->pkit_is_error_field($name)){
-      return qq{<font color="#ff000">$text</font>};
-    } else {
-      return $text;
-    }
-  };
-
-  $output =~ s/<PKIT_ERRORFONT (NAME=)?"?([^"]*?)"?>(.*?)<\/PKIT_ERRORFONT>/&$pkit_errorfont_ref($2,$3)/eigs;
-
   # make html forms "sticky"
   my $fill_in_form = $config->get_page_attr($pk->{page_id},'fill_in_form');
 
@@ -240,6 +221,7 @@ sub _apply_param {
 
   my $pk = $view->{pk};
   my $model = $pk->{model};
+  my $config = $pk->{config};
 
   my $page_id = $pk->{page_id};
 
@@ -251,14 +233,16 @@ sub _apply_param {
 
   # get params from GET/POST request
   # so programmer doesn't have to manually put them in the view object
-  foreach my $key ($pk->{apr}->param){
-    $template->param($key,$pk->{apr}->param($key))
-      if $template->query(name => $key) eq 'VAR';
+  if($config->get_global_attr('request_param_in_tmpl') eq 'yes'){
+    foreach my $key ($pk->{apr}->param){
+      $template->param($key,$pk->{apr}->param($key))
+        if $template->query(name => $key) eq 'VAR';
+    }
   }
 
-  # get params from $model object
-  foreach my $key ($model->output_param){
-    my $value = $model->output_param($key);
+  # get params from $view object
+  foreach my $key ($view->param){
+    my $value = $view->param($key);
     unless (ref($value) eq 'ARRAY' && $template->query(name => $key) ne 'LOOP'){
       $template->param($key, $value);
     } else {
@@ -278,6 +262,45 @@ sub output_ref {
 sub get_template_root {
   my $view = shift;
   return $view->{template_root};
+}
+
+# param method - can be called in two forms
+# when passed two arguments ($name, $value), it sets the value of the 
+# $name attributes to $value
+# when passwd one argument ($name), retrives the value of the $name attribute
+# used to access and set values of <MODEL_*> tags
+sub param {
+  my ($view, @p) = @_;
+
+  unless(@p){
+    # the no-parameter case - return list of parameters
+    return () unless defined($view) && $view->{'pkit_parameters'};
+    return () unless @{$view->{'pkit_parameters'}};
+    return @{$view->{'pkit_parameters'}};
+  }
+  my ($name, $value);
+  # deal with case of setting mul. params with hash ref.
+  if (ref($p[0]) eq 'HASH'){
+    my $hash_ref = shift(@p);
+    push(@p, %$hash_ref);
+  }
+  if (@p > 1){
+    die "param called with odd number of parameters" unless ((@p % 2) == 0);
+    while(($name, $value) = splice(@p, 0, 2)){
+      $view->_add_parameter($name);
+      $view->{pkit_param}->{$name} = $value;
+    }
+  } else {
+    $name = $p[0];
+  }
+  return $view->{pkit_param}->{$name};
+}
+
+sub _add_parameter {
+  my ($view, $param) = @_;
+  return unless defined $param;
+  push (@{$view->{'pkit_parameters'}},$param)
+    unless defined($view->{$param});
 }
 
 1;

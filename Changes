@@ -1,6 +1,28 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.93
+0.94
+	- Replaced derived Apache::PageKit handler module (eg MyPageKit)
+		with MyPageKit::Common and Apache::PageKit->handler.
+		See migration/README for details.
+	- Changed structure of Model to allow for multiple model
+		objects, each containing a reference to a common
+		$pk object.
+	- <PKIT_ERRORFONT name="foo"> bar</PKIT_ERRORFONT> is now
+		precompiled to <TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_foo">
+		bar</TMPL_VAR NAME="PKIT_ERRORFONT_END_foo"> for
+		improved performance.
+	- $dbh, $apr, and $session are now accessed from model through
+		dbh, apr, and session methods.
+	- Added docs on support for dynamically loaded components
+		that get specified at runtime using systax like
+		<PKIT_COMPONENT NAME="<MODEL_VAR NAME="foo">">
+	- You can now pass a hash reference to set multiple parameters
+		for output_param method
+	- Removed support for PKIT_INTERNET_EXPLORER and
+		PKIT_NETSCAPE tags.  These tags clutter the
+		API and are easily implemented in the model.
+
+0.93	Wed Jan 03 01:49:06 2001 EST
 	- Fixed documentation in Apache::PageKit::Model,
 		where output_param method was listed
 		as param
@@ -11,7 +33,7 @@ Revision history for Perl extension Apache::PageKit.
 		cache files conflicting b/c of different
 		default languages in test.
 
-0.92
+0.92	Sun Dec 31 21:32:30 2000 EST
 	- Rewrote Model class so that Model classes are
 		standalone and not dependent on the PageKit
 		architecture.

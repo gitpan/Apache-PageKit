@@ -3,14 +3,14 @@ package MyPageKit::MyModel;
 # $Id $
 
 use vars qw(@ISA);
-@ISA = qw(Apache::PageKit::Model);
+@ISA = qw(MyPageKit::Common);
 
 use strict;
 
 # customize site look-and-feel
 sub customize {
   my $model = shift;
-  my $session = $model->{session};
+  my $session = $model->session;
   my $change_flag;
   for ($model->input_param){
     $session->{$_} = $model->input_param($_);
@@ -22,7 +22,7 @@ sub customize {
 sub newacct2 {
   my $model = shift;
 
-  my $dbh = $model->{dbh};
+  my $dbh = $model->dbh;
 
   my $input_profile = {
 		  required => [ qw( pkit_model email login passwd1 passwd2 ) ],
@@ -30,7 +30,7 @@ sub newacct2 {
 				  email => "email",
 				  login => { constraint => sub {
 					       my ($new_login, $model) = @_;
-					       my $dbh = $model->{dbh};
+					       my $dbh = $model->dbh;
 
 					       # check to make sure login isn't already used
 					       my $sql_str = "SELECT login FROM pkit_user WHERE login = ?";
@@ -52,7 +52,7 @@ sub newacct2 {
 			       login => "The login, <b>%%VALUE%%</b>, has already been used.",
 			       email => "The E-mail address, <b>%%VALUE%%</b>, is invalid.",
 			       phone => "The phone number you entered is invalid.",
-			       passwd1 => "The passwords you entered do not match."
+			       passwd1 => "The passwords you entered do not match.",
 			      },
 		 };
   # validate user input
