@@ -1,6 +1,11 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.17
+	- Fix: a new typo in Makefile.PL
+		-+binmode $template_fh, ':encoding($default_input_charset)';
+		++binmode $template_fh, ":encoding($default_input_charset)";
+		( Boris Zentner )
 1.16
         ! The param method returns a empty list in list context if 
                 the param was not defined. Older PageKits returned undef

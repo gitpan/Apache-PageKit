@@ -291,7 +291,7 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
 -    
 +      open my $template_fh, "<$template_file" or die "can not read $template_file";
 +      my $default_input_charset = $view->{default_input_charset};
-+      binmode $template_fh, ':encoding($default_input_charset)';
++      binmode $template_fh, ":encoding($default_input_charset)";
 +      local $/;
 +      my $template = <$template_fh>;
 +      close $template_fh;
