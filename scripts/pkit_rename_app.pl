@@ -117,7 +117,6 @@ $changes
 ENDE
   chdir $old_dir || die $!;
 }
-}
  # no version control
 else  {
   rename "$eg_root/Model/$path", "$eg_root/Model/$new_name";

@@ -38,8 +38,8 @@ package main;
 open FH, ">patch_file.diff" || die $!;
 print FH <<'__THIS_IS_THE_END__';
 diff -Nur a/lib/Apache/PageKit/Content.pm b/lib/Apache/PageKit/Content.pm
---- a/lib/Apache/PageKit/Content.pm	Wed Oct 27 12:04:51 2004
-+++ b/lib/Apache/PageKit/Content.pm	Wed Oct 27 11:53:53 2004
+--- a/lib/Apache/PageKit/Content.pm	2005-01-01 20:42:57.099137592 +0100
++++ b/lib/Apache/PageKit/Content.pm	2005-01-01 19:33:16.000000000 +0100
 @@ -103,8 +103,7 @@
  
    # this pattern is not very accurate, but only as quick check if a run of XPathTemplate is needed
@@ -60,8 +60,8 @@ diff -Nur a/lib/Apache/PageKit/Content.pm b/lib/Apache/PageKit/Content.pm
  
  sub _rel2abs {
 diff -Nur a/lib/Apache/PageKit/Edit.pm b/lib/Apache/PageKit/Edit.pm
---- a/lib/Apache/PageKit/Edit.pm	Wed Oct 27 12:04:51 2004
-+++ b/lib/Apache/PageKit/Edit.pm	Wed Oct 27 11:53:53 2004
+--- a/lib/Apache/PageKit/Edit.pm	2005-01-01 20:42:57.117134856 +0100
++++ b/lib/Apache/PageKit/Edit.pm	2005-01-01 19:33:16.000000000 +0100
 @@ -44,14 +44,15 @@
  
    $model->output( read_only => 1 ) if ( ! -w $file );
@@ -93,15 +93,15 @@ diff -Nur a/lib/Apache/PageKit/Edit.pm b/lib/Apache/PageKit/Edit.pm
 -  close FILE;
 +  my $default_input_charset = $model->{pkit_pk}->{view}->{default_input_charset};
 +  open my $fh, ">$file" or die $!;
-+  binmode $fh, "encoding($default_input_charset)";
++  binmode $fh, ":encoding($default_input_charset)";
 +  print $fh $content;
 +  close $fh;
  
    if($pkit_done){
      $model->pkit_redirect($pkit_done);
 diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
---- a/lib/Apache/PageKit/Model.pm	Wed Oct 27 12:04:51 2004
-+++ b/lib/Apache/PageKit/Model.pm	Wed Oct 27 11:53:53 2004
+--- a/lib/Apache/PageKit/Model.pm	2005-01-01 20:42:57.138131664 +0100
++++ b/lib/Apache/PageKit/Model.pm	2005-01-01 19:33:16.000000000 +0100
 @@ -204,15 +204,8 @@
    # translate from default_input_charset to default_output_charset if needed
    my $view = $model->{pkit_pk}->{view};
@@ -208,8 +208,8 @@ diff -Nur a/lib/Apache/PageKit/Model.pm b/lib/Apache/PageKit/Model.pm
    }
  }
 diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
---- a/lib/Apache/PageKit/View.pm	Wed Oct 27 12:04:51 2004
-+++ b/lib/Apache/PageKit/View.pm	Wed Oct 27 12:08:11 2004
+--- a/lib/Apache/PageKit/View.pm	2005-01-01 20:42:57.141131208 +0100
++++ b/lib/Apache/PageKit/View.pm	2005-01-01 19:51:50.980258512 +0100
 @@ -182,11 +182,13 @@
      my $fif;
      if(@{$view->{fillinform_objects}}){
@@ -291,7 +291,7 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
 -    
 +      open my $template_fh, "<$template_file" or die "can not read $template_file";
 +      my $default_input_charset = $view->{default_input_charset};
-+      binmode $template_fh, ":encoding($default_input_charset)";
++      binmode $template_fh, ':encoding($default_input_charset)';
 +      local $/;
 +      my $template = <$template_fh>;
 +      close $template_fh;
@@ -370,7 +370,7 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
                              fobject       => $view->{fillinform_objects},
                              ignore_fields => $view->{ignore_fillinform_fields}
        );
-+      Encode::_utf8_on($output);      
++      Encode::_utf8_on($output);
      }
    }
    if ( $view->{can_edit} eq 'yes' ) {
@@ -434,8 +434,8 @@ diff -Nur a/lib/Apache/PageKit/View.pm b/lib/Apache/PageKit/View.pm
  
    my $exclude_params_set = {};
 diff -Nur a/lib/Apache/PageKit.pm b/lib/Apache/PageKit.pm
---- a/lib/Apache/PageKit.pm	Wed Oct 27 12:04:51 2004
-+++ b/lib/Apache/PageKit.pm	Wed Oct 27 11:54:10 2004
+--- a/lib/Apache/PageKit.pm	2005-01-01 20:42:57.175126040 +0100
++++ b/lib/Apache/PageKit.pm	2005-01-01 19:33:16.000000000 +0100
 @@ -17,8 +17,8 @@
  
  # $Id: PageKit.pm,v 1.236 2004/05/06 09:54:35 borisz Exp $

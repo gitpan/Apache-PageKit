@@ -1,6 +1,13 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.16
+        ! The param method returns a empty list in list context if 
+                the param was not defined. Older PageKits returned undef
+                ( Boris Zentner )
+        - Fix: add missing : in binmode $fh, ":encoding(...)";
+                ( Boris Zentner )
+        - Fix: typo in scripts/pkit_rename_app.pl ( Boris Zentner )
 1.15
 	- Add: request_class parameter just for the case, that you like 
 		another class or subclass do what Apache::Request do for you.

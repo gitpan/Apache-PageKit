@@ -582,7 +582,7 @@ Boris Zentner (borisz@users.sourceforge.net)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002, 2003, 2004 AnIdea Corporation.  All rights Reserved.  PageKit is
+Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005 AnIdea Corporation.  All rights Reserved.  PageKit is
 a trademark of AnIdea Corporation.
 
 =head1 LICENSE

@@ -302,7 +302,7 @@ This document is currently at version I<0.03>, as of I<Feb 10th, 2003>.
 
 =head1 AUTHORS
 
-Boris Zentner (boris@id9.de)
+Boris Zentner (bzm@2bz.de)
 
 TJ Mather (tjmather@tjmater.com)
 

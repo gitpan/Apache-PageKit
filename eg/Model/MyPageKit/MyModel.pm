@@ -171,11 +171,11 @@ It is a good starting point for building your backend for your PageKit website.
 
 T.J. Mather (tjmather@thoughtstore.com)
 
-Boris Zentner (boris@id9.de)
+Boris Zentner (bzm@2bz.de)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, 2001, 2002, 2003, 2004 AnIdea Corp.  All rights Reserved.  PageKit is a trademark
+Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005 AnIdea Corp.  All rights Reserved.  PageKit is a trademark
 of AnIdea, Corp.
 
 =head1 LICENSE
