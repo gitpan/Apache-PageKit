@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.64 2001/07/14 14:32:55 tjmather Exp $
+# $Id: View.pm,v 1.71 2001/09/04 14:19:07 borisz Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -79,6 +79,9 @@ sub fill_in_view {
     foreach my $exclude_params (@$exclude_params_set){
       my @exclude_params = split(" ",$exclude_params);
       my $query_string = Apache::PageKit::params_as_string($input_param_object, \@exclude_params);
+
+      #remove empty parameters as arised from http://ka.zyx.de/galerie?show=abc& or <PKIT_SELFURL>
+      $query_string =~ s!=&!!;
       if($query_string){
 	$tmpl->param("pkit_selfurl$exclude_params", ($orig_uri . '?' . $query_string) . '&');
       } else {
@@ -227,11 +230,14 @@ sub _create_static_zip {
   File::Path::mkpath("$gzipped_dir");
 
   if ($gzipped_content) {
-  my $mtime = (stat($filename))[9];
-    open GZIP, ">$gzipped_filename" || warn "can't create gzip cache file $view->{cache_dir}/$gzipped_filename: $!";
-    print GZIP "$mtime\n";
-    print GZIP $gzipped_content;
-    close GZIP;
+    my $mtime = (stat($filename))[9];
+    if ( open GZIP, ">$gzipped_filename" ) {
+      print GZIP "$mtime\n";
+      print GZIP $gzipped_content;
+      close GZIP;
+    } else {
+      warn "can't create gzip cache file $view->{cache_dir}/$gzipped_filename: $!";
+    }
     return $gzipped_content;
   }
   return undef;
@@ -246,7 +252,7 @@ sub _fetch_from_file_cache {
     for my $xml_param (@xml_params){
       $extra_param .= "&$xml_param=" . $param_obj->param($xml_param);
     }
-    $param_hash = Digest::MD5->md5_hex($extra_param);
+    $param_hash = Digest::MD5::md5_hex($extra_param);
   }
 
   my $cache_filename = "$view->{cache_dir}/$page_id.$pkit_view.$lang$param_hash";
@@ -297,13 +303,22 @@ sub _html_clean {
 sub _include_components {
   my ($view, $page_id, $html_code_ref, $pkit_view) = @_;
 
-  $$html_code_ref =~ s!<PKIT_COMPONENT (NAME=)?"?(.*?)"?\s*/?>(</PKIT_COMPONENT>)?!&get_component($page_id,$2,$view,$pkit_view)!eig;
+  my $pattern = qr!(\s+(\w+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\w+)))!; #"
+  $$html_code_ref =~ s%<\s*PKIT_COMPONENT($pattern+)\s*/?>(</PKIT_COMPONENT>)?%&get_component($page_id,$1,$view,$pkit_view)%eig;
 
 #  my @component_ids = keys %component_ids;
 #  return \@component_ids;
 
   sub get_component {
-    my ($page_id,$component_id, $view, $pkit_view) = @_;
+    my ($page_id, $params, $view, $pkit_view) = @_;
+   my $pattern = qr!(\s+(\w+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\w+)))!; #"
+   my %params = ();
+
+    while($params =~ m!$pattern!ig) {
+      $params{uc($2)} = $+;
+    }
+
+    my $component_id = delete $params{NAME} or die qq{component item "NAME=..." not found};
 
     unless($component_id =~ s!^/!!){
       # relative component, component relative to page_id
@@ -318,7 +333,8 @@ sub _include_components {
       die "Likely recursive PKIT_COMPONENTS for component_id $component_id and giving up.";
     }
 
-    my $template_ref = $view->_load_component($page_id,$component_id,$pkit_view);
+    my $template_ref = $view->_load_component($page_id, $component_id, $pkit_view);
+    $$template_ref =~ s!<\s*PKIT_MACRO$pattern\s*/?>!$params{uc($+)}!egi if (keys %params);
     return $$template_ref;
   }
 }
@@ -429,8 +445,7 @@ sub _load_page {
     };
     if ($@) {
       (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
-      die "The charset ($default_output_charset) is not supported by
-ext::Iconv please check file ${config_dir}/Config.xml";
+      die "The charset ($default_output_charset) is not supported by Text::Iconv please check file ${config_dir}/Config.xml";
     }
   }
 
@@ -481,7 +496,7 @@ ext::Iconv please check file ${config_dir}/Config.xml";
       for my $xml_param (@xml_params){
 	$extra_param .= "&$xml_param=" . $param_obj->param($xml_param);
       }
-      $param_hash = Digest::MD5->md5_hex($extra_param);
+      $param_hash = Digest::MD5::md5_hex($extra_param);
     }
 
     # Store record
@@ -538,9 +553,9 @@ sub _preparse_model_tags {
 
   sub process_selfurl_tag {
     my ($exclude_params_set, $exclude_params) = @_;
-    $exclude_params = defined($exclude_params) ? 
+    $exclude_params = defined($exclude_params) ?
       join(" ",sort split(/\s+/,$exclude_params)) : "";
-    %$exclude_params_set->{$exclude_params} = 1;
+    $exclude_params_set->{$exclude_params} = 1;
     return qq{<TMPL_VAR NAME="pkit_selfurl$exclude_params">};
   }
 }

@@ -4,7 +4,6 @@
 	default_page = "index"
 	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"
 	gzip_output = "static"
-	translate_charset = "yes"
 	login_page="login1"
 	model_base_class="MyPageKit::Common"
 	model_dispatch_prefix="MyPageKit::MyModel"

@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.11 2001/07/09 02:42:10 tjmather Exp $
+# $Id: Common.pm,v 1.15 2001/09/08 15:59:14 borisz Exp $
 
 use strict;
 
@@ -9,11 +9,14 @@ use vars qw(@ISA);
 
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
-$__PACKAGE__::secret_md5 = 'you_should_place_your_own_md5_string_here';
-
+use Digest::MD5 ();
 use DBI;
+
+no strict 'refs';
+${ __PACKAGE__ . '::secret_md5' } = 'you_should_place_your_own_md5_string_here';
+use strict 'refs';
+
 use MyPageKit::MyModel;
-use Digest::MD5;
 
 sub pkit_dbi_connect {
   # this line should be replaced with a DBI->connect(...) statement
@@ -60,7 +63,7 @@ sub pkit_auth_credential {
   my $login = $model->input('login');
   my $passwd = $model->input('passwd');
 
-  unless ($login ne "" && $passwd ne ""){
+  unless ( $login && $passwd ){
     $model->pkit_message("You did not fill all of the fields.  Please try again.",
 		 is_error => 1);
     return;
@@ -71,13 +74,15 @@ sub pkit_auth_credential {
 
   my ($user_id, $dbpasswd) = $dbh->selectrow_array($sql_str, {}, $login);
 
-  unless ($epasswd eq crypt($dbpasswd,$epasswd)){
+  unless ($user_id && $dbpasswd && $epasswd eq crypt($dbpasswd,$epasswd)){
     $model->pkit_message("Your login/password is invalid. Please try again.",
 		is_error => 1);
     return;
   }
 
-  my $hash = Digest::MD5->md5_hex(join ':', $__PACKAGE__::secret_md5, $user_id, $epasswd);
+  no strict 'refs';
+  my $hash = Digest::MD5::md5_hex(join ':', ${ __PACKAGE__ . '::secret_md5' }, $user_id, $epasswd);
+  use strict 'refs';
 
   my $ses_key = {
 		 'user_id'   => $user_id,
@@ -100,7 +105,9 @@ sub pkit_auth_session_key {
 
   # create a new hash and verify that it matches the supplied hash
   # (prevents tampering with the cookie)
-  my $newhash = Digest::MD5->md5_hex(join ':', $__PACKAGE__::secret_md5, $user_id, crypt($epasswd,"pk"));
+  no strict 'refs';
+  my $newhash = Digest::MD5::md5_hex(join ':', ${ __PACKAGE__ . '::secret_md5' }, $user_id, crypt($epasswd,"pk"));
+  use strict 'refs';
 
   return unless $newhash eq $ses_key->{'hash'};
 

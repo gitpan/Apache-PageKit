@@ -2,6 +2,26 @@ Please remember to BACK UP YOUR FILES before attempting to run migration
 scripts.
 
 =============================================================
+Migration from 1.05 to 1.06
+
+1. __PACKAGE__ is not interpolated run
+2. the PKIT_COMPONENT tag did NOT support a single unnamed parameter anymore.
+
+	<PKIT_COMPONENT filexx>
+
+        changed to
+
+        <PKIT_COMPONENT NAME="filexx"/>
+
+3. Digest::MD5->md5_hex changed to Digest::MD5::md5_hex in Common.pm
+4. MD5->hexhash changed to Digest::MD5::md5_hex in MyModel.pm
+5. Remove some possible "use undefined" warnings
+6. Write "use Digest::MD5 ();" before "use DBI;"
+
+run
+migration/migrate_pagekit_1.05_to_1.06.pl /path/to/pagekit_root
+
+=============================================================
 Migration from 1.04 to 1.05
 
 1. pkit_done parameter is no longer automatically filled in HTML
@@ -50,7 +70,7 @@ perl -pi -e 's!<PKIT_VAR +NAME *= *"?SELFURL"? *>!<PKIT_SELFURL>!gi' \
 	$model->output_param has been changed to $model->output
 
 4. $model->input_param('pkit_user') and $model->output_param('pkit_user')
-	is no longer set by authentication code.  Instead, set 
+	is no longer set by authentication code.  Instead, set
 	$model->pnotes(pkit_user => $pkit_user) in your
 	pkit_auth_session_key in your model code and use
 	$model->pnotes('pkit_user') to access the set value

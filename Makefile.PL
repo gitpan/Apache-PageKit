@@ -29,6 +29,7 @@ use vars qw( %Requirements %Recommended %Example );
   { comment => '(needed if you want to serve static files from View/Default directory)' },
   'XML::LibXML'  => { version => 0.92 },
   'XML::LibXSLT' => { version => 1.04, comment => '(needed if you want to use XSLT tranformations)' },
+  'Storable'     => { version => 1.013, comment => '(needed for heavy loaded servers)' },
 );
 
 %Example = (

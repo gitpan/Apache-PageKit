@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.19 2001/07/15 14:20:45 tjmather Exp $
+$Id: reference.xml,v 1.24 2001/09/08 19:26:14 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -53,7 +53,7 @@ but their cookies are not enabled.  Defaults to <literal><link linkend="config.g
         Default charset that PageKit Templates and Model output are encoded in.
 	Defaults to
        <emphasis>ISO-8859-1</emphasis>.  PageKit uses this to convert the
-        PageKit templates and output from <link linkend="model.api.output_charset">output_charset</link> to UTF-8.
+        PageKit templates and output from <link linkend="model.api.output_convert">output_convert</link> to UTF-8.
       </para>
      </listitem>
     </varlistentry>
@@ -108,7 +108,7 @@ but their cookies are not enabled.  Defaults to <literal><link linkend="config.g
      <term>gzip_output</term>
      <listitem>
       <para>
-       If set to <emphasis>all</emphasis>, output is gzipped dynamic and static content for browsers that send a 
+       If set to <emphasis>all</emphasis>, output is gzipped dynamic and static content for browsers that send a
        <literal>Accept-Encoding</literal> header containing <literal>gzip</literal>.  If set to <emphasis>static</emphasis>, output is gzipped for
 static pages only.
        Defaults to
@@ -195,13 +195,13 @@ by the corresponding <link linkend="config.page.request_param_in_tmpl">page attr
      <term>session_expires</term>
      <listitem>
       <para>
-       Sets the expire time for the cookie that stores the session id on 
+       Sets the expire time for the cookie that stores the session id on
        the user's computer.  If it is not set, then the expire time on the
        cookie will not be set, and the cookie will expire when the user closes
        their browser.
        <informalexample>
         <programlisting>
-         session = "+3h"
+         session_expires = "+3h"
         </programlisting>
        </informalexample>
       </para>
@@ -835,9 +835,30 @@ sub pkit_startup {
 Called at server startup with PageKit root, server, and configuration
 object passed as parameters.  Note that the configuration API may change.
      </para>
+    </refsect1>
+   </refentry>
+   <refentry id="model.api.pkit_default">
+    <refnamediv>
+     <refname>pkit_default</refname>
+     <refpurpose>
+      Default class method
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+sub pkit_default {
+ # class default code here ...
+}
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
      <para>
-In the example above we filter the image links to that they point to the secure site if we
-are on a secure page (the only good use of <literal>pkit_output_filter</literal> that I know of)
+Class method called for every page in the same class which has page code
+and/or content. It is called after <literal>pkit_common_code</literal> and before page code.
+     </para>
+     <para>
+NOTE: currently this is the only pkit_* method which can exist outside Common.pm
      </para>
     </refsect1>
    </refentry>
@@ -944,16 +965,16 @@ gets authenticated.
      </para>
     </refsect1>
    </refentry>
-   <refentry id="model.api.output_charset">
+   <refentry id="model.api.output_convert">
     <refnamediv>
-     <refname>output_charset</refname>
+     <refname>output_convert</refname>
      <refpurpose>
       Outputs data for display, converting charset.
      </refpurpose>
     </refnamediv>
     <refsynopsisdiv>
      <synopsis>
-      $model->output_charset(output => {foo => $utf8_text},
+      $model->output_convert(output => {foo => $utf8_text},
 			     input_charset => 'UTF-8');
      </synopsis>
     </refsynopsisdiv>
@@ -971,10 +992,10 @@ gets authenticated.
      <informalexample>
       <programlisting>
       # converts from UTF-8
-      $model->output_charset(output => $utf8_text,
+      $model->output_convert(output => { key => $utf8_text },
 			     charset => 'UTF-8');
       # converts from default_input_charset
-      $model->output_charset(output => $text)
+      $model->output_convert(key => $text)
       </programlisting>
      </informalexample>
     </refsect1>
@@ -1554,6 +1575,11 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refsynopsisdiv>
       <synopsis>
        &lt;PKIT_COMPONENT NAME="html_header"&gt;
+
+       &lt;PKIT_COMPONENT NAME="top_10" loop=top_10_cd headline="CD charts" &gt;
+       &lt;PKIT_COMPONENT NAME="top_10" loop=top_10_maxi headline="Maxi charts" &gt;
+
+       &lt;PKIT_COMPONENT NAME="newsbox" news=&apos;&lt;MODEL_VAR NAME="joke"&gt;&apos; &gt;
       </synopsis>
      </refsynopsisdiv>
      <refsect1>
@@ -1566,6 +1592,37 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
       <para>
        The second is to associate a method from the Model the page.  This is used to
        fill in any MODEL_VAR and MODEL_LOOP tags in the included PageKit Template.
+      </para>
+      <para>
+       The 2. 3. and 4. example define also some macros.
+       See <literal><link linkend="pkit.macro">PKIT_MACRO</link></literal>
+      </para>
+     </refsect1>
+    </refentry>
+        <refentry id="pkit.macro">
+     <refnamediv>
+      <refname>PKIT_MACRO</refname>
+      <refpurpose>
+       Placeholder for components.
+      </refpurpose>
+     </refnamediv>
+     <refsynopsisdiv>
+      <synopsis>
+       &lt;MODEL_VAR NAME="&lt;PKIT_MACRO NAME=headline&gt;"&gt;
+       &lt;MODEL_LOOP NAME="&lt;PKIT_MACRO NAME=loop&gt;"&gt;
+         &lt;MODEL_VAR NAME="title"/&gt;
+       &lt;/MODEL_LOOP&gt;
+      </synopsis>
+     </refsynopsisdiv>
+     <refsect1>
+      <title>Description</title>
+      <para>
+       A <literal>PKIT_MACRO</literal> is replaced with the value of the key
+       in <literal><link linkend="pkit.component">PKIT_COMPONENT</link></literal>
+       that match the name of the macro.
+      </para>
+      <para>
+       This tag is only valid inside a template that is loaded with <literal><link linkend="pkit.component">PKIT_COMPONENT</link></literal>
       </para>
      </refsect1>
     </refentry>
@@ -1584,7 +1641,7 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refsect1>
       <title>Description</title>
       <para>
-       This tag highlights fields in red that Model reported as being filled in incorrectly. 
+       This tag highlights fields in red that Model reported as being filled in incorrectly.
       </para>
       <para>
        Note that the API and function might change to allow for more flexibility.  Comments welcome.

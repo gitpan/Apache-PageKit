@@ -1,7 +1,7 @@
 <chapter><?dbhtml filename="features.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: features.xml,v 1.11 2001/07/15 14:20:45 tjmather Exp $
+$Id: features.xml,v 1.12 2001/08/23 08:13:59 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Overview of Features</title>
@@ -343,7 +343,7 @@ across your Derived Model Classes.
    <para>
     By default, PageKit attempts to output using <link linkend="config.global.default_output_charset">default_output_charset</link>.
     PageKit will attempt to translate the PageKit Templates and output passed
-    to <link linkend="model.api.output_charset">output_charset</link> from
+    to <link linkend="model.api.output_convert">output_convert</link> from
     <link linkend="config.global.default_input_charset">default_input_charset</link> to
     <link linkend="config.global.default_output_charset">default_output_charset</link>.
    </para>
@@ -427,7 +427,7 @@ across your Derived Model Classes.
   <para>
    As of PageKit 1.05, there is support for associating sessions with
    authentication.  The associated session ID may be specified by the second
-   argument returned my <link linkend="model.api.pkit_auth_seesion_key">pkit_auth_session_key</link>.  When a user logs in, their current session may be merged with the session
+   argument returned my <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</link>.  When a user logs in, their current session may be merged with the session
    stored with their user ID.  To override the default behavior, use the
     <link linkend="model.api.pkit_merge_sessions">pkit_merge_sessions</link> hook.
   </para>

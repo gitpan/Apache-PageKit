@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.102 2001/07/14 14:32:55 tjmather Exp $
+# $Id: PageKit.pm,v 1.122 2001/09/19 05:22:39 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -34,7 +34,7 @@ use Apache::PageKit::Config ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '1.05';
+$VERSION = '1.06';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -102,7 +102,7 @@ sub handler ($$){
     my $view = $pk->{view};
     my $config = $pk->{config};
     $status_code = $pk->prepare_page;
-    my $use_template = $config->get_page_attr($pk->{page_id},'use_template') || 'yes';
+    my $use_template = $config->get_page_attr($pk->{page_id},'use_template') || 'yes' if ($status_code eq OK);
     if ($status_code eq OK && $use_template ne 'no'){
       $pk->open_view;
       for my $component_id (@{$view->{record}->{component_ids}}){
@@ -150,7 +150,18 @@ sub params_as_string {
   # we cache args in pnotes - i think it is faster this way
   # especially if you have <PKIT_SELFURL exclude="foo"> tags
   unless ($args = $apr->pnotes('r_args')){
-    my %args = $apr->args;
+
+    # this fine easy line is replaced with this beast to parse url's
+    # like http://ka.brain.de/login2?passwd=ss&&&&submit&&login=s&
+    #  my %args = $apr->args;
+    my %args = ();
+    my @args = $apr->args;
+    while (@args) {
+      my $k = shift @args;
+      next unless $k;
+      $args{$k} = shift @args;
+    }
+
     for (qw(login logout view check_cookie messages error_messages lang)){
       delete $args{"pkit_$_"};
     }
@@ -175,10 +186,9 @@ sub update_session {
   return unless defined($session);
 
   unless(exists($session->{pkit_inactivity_timeout})){
-    my $recent_login_timeout = $pk->{config}->get_global_attr('recent_login_timeout');
+    my $recent_login_timeout = $pk->{config}->get_global_attr('recent_login_timeout') || 3600;
     my $last_activity = $session->{pkit_last_activity};
-    if(defined($recent_login_timeout) && defined($last_activity) &&
-       $last_activity + $recent_login_timeout < time()){
+    if(defined($last_activity) && $last_activity + $recent_login_timeout < time()){
       # user has been inactive for recent_login_timeout seconds, timeout
       $session->{pkit_inactivity_timeout} = 1;
     } else {
@@ -213,7 +223,7 @@ sub prepare_page {
     return DECLINED if $uri =~ m/$files_match/;
   }
 
-  my $uri_prefix = $config->get_global_attr('uri_prefix');
+  my $uri_prefix = $config->get_global_attr('uri_prefix') || '';
 
   if($uri_prefix){
     $uri =~ s(^/$uri_prefix)(/);
@@ -232,7 +242,7 @@ sub prepare_page {
     $host = $apr->headers_in->{'Host'};
 
     $uri_prefix =~ s!/$!!g;
-    $uri_with_query = (($ENV{HTTPS} eq 'on') ? 'https' : 'http') . '://' . $host . ($uri_prefix ? '/' . $uri_prefix : '' ) . $uri;
+    $uri_with_query = ((defined( $ENV{HTTPS} ) && $ENV{HTTPS} eq 'on') ? 'https' : 'http') . '://' . $host . ($uri_prefix ? '/' . $uri_prefix : '' ) . $uri;
   }
 #  my $pkit_selfurl;
 
@@ -263,12 +273,12 @@ sub prepare_page {
 
   $pk->{page_id} = $uri;
 
-  # get rid of leading forward slash
-  $pk->{page_id} =~ s(^/+)();
-
   # add index for pageid with trailing slash "/"
   # WARNING - this is undocumented and may go away at anytime
   $pk->{page_id} =~ s!(.+)/$!$1/index!;
+
+  # get rid of leading forward slash
+  $pk->{page_id} =~ s(^/+)();
 
   # get default page if there is no page specified in url
   if($pk->{page_id} eq ''){
@@ -292,14 +302,16 @@ sub prepare_page {
     if ($filename){
       require MIME::Types;
       my ($media_type, $content_encoding) = MIME::Types::by_suffix($filename);
-      $apr->content_type($media_type);
-      if($media_type eq "text/html" && $pk->{use_gzip}){
-        my $gzipped = $view->get_static_gzip($filename);
-        if ($gzipped){
-          $apr->content_encoding("gzip");
-          $apr->send_http_header;
-          $apr->print($gzipped);
-          return DONE;
+      if (defined $media_type) {
+        $apr->content_type($media_type);
+        if($media_type eq "text/html" && $pk->{use_gzip}){
+          my $gzipped = $view->get_static_gzip($filename);
+          if ($gzipped){
+            $apr->content_encoding("gzip");
+            $apr->send_http_header;
+            $apr->print($gzipped);
+            return DONE;
+          }
         }
       }
 
@@ -314,7 +326,7 @@ sub prepare_page {
   if($apr->param('pkit_logout')){
     $pk->logout;
     $apr->param('pkit_check_cookie','');
-    # goto home page when user logouts (if from page that requires login) 
+    # goto home page when user logouts (if from page that requires login)
     my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
     if (defined($require_login) && $require_login =~ m!^(yes|recent)$!){
       $pk->{page_id} = $config->get_global_attr('default_page');
@@ -394,15 +406,15 @@ sub prepare_page {
   # get Locale settings
   my ($lang, $accept_lang);
 
-  if($lang = $apr->param('pkit_lang')){
+  if( $lang = $apr->param('pkit_lang') ){
     $session->{'pkit_lang'} = $lang if $session;
-  } elsif ($session && ! exists $pk->{is_new_session}){
+  } elsif ( $session && ! exists $pk->{is_new_session} ){
     $lang = $session->{'pkit_lang'} if exists $session->{'pkit_lang'};
-  } else {
-    unless ($lang = substr($apr->header_in('Accept-Language'),0,2)){
-      $lang = $config->get_global_attr('default_lang') || 'en';
-    }
+  } elsif ( $accept_lang = $apr->header_in('Accept-Language') ) {
+    $lang = substr($accept_lang, 0, 2);
   }
+
+  $lang ||= $config->get_global_attr('default_lang') || 'en';
 
   # TEMP only for anidea.com site, until fix problems with localization in content
   $output_param_object->param("PKIT_LANG_$lang" => 1);
@@ -442,7 +454,8 @@ sub _check_gzip {
   my $pk = shift;
   # check Accent-Encoding or if the user_agent field for Unix/Mac Netscape
   # to see if should gzip output
-  my $gzip_output = $pk->{config}->get_global_attr("gzip_output") || "";
+  my $gzip_output = $pk->{config}->get_global_attr("gzip_output") || 'none';
+  $pk->{use_gzip} = 'none';
   my $apr = $pk->{apr};
   if ($gzip_output =~ m!^(all|static)$!){
     if(($apr->header_in("Accept-Encoding") || "") =~ /gzip/){
@@ -643,16 +656,19 @@ sub new {
   die "Must specify PerlSetVar PKIT_SERVER in httpd.conf file" unless $server;
   my $config = $self->{config} = Apache::PageKit::Config->new(config_dir => $config_dir,
 						 server => $server);
-  my $apr = $self->{apr} = Apache::Request->new($r, POST_MAX => $self->{config}->get_global_attr('post_max'));
+  my $post_max = $self->{config}->get_global_attr('post_max') || 100_000_000;
+  my $apr = $self->{apr} = Apache::Request->new($r, POST_MAX => $post_max);
   my $model_base_class = $self->{config}->get_global_attr('model_base_class') || "MyPageKit::Common";
 
+  $self->_check_gzip;
+  
   my $model;
   eval {$model = $self->{model} = $model_base_class->new(pkit_pk => $self)};
   if($@){
     unless($model_base_class){
       die "model_base_class not specified";
     } else {
-      die "Model class $model_base_class has no new method";
+      die "Model class $model_base_class has no new method ($@)";
     }
   }
 
@@ -662,8 +678,9 @@ sub new {
   my $default_input_charset = $config->get_global_attr('default_input_charset') || 'ISO-8859-1';
   my $default_output_charset = $config->get_global_attr('default_output_charset') || 'ISO-8859-1';
   my $html_clean_level = $config->get_server_attr('html_clean_level');
-  my $can_edit = $config->get_server_attr('can_edit');
-  my $reload = $config->get_server_attr('reload');
+  $html_clean_level = 9 unless defined $html_clean_level;
+  my $can_edit = $config->get_server_attr('can_edit') || 'no';
+  my $reload = $config->get_server_attr('reload') || 'no';
 
   my $cache_dir = $config->get_global_attr('cache_dir');
   my $view_cache_dir = $cache_dir ? $cache_dir . '/pkit_cache' :
@@ -713,20 +730,23 @@ sub page_sub {
 
   my $model_base_class = $pk->{config}->get_global_attr('model_base_class') || "MyPageKit::Common";
 
-  warn qq{For full preformance please add "use $class_package" in your $model_base_class or startup.pl script\n};
+  warn qq{For full preformance please add "use $class_package" in your $model_base_class or startup.pl script};
 
   return $perl_sub;
 }
 
 sub page_code {
   my $pk = shift;
-  my $perl_sub = $pk->page_sub;
-  no strict 'refs';
-  if ($perl_sub){
-    return $pk->call_model_code($perl_sub);
-  } else {
-    return 1;
-  }
+  my ( $common_page_id, $model_dispatch_prefix, $default_code_perl_sub );
+
+  ( $common_page_id = $pk->{page_id} ) =~ s!/!::!g;
+  $model_dispatch_prefix = $pk->{config}->get_global_attr('model_dispatch_prefix');
+  ( $default_code_perl_sub = $model_dispatch_prefix . '::' . $common_page_id ) =~ s/[^:]+$/pkit_default/;
+  $default_code_perl_sub = undef unless (defined &$default_code_perl_sub);
+
+  my @subs = grep { $_ } ( $default_code_perl_sub, $pk->page_sub );
+  return $pk->call_model_code(@subs) if (@subs);
+  return 1;
 }
 
 sub component_code {
@@ -744,27 +764,27 @@ sub component_code {
   no strict 'refs';
   my $perl_sub = $model_dispatch_prefix . '::' . $component_id;
 
-  if (defined &{$perl_sub}){
-    return $pk->call_model_code($perl_sub);
-  } else {
-    return 1;
-  }
+  return $pk->call_model_code($perl_sub) if (defined &{$perl_sub});
+  return 1;
 }
 
 # calls code from user module in Model
 sub call_model_code {
-  my ($pk, $perl_sub) = @_;
-
+  my $pk = shift;
   my $model = $pk->{model};
 
-  # extract class and method from perl subroutine
-  my ($model_class, $method) = ($perl_sub =~ m!^(.+?)::([^:]+)$!);
+  my $dispatch_model;
+  for (@_) {
+    # extract class and method from perl subroutine
+    my ($model_class, $method) = m!^(.+?)::([^:]+)$!;
 
-  my $dispatch_model = $model->create($model_class);
+    $dispatch_model = $model->create($model_class) unless ( $dispatch_model && $model_class eq ref $dispatch_model );
 
-  # dispatch message to model class
-  no strict 'refs';
-  return &{$model_class . '::' . $method}($dispatch_model);
+    # dispatch message to model class
+    no strict 'refs';
+    my $status_code = $dispatch_model->$method();
+    return $status_code if (defined $status_code);
+  }
 }
 
 sub login {
@@ -812,6 +832,9 @@ sub login {
     }
     $cookie->bake;
   }
+
+  # remove appending ? or & and any combination of them
+  $done =~ s/[\?&]+$//;
 
   # this is used to check if cookie is set
   if($done =~ /\?/){
@@ -930,16 +953,12 @@ sub setup_session {
    Generate => 'MD5',
    Serialize => 'Storable',
    create_unknown => 1,
-   lazy => 1,
+   lazy => 0,
    %{$ss->{session_args}}
   };
 
   if(defined($auth_session_id) &&
      $auth_session_id ne $session_id){
-
-    # permanently remove old session from storage
-    tied(%session)->delete;
-    untie(%session);
 
     my %auth_session;
     # get new session assoc with login
@@ -950,12 +969,20 @@ sub setup_session {
      Generate => 'MD5',
      Serialize => 'Storable',
      create_unknown => 1,
-     lazy => 1,
+     lazy => 0,
      %{$ss->{session_args}}
     };
 
     # user must have just logged in, so we must merge session objects!
     $pk->{model}->pkit_merge_sessions(\%session,\%auth_session);
+
+    # update pkit_last_activity and delete pkit_inactivity_timeout so we dont need to login and login and ...
+    $auth_session{pkit_last_activity} = time() if exists ( $auth_session{pkit_last_activity} );
+    delete $auth_session{pkit_inactivity_timeout};
+
+    # permanently remove old session from storage
+    tied(%session)->delete;
+    untie(%session);
 
     undef(%session);
 
@@ -1150,12 +1177,12 @@ L<Data::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 1.05
+This document describes Apache::PageKit module version 1.06
 
 =head1 NOTES
 
 Requires mod_perl, XML::Parser, HTML::Clean,
-HTML::FillInForm, HTML::FormValidator, and HTML::Template.
+HTML::FillInForm, Form::FormValidator, and HTML::Template.
 
 I wrote these modules because I needed an application framework that was based
 on mod_perl and seperated HTML from Perl.  HTML::Embperl, Apache::ASP 
@@ -1167,17 +1194,10 @@ The goal is of these modules is to develop a framework that provides most of the
 functionality that is common across dynamic web sites, including session management,
 authorization, form validation, component design, error handling, and content management.
 
-If you have used (or are considering using) these modules
-to build a web site, please drop me a line with the URL
-of your web site.  My e-mail is tj@anidea.com.  Thanks!
-
 =head1 BUGS
 
-This framework is in alpha stage.  The interface may change in later
-releases.
-
 Please submit any bug reports, comments, or suggestions to
-tjmather@anidea.com, or join the Apache::PageKit
+to the Apache::PageKit
 mailing list at http://lists.sourceforge.net/mailman/listinfo/pagekit-users
 
 =head1 TODO
@@ -1192,15 +1212,17 @@ Associate sessions with authenticated user ID.
 
 Add more tests to the test suite.
 
-=head1 AUTHOR
+=head1 AUTHORS
 
-T.J. Mather (tjmather@anidea.com)
+T.J. Mather (tjmather@tjmather.com)
+
+Boris Zentner has contributed numerous patches and is currently
+maintaining the package.
 
 =head1 CREDITS
 
 Fixes, Bug Reports, Docs have been generously provided by:
 
-  Boris Zentner
   Ben Ausden
   Stu Pae
   Yann Kerhervé
@@ -1210,7 +1232,7 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Sheffield Nolan
   David Raimbault
 
-Also, thanks to Dan Von Kokorn for helping shape the initial architecture
+Also, thanks to Dan Von Kohorn for helping shape the initial architecture
 and for the invaluable support and advice. 
 
 =head1 COPYRIGHT

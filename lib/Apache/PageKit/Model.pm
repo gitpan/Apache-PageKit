@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.48 2001/07/14 14:32:55 tjmather Exp $
+# $Id: Model.pm,v 1.53 2001/09/16 21:11:33 borisz Exp $
 
 use integer;
 use strict;
@@ -191,9 +191,9 @@ sub output_convert {
     if ($@) {
       die "Charset $input_charset or $default_output_charset not supported by Text::Iconv";
     }
-    &_change_params($converter, %{$p{output}});
+    &_change_params($converter, $p{output} ? %{$p{output}} : %p );
   }
-  $model->output($p{output});
+  $model->output( $p{output} || %p );
 }
 
 sub pnotes {
@@ -233,9 +233,10 @@ sub dbh {
   if (exists $model->{pkit_pk}->{dbh}){
     return $model->{pkit_pk}->{dbh};
   } else {
-    $Apache::Model::dbh = $model->pkit_dbi_connect
-      unless defined($Apache::Model::dbh) && $Apache::Model::dbh->ping;
-    return $Apache::Model::dbh;
+    unless ( defined($Apache::PageKit::Model::dbh) && $Apache::PageKit::Model::dbh->ping ) {
+      $Apache::PageKit::Model::dbh = $model->pkit_dbi_connect if $model->can('pkit_dbi_connect');
+    }
+    return $Apache::PageKit::Model::dbh;
   }
 }
 
@@ -260,8 +261,7 @@ sub pkit_merge_sessions {
   my ($model, $old_session, $new_session) = @_;
   while(my ($k, $v) = each %$old_session){
     next if $k eq '_session_id';
-    $new_session->{$k} = $v
-      unless exists $new_session->{$v};
+    $new_session->{$k} = $v unless exists $new_session->{$k};
   }
 }
 

@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.23 2001/05/29 00:51:53 tjmather Exp $
+# $Id: Config.pm,v 1.24 2001/08/12 21:34:18 borisz Exp $
 
 use integer;
 use strict;
@@ -153,7 +153,7 @@ sub PAGES_ {}
 sub PAGE {
   my ($p, $edtype, %attr) = @_;
 
-  $page_id = $attr{id};
+  my $page_id = $attr{id};
   my $config = $cur_config;
 
   while (my ($key, $value) = each %attr){

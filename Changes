@@ -1,6 +1,41 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.06
+	- empty parameters are stripped from the requested url
+		ie: http://www.xyz.de/test?=& (Boris Zentner)
+	- Fixed output_convert to handle calls like
+		$model->output_convert(anything => $text) (Boris Zentner)
+	- Fixed handling of __PACKAGE__ in Common.pm (Boris Zentner)
+        - Add pkit_default hook similar to pkit_common_code, but called after
+		pkit_common_code and before the page code is
+		executed. (Boris Zentner, Ben Ausden)
+	- Add PKIT_MACRO as extension to PKIT_COMPONENT so a component is easy
+		reusable (Boris Zentner)
+	! Single parameters for PKIT_COMPONENT are no longer supported.
+		(see migration/README) (Boris Zentner)
+	- Fixed session merge from an anonymous to a user that is logged in.
+		(Boris Zentner, Leonardo de Carvalho)
+	- Fixed pkit_merge_sessions (David Raimbault)
+        - Fixed writing and warning of gzipped static pages (Boris Zentner)
+        - Fixed default for html_clean_level. It is now 9 as documented (Boris Zentner)
+        - Fixed language localization support (Boris Zentner)
+        - Fixed default for post_max. It is now 100_000_000 as documented (Boris Zentner)
+        - Reenable gzip content it was ignored before. (Boris Zentner)
+        - Fixed uri handling of http://www.abc.de/ where we end in a empty uri instead
+		of index (Boris Zentner)
+	- Fixed usage of Digest::MD5::md5_hex in sub pkit_auth_credential and
+		pkit_auth_session_key in Common.pm (Boris Zentner)
+	- Set Default for the server attrs can_edit and reload (Boris Zentner)
+	- First attempt to make pkit warning clean (Boris Zentner, David Raimbault)
+        - Fix default timeout for 'recent_login_timeout' from unlimited to 3600
+		like the Docs say (Boris Zentner)
+	- Parse difficult parameters like
+		http://ka.brain.de/login2?passwd=ss&&&&submit&&login=s& (Boris Zentner)
+        - Add restricted page to the example site (Boris Zentner)
+        - Fixed setup_session without touch of pkit_merge_session (Boris Zentner)
+        - Fixed problem with append of check_cookie (Boris Zentner)
+        - Sessions are not lazy anymore (Boris Zentner)
 
 1.05
 	- <PKIT_COMPONENT NAME="foo"/> now works (Boris Zentner)
@@ -139,7 +174,7 @@ Revision history for Perl extension Apache::PageKit.
                 pages from XML and XSL stylesheets
 	- Separated out XML Template code in new module,
 		XML::XPathTemplate
-	- update last_activity in session for every hit - 
+	- update last_activity in session for every hit -
 		makes sure that recent_login works everytime
 		and overcomes the fact that Apache::Session only
 		does a shallow check of the hash.
@@ -204,7 +239,7 @@ Revision history for Perl extension Apache::PageKit.
 		be used to filter the output
 	- Added <PKIT_VAR NAME="HOSTNAME">, which specifies
 		current host name.
-	- Added $model->pkit_get_server_id - gets server id from 
+	- Added $model->pkit_get_server_id - gets server id from
 		Config.xml file.
 	- Added $model->pkit_get_default_page - put in so that
 		it can be overridden in derived model class

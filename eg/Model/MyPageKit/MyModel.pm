@@ -122,7 +122,7 @@ sub newacct2 {
   my $pkit_done = $model->input('pkit_done');
 
   # make up userID
-  my $user_id = substr(MD5->hexhash(MD5->hexhash(time(). {}. rand(). $$)), 0, 8);
+  my $user_id = substr(Digest::MD5::md5_hex(Digest::MD5::md5_hex(time(). {}. rand(). $$)), 0, 8);
 
   my $sql_str = "INSERT INTO pkit_user (user_id,email,login,passwd) VALUES (?,?,?,?)";
   $dbh->do($sql_str, {}, $user_id, $model->input('email'),
