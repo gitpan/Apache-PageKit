@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-Version: 0.90 (Alpha)
+Version: 0.91 (Alpha)
 API is subject to change, and should stablize as
 we approach version 1.00 (First Beta Release)
 
@@ -24,13 +24,13 @@ Description
 	independently with clean well-defined interfaces.
 
 	PageKit provides the following features:
+		- Component-based architecture
 		- Language Localization
 		- Session Management
 		- Input Validation
 		- Sticky HTML Forms
 		- Authentication
 		- Co-branding
-		- Component-based architecture
 		- Automatic Dispatching of URIs
 		- Easy Error Handling
 

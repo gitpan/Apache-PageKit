@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.3 2000/12/23 07:10:38 tjmather Exp $
+# $Id: Config.pm,v 1.4 2000/12/26 08:51:35 tjmather Exp $
 
 use integer;
 use strict;
@@ -8,7 +8,7 @@ use Apache::PageKit;
 use XML::Parser;
 
 use vars qw($page_id $ATTR_NAME $cur_config
-	$global_attr $server_attr $page_attr $page_id_match $mtime_hashref);
+	$global_attr $server_attr $page_attr $uri_match $mtime_hashref);
 
 sub new {
   my $class = shift;
@@ -47,7 +47,7 @@ sub parse_xml {
   $cur_config = $config;
 
   # delete current init
-  $page_id_match->{$config->{config_dir}} = {};
+  $uri_match->{$config->{config_dir}} = {};
   $page_attr->{$config->{config_dir}} = {};
 
   my $p = XML::Parser->new(Style => 'Subs',
@@ -77,11 +77,11 @@ sub get_page_attr {
   return $page_attr->{$config->{config_dir}}->{$page_id}->{$key};
 }
 
-# used to match pages to regular expressions in the page_id_match column
-sub page_id_match {
+# used to match pages to regular expressions in the uri_match setting
+sub uri_match {
   my ($config, $page_id_in) = @_;
   my $page_id_out;
-  while(my ($page_id, $reg_exp) = each %{$page_id_match->{$config->{config_dir}}}){
+  while(my ($page_id, $reg_exp) = each %{$uri_match->{$config->{config_dir}}}){
     my $match = '$page_id_in =~ /' . $reg_exp . '/';
     if(eval $match){
       $page_id_out = $page_id;
@@ -121,8 +121,8 @@ sub PAGE {
 
   while (my ($key, $value) = each %attr){
     next if $key eq 'id';
-    if($key eq 'page_id_match'){
-      $page_id_match->{$config->{config_dir}}->{$page_id} = $value;
+    if($key eq 'uri_match'){
+      $uri_match->{$config->{config_dir}}->{$page_id} = $value;
     } else {
       $page_attr->{$config->{config_dir}}->{$page_id}->{$key} = $value;
     }
@@ -340,12 +340,6 @@ database, such as pages that process new registration and forms that set a new l
 If set to I<yes>, then it reissues the cookie that contains the credentials and
 authenticates the user.
 
-=item page_id_match
-
-Value should be a regular expression.
-Servers requests whose URL (after the host name) match the regular expression.
-For example, C<^member\/\d*$> matches http://yourdomain.tld/member/4444.
-
 =item parent_id
 
 Parent page id - used for navigation bar.
@@ -361,6 +355,12 @@ C<recent_login_timeout> seconds.  Default is I<no>.
 If set to I<normal>, enables C<cache> option of L<HTML::Template> for the Page and Include templates.
 
 If set to I<shared>, enables C<shared_cache> option of L<HTML::Template>.
+
+=item uri_match
+
+Value should be a regular expression.
+Servers requests whose URL (after the host name) match the regular expression.
+For example, C<^member\/\d*$> matches http://yourdomain.tld/member/4444.
 
 =item use_bread_crumb
 

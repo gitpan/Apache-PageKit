@@ -1,6 +1,12 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.90  
+0.91
+	- Changed name of page_id_match configuration directive to
+		uri_match.
+	- Fixed some permission problems when 'make test' is run
+		as root.
+
+0.90  Sun Dec 24 01:26:18 2000 EST
 	- Major changes in API and streamlining of pagekit
 		in preparation for 1.0 beta release.  
 	- Removed seldom used options and replaced others with

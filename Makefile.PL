@@ -32,21 +32,21 @@ WriteMakefile(
 				Digest::MD5 => 0,
 				HTTP::Headers => 0,
 				HTML::FillInForm => 0,
-				HTML::Template => 2.1,
+				HTML::Template => 2.2,
 				Mail::Mailer => 0,
 				SQL::Statement => 0,
 				Text::CSV_XS => 0,
 				XML::Parser => 0},
 );
 
-#unless (-e "/tmp/cvsdb/pkit_user"){
-  mkdir '/tmp/csvdb', 0777;
-  my $dbh = DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
+mkdir '/tmp/csvdb', 0777;
+my $dbh = DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
+if (-e "/tmp/csvdb/pkit_user"){
   $dbh->do("DROP TABLE pkit_user");
-  $dbh->do("CREATE TABLE pkit_user (user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255))");
-  $dbh->disconnect;
-#}
+}
+$dbh->do("CREATE TABLE pkit_user (user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255))");
+$dbh->disconnect;
 
 mkdir '/tmp/pkit_sessions', 0777;
 mkdir '/tmp/pkit_sessions_lock', 0777;
-
+chmod 0777, '/tmp/pkit_sessions', '/tmp/pkit_sessions_lock';

@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.10 2000/12/23 07:10:38 tjmather Exp $
+# $Id: View.pm,v 1.11 2000/12/26 08:51:35 tjmather Exp $
 
 use integer;
 use strict;
@@ -34,6 +34,7 @@ sub preparse_templates {
 					 filename => "$File::Find::dir/$_",
 					 file_cache => 1,
 					 file_cache_dir => "$template_root/pkit_cache",
+					 file_cache_dir_mode => 0755,
 					 filter => \&preparse_filter
 					);
 		   },

@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.13 2000/12/23 07:10:38 tjmather Exp $
+# $Id: PageKit.pm,v 1.14 2000/12/26 08:51:15 tjmather Exp $
 
 # CPAN Modules required for pagekit
 use Apache::URI ();
@@ -26,7 +26,7 @@ use strict;
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION %info_hash);
-$VERSION = '0.9';
+$VERSION = '0.91';
 
 BEGIN {
   # include user defined classes (Model) in perl search path
@@ -122,7 +122,7 @@ sub prepare_page {
 
   # redirect "not found" pages
   unless ($pk->page_exists($pk->{page_id})){
-    $pk->{page_id} = $config->page_id_match($pk->{page_id})
+    $pk->{page_id} = $config->uri_match($pk->{page_id})
       || $config->get_global_attr('not_found_page')
       || $config->get_global_attr('default_page');
   }
@@ -1071,7 +1071,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.90
+This document describes Apache::PageKit module version 0.91
 
 =head1 NOTES
 
