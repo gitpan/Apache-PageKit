@@ -26,5 +26,3 @@ lib/HTML/FormValidator.pm
 lib/XML/XPathTemplate.pm
 migration/README
 README
-t/2_content.t
-t/3_httpd.t

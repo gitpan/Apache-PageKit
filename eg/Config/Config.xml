@@ -1,10 +1,13 @@
 <?xml version="1.0" ?>
-<!DOCTYPE CONFIG SYSTEM "./PageKit_Config-0.97.dtd">
 <CONFIG>
 <GLOBAL
 	default_page = "index"
+	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"
+	gzip_output = "static"
+	translate_charset = "yes"
 	login_page="login1"
 	model_dispatch_prefix="MyPageKit::MyModel"
+	reload="yes"
 	session_expires="+1y"
 	uri_prefix = "pagekit/"
 />
@@ -14,6 +17,14 @@
    <SERVER id="staging"
 	reload="yes"/>
 </SERVERS>
+<VIEWS>
+   <VIEW id="pdf"
+	media="pdf"/>
+   <VIEW id="wml"
+	media="wml"/>
+   <VIEW id="xml"
+	media="xml"/>
+</VIEWS>
 <PAGES>
   <PAGE id="customize" request_param_in_tmpl="yes">
   </PAGE>

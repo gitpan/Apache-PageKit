@@ -2,6 +2,14 @@ Please remember to BACK UP YOUR FILES before attempting to run migration
 scripts.
 
 =============================================================
+Migration from 1.02 to 1.03
+
+1. XSL files are now located in View/pkit_view directory instead of
+	View/pkit_view/XSL.  Simply move all files out of the XSL
+	directories into their parent directiories.  If you don't have
+	any XSL files, skip this step.
+
+=============================================================
 Migration from 0.99 to 1.00
 
 1. Several of the <PKIT_*> tags have changed.  To update the templates

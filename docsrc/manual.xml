@@ -3,10 +3,11 @@
   "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
 <!ENTITY features.xml SYSTEM "features.xml">
 <!ENTITY reference.xml SYSTEM "reference.xml">
+<!ENTITY introduction.xml SYSTEM "introduction.xml">
 ]>
 <book><?dbhtml filename="index.html"?>
 <bookinfo>
-<title>PageKit 1.00</title>
+<title>PageKit 1.03</title>
 <subtitle>User's Guide</subtitle>
 <!-- $Id: -->
 <author>

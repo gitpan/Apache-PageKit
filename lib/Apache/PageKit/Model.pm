@@ -1,14 +1,13 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.33 2001/05/19 22:20:36 tjmather Exp $
+# $Id: Model.pm,v 1.41 2001/06/08 01:59:34 tjmather Exp $
 
 use integer;
 use strict;
 use HTML::FormValidator;
 
 use Apache::Constants qw(REDIRECT);
-
-use Data::Dumper;
+use Apache::PageKit::Param;
 
 sub new {
   my $class = shift;
@@ -16,6 +15,11 @@ sub new {
   bless $self, $class;
   $self->{pkit_pk}->{output_param_object} ||= Apache::PageKit::Param->new();
   $self->{pkit_pk}->{fillinform_object} ||= Apache::PageKit::Param->new();
+  unless (exists $self->{pkit_pk} && exists $self->{pkit_pk}->{apr}){
+    # if running outside of mod_perl
+    $self->{pkit_pk}->{apr} ||= Apache::PageKit::Param->new();
+    $self->{pkit_pk}->{pnotes_param_object} ||= Apache::PageKit::Param->new();
+  }
   return $self;
 }
 
@@ -46,6 +50,11 @@ sub pkit_get_page_id {
   return $model->{pkit_pk}->{page_id};
 }
 
+sub pkit_lang {
+  my $model = shift;
+  return $model->{pkit_pk}->{lang};
+}
+
 sub pkit_user {
   my $model = shift;
   return $model->{pkit_pk}->{apr}->connection->user;
@@ -56,7 +65,7 @@ sub pkit_set_errorfont {
 
   my $begin_name = "PKIT_ERRORFONT_BEGIN_$field";
   # should change color to be user configurable...
-  my $begin_value = qq{<font color="#ff000">};
+  my $begin_value = qq{<font color="#ff0000">};
   my $end_name = "PKIT_ERRORFONT_END_$field";
   my $end_value = qq{</font>};
   $model->output($begin_name => $begin_value);
@@ -79,7 +88,9 @@ sub pkit_validate_input {
   my ($valids, $missings, $invalids, $unknowns) = $validator->validate($input_hashref, 'default');
   # used to change apply changes from filter to apr
   while (my ($key, $value) = each %$valids){
-    $model->input($key,$value);
+    # if multiple request param, don't set, since formvalidator doesn't deal
+    # with them yet
+    $model->input($key,$value) unless ref($input_hashref->{$key}) eq 'ARRAY';
   }
 
   # used to change undef values to "", in case db field is defined as NOT NULL
@@ -122,9 +133,11 @@ sub pkit_input_hashref {
     exists $model->{pkit_input_hashref};
   my $input_hashref = {};
   for my $key ($model->input){
-    $input_hashref->{$key} = $model->input($key);
+    # we expect param to return an array if there are multiple values
+    my @v = $model->input($key);
+    $input_hashref->{$key} = scalar(@v)>1 ? \@v : $v[0];
   }
-  $model->{pkit_input_param_ref} = $input_hashref;
+  $model->{pkit_input_hashref} = $input_hashref;
 }
 
 sub pkit_message {
@@ -144,24 +157,15 @@ sub pkit_internal_redirect {
   $model->{pkit_pk}->{page_id} = $page_id;
 }
 
-sub input_param {
-  warn "input_param is depreciated - use input, fillinform or pnotes instead";
-  input(@_);
-}
-
 # currently input_param is just a wrapper around $apr
 sub input {
   my $model = shift;
-  if (exists $model->{pkit_pk} && exists $model->{pkit_pk}->{apr}){
-    if(wantarray){
-      # deal with multiple value containing parameters
-      my @list = $model->{pkit_pk}->{apr}->param(@_);
-      return @list;
-    } else {
-      return $model->{pkit_pk}->{apr}->param(@_);
-    }
+  if(wantarray){
+    # deal with multiple value containing parameters
+    my @list = $model->{pkit_pk}->{apr}->param(@_);
+    return @list;
   } else {
-    return $model->_param("input",@_);
+    return $model->{pkit_pk}->{apr}->param(@_);
   }
 }
 
@@ -169,22 +173,30 @@ sub fillinform {
   return shift->{pkit_pk}->{fillinform_object}->param(@_);
 }
 
-sub output_param {
-  warn "output_param is depreciated - use output instead";
-  output(@_);
-}
-
-# currently output_param is just a wrapper around $view
 sub output {
   return shift->{pkit_pk}->{output_param_object}->param(@_);
-#  if (exists $model->{pkit_pk}){
-#    return $model->{pkit_pk}->{view}->param(@_);
-#  } else {
-#  }
+}
+
+sub output_convert {
+  my ($model, %p) = @_;
+  my $view = $model->{pkit_pk}->{view};
+  my $input_charset = exists $p{input_charset} ? $p{input_charset} : $view->{default_input_charset};
+  my $default_output_charset = $view->{default_output_charset};
+  my $converter = Text::Iconv->new($input_charset, $default_output_charset)
+    || die "Charset $input_charset or $default_output_charset not supported by Text::Iconv";
+  &_change_params($converter, $p{output});
+  $model->output($p{output});
 }
 
 sub pnotes {
-  return shift->{pkit_pk}->{apr}->pnotes(@_);
+  my $model = shift;
+  my $apr = $model->{pkit_pk}->{apr};
+  if($apr->can('pnotes')){
+    $apr->pnotes(@_);
+  } else {
+    # if running outside of mod_perl
+    return $model->{pkit_pk}->{pnotes_param_object}->param(@_);
+  }
 }
 
 # put here so that it can be overriden in derived classes
@@ -246,6 +258,51 @@ sub pkit_query {
   }
 
   return $view->{record}->{html_template}->query(@p);
+}
+
+# helper function for output_convert
+# it converts all hash values to the desired charset INPLACE
+# is this a good idea or better clone it?
+sub _change_params {
+
+  sub _change_array {
+    my ($converter, $aref)  = @_;
+    foreach (@$aref) {
+      my $type = ref $_;
+      if ( $type eq 'HASH' ) {
+        _change_hash( $converter, $_ );
+      } elsif ( $type eq 'ARRAY' ) {
+        _change_array( $converter, $_ );
+      } else {
+        $_ = $converter->convert($_);
+      }
+    }
+  }
+
+  sub _change_hash {
+    my ($converter, $href)  = @_;
+    foreach ( values %$href ) {
+      my $type = ref $_;
+      if ( $type eq 'HASH' ) {
+        _change_hash( $converter, $_ );
+      } elsif ( $type eq 'ARRAY' ) {
+        _change_array( $converter, $_ );
+      } else {
+        $_ = $converter->convert($_);
+      }
+    }
+  }
+  my $converter = shift;
+  for ( my $i = 1 ; $i <= $#_ ; $i += 2 ) {
+    my $type = ref $_[$i];
+    if ( $type eq 'HASH' ) {
+      _change_hash( $converter, $_[$i] );
+    } elsif ( $type eq 'ARRAY' ) {
+      _change_array( $converter, $_[$i] );
+    } else {
+      $_[$i] = $converter->convert($_[$i]);
+    }
+  }
 }
 
 1;

@@ -1,5 +1,7 @@
 package XML::XPathTemplate;
 
+# $Id: XPathTemplate.pm,v 1.9 2001/06/04 18:59:52 tjmather Exp $
+
 use strict;
 use XML::XPath;
 use HTML::Template;
@@ -7,7 +9,7 @@ use HTML::Template;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '0.03';
+$VERSION = '0.05';
 
 # public methods
 
@@ -47,10 +49,11 @@ sub process {
 
   $opt{lang} ||= $xpt->{default_lang};
 
-  $$xpt_template_ref =~ s!<CONTENT_VAR!<TMPL_VAR!ig;
-  $$xpt_template_ref =~ s!<CONTENT_LOOP!<TMPL_LOOP!ig;
-  $$xpt_template_ref =~ s!</CONTENT_VAR!</TMPL_VAR!ig;
-  $$xpt_template_ref =~ s!</CONTENT_LOOP!</TMPL_LOOP!ig;
+  $$xpt_template_ref =~ s!<CONTENT_!<TMPL_!ig;
+  $$xpt_template_ref =~ s!</CONTENT_(VAR|ELSE)>!!ig;
+  $$xpt_template_ref =~ s!</CONTENT_!</TMPL_!ig;
+
+  $$xpt_template_ref =~ s!<(TMPL_.*?)/>!<$1>!sig; 
 
   $xpt->_fill_in_content($xpt_template_ref, $opt{xml_filename}, $opt{lang}, $opt{check_for_other_lang});
 
@@ -118,12 +121,6 @@ sub _fill_in_content {
 
       # get value of first node
       $value = $nodeset->string_value;
-
-      # XML::Parser outputs as utf8, so we convert to latin1 to deal
-      # with accented characters in french, german, etc
-      if($lang ne 'en' && exists $INC{'Unicode/String.pm'}){
-	$value = Unicode::String::utf8($value)->latin1 unless $lang eq 'en';
-      }
     }
     $tmpl->param($name => $value);
   }

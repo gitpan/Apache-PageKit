@@ -52,7 +52,7 @@ sub migrate_pkit_tags {
 
   if($cf){
     print "updated $filename, made $cf substitution(s)\n";
-    rename "$filename", "$filename.bak";
+#    rename "$filename", "$filename.bak";
     open TEMPLATE, ">$filename";
     print TEMPLATE $template;
     close TEMPLATE;

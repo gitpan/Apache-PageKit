@@ -20,6 +20,50 @@ sub customize {
   $model->pkit_message("Your changes have been made.") if $change_flag;
 }
 
+sub error_report {
+  warn "test warning message";
+}
+
+sub form_validation_done {
+  my $model = shift;
+  my $input_profile = {
+		       required => [ qw( email phone likes ) ],
+		       optional => [ qq( toppings ) ],
+		       constraints => {
+				       email => "email",
+				       phone => "phone",
+				      },
+		       messages => {
+				    email => "The E-mail address, <b>%%VALUE%%</b>, is invalid.",
+				    phone => "The phone number, <b>%%VALUE%%</b>, is invalid.",
+				   },
+		 };
+  # validate user input
+  unless($model->pkit_validate_input($input_profile)){
+    $model->pkit_internal_redirect('form_validation');
+    return;
+  }
+}
+
+sub language {
+  my $model = shift;
+
+  my $pkit_lang = $model->pkit_lang;
+
+  $model->output(model_pkit_lang => $pkit_lang);
+}
+
+sub media {
+  my $model = shift;
+
+  # just for laughs, we display the process number
+  $model->output(process_number => $$);
+}
+
+sub media_xslt {
+  return shift->media;
+}
+
 sub newacct2 {
   my $model = shift;
 

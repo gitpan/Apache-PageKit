@@ -2,6 +2,54 @@ Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
 
+1.03
+	- PageKit now supports general charset conversions using Text::Iconv,
+		removed workaround for european charsets in XML::XPathTemplate
+		(Boris Zentner)
+	- PageKit Templates are converted to default_output_charset from
+		default_input_charset (Boris Zentner)
+	- Added charset translation support with output_charset method in
+		Model (Boris Zentner)
+	- fixed bug with pkit_lang (Ben Ausden)
+	- Added pkit_cleanup_code to main request handler (Boris Zentner)
+	- input and pnotes methods in Model now work outside of mod_perl
+	- PageKit templates no longer pre-parsed on server startup
+	- Multiple input request paramaters now not reset by FormValidator.pm
+		output, since FormValidator doesn't support multiple input
+		request params.
+	- Fixed errors in pkit_input_hashref and PKIT_ERRORFONT tags
+	- make test no longer inclued - instead use perl setup_eg.pl to
+		test example site.
+	- Re-added CONTENT_IF/ELSE/UNLESS (Rob Falcon)
+	- Updated Content.pm to reflect new API for XML::LibXML 0.92 - open_uri
+		callback is called for parent XML and XSLT documents
+	- Included stylesheets should work properly now (PK prepends the
+		View/pkit_view directory to the stylesheet URIs)
+	- Added examples for output in different media
+	- Added pkit_lang method to model - useful for selecting langauge from
+		database.
+	- Sessions only generated with something is written to session
+		hash (uses lazy option of Apache::PageKit::Session)
+	- Added content_type, supports different media outputs, including
+		XML, WML, and PDF
+	- Supports on-the-fly generation of PDF using Apache XML FOP
+	- Static content is passed through HTML::Clean before it is
+		gzipped (Boris Zentner)
+	- PageKit Template has now XML-style tags of the form <MODEL_VAR />
+		(Boris Zentner)
+	- Fixed bug with uri_match
+	- Fixed bug with charset conversions in CONTENT_LOOP (Boris Zentner)
+	- PageKit now returns gzipped output if Accept-Encoding includes the
+		string "zip" (Boris Zentner)
+	- PageKit removes all cache files before startup if reload global
+		config option is set to "no".
+	- Updated Makefile.PL to require lastest version of HTML::FillInForm
+	- $uri_with_query now includes uri_prefix (Ben Ausden)
+	- PKIT_SELFURL now omits pkit_messages, pkit_error_messages and
+		pkit_lang (Ben Ausden)
+	- XSL files now located in View/pkit_view directory instead of
+		View/pkit_view/XSL
+
 1.02
 	- Got rid of extraneous 'print "hi"' statement in PageKit.pm
 		(Boris Zentner, Leonardo de Carvalho)

@@ -5,14 +5,11 @@
 
       <demo_desc>
 	<feature>Language Localization</feature>
-
 	<description>The language displayed is based
 	on the
          user's preference, defaulting to the browser settings.</description>
-
       </demo_desc>
 
-    
 <title xml:lang="de">Titel auf Deutsch</title>
 <title xml:lang="en">Title in English</title>
 <title xml:lang="es">Titulo en Espa&#xF1;ol</title>
@@ -24,7 +21,7 @@
 
 <de xml:lang="de">Deutsch</de>
 <en xml:lang="de">Englisch</en>
-<es xml:lang="de">Spanisch </es>
+<es xml:lang="de">Spanisch</es>
 <fr xml:lang="de">Franzoesisch</fr>
 
 <de xml:lang="es">Alem&#xE1;n</de>
@@ -34,6 +31,6 @@
 
 <de xml:lang="fr">Allemand</de>
 <en xml:lang="fr">Anglais</en>
-<es xml:lang="fr">Espagnol</es>
+<es xml:lang="fr">Espa&#xF1;ol</es>
 <fr xml:lang="fr">Fran&#xE7;ais</fr>
 </content>

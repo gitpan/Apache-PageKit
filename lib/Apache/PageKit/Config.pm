@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.21 2001/05/16 22:13:41 tjmather Exp $
+# $Id: Config.pm,v 1.23 2001/05/29 00:51:53 tjmather Exp $
 
 use integer;
 use strict;
@@ -8,7 +8,7 @@ use Apache::PageKit;
 use XML::Parser;
 
 use vars qw($page_id $ATTR_NAME $cur_config
-	$global_attr $server_attr $page_attr $uri_match $mtime_hashref);
+	$global_attr $server_attr $view_attr $page_attr $uri_match $mtime_hashref);
 
 sub new {
   my $class = shift;
@@ -69,15 +69,19 @@ sub get_global_attr {
 
 sub get_server_attr {
   my ($config, $key) = @_;
-#  print "$key - $config->{server}\n";
   return $server_attr->{$config->{config_dir}}->{$config->{server}}->{$key};
+}
+
+sub get_view_attr {
+  my ($config, $view_id, $key) = @_;
+  return $view_attr->{$config->{config_dir}}->{$view_id}->{$key};
 }
 
 # required page_id paramater
 sub get_page_attr {
   my ($config, $page_id, $key) = @_;
 
-  return unless $page_attr->{$config->{config_dir}}->{$page_id};
+  return unless exists $page_attr->{$config->{config_dir}}->{$page_id};
   return $page_attr->{$config->{config_dir}}->{$page_id}->{$key};
 }
 
@@ -89,6 +93,7 @@ sub uri_match {
     my $match = '$page_id_in =~ /' . $reg_exp . '/';
     if(eval $match){
       $page_id_out = $page_id;
+      last;
     }
   }
   return $page_id_out;
@@ -124,6 +129,22 @@ sub SERVER {
 }
 
 sub SERVER_ {}
+
+sub VIEWS {}
+sub VIEWS_ {}
+
+# called at <VIEW> tag in XML file
+sub VIEW {
+  my ($p, $edtype, %attr) = @_;
+
+  my $config = $cur_config;
+  my $view_id = $attr{id} || 'Default';
+  while (my ($key, $value) = each %attr){
+    $view_attr->{$config->{config_dir}}->{$view_id}->{$key} = $value;
+  }
+}
+
+sub VIEW_ {}
 
 sub PAGES {}
 sub PAGES_ {}

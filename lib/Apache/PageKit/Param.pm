@@ -1,5 +1,7 @@
 package Apache::PageKit::Param;
 
+# $Id: Param.pm,v 1.4 2001/05/29 00:43:34 tjmather Exp $
+
 use strict;
 
 sub new($$) {

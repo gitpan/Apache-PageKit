@@ -23,11 +23,15 @@ Model/
 Contains all of the user provided Perl classes
 
 View/
-This directory contains all of the HTML templates used for the View
+This directory contains the View, including XSLT and PageKit Template files.
 
 View/Default/
-This directory contains the default views.
+This directory contains the default XSLT and PageKit Template files.
 
 View/print/
-This directory contains template files that override the templates
+This directory contains PageKit Template files that override the templates
 	in "Default" if the view equals "print".
+
+View/xml/ View/wml View/pdf
+These directories contain XSLT and PageKit Template files that are used
+	to provide different media outputs.

@@ -1,4 +1,8 @@
-To complie the source into HTML, download Saxon, J2DK 1.3, and Norman
+These docs are available in HTML format form:
+
+http://www.pagekit.org/guide
+
+To compile the source into HTML, download Saxon, J2DK 1.3, and Norman
 Walsh's DocBook XSL stylesheets from:
 
 http://www.nwalsh.com/docbook/xsl/

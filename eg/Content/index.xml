@@ -1,29 +1,4 @@
 <?xml version="1.0"?>
 <content>
-<pkit_nav_title xml:lang="de">Oberseite</pkit_nav_title>
-<pkit_nav_title xml:lang="en">Home</pkit_nav_title>
-<pkit_nav_title xml:lang="es">Tapa</pkit_nav_title>
-<pkit_nav_title xml:lang="fr">Dessus</pkit_nav_title>
-<html_title>Welcome to PageKit.org</html_title>
-
-      <news>
-	<date>January 10th, 2001</date>
-	<title>Release of PageKit 0.94</title>
-	<description>Rewrote MyPageKit, moving
-	handler into Apache::PageKit and site specific code into
-	MyPageKit::Common.  Model now follows the hierarchy:
-	Apache::PageKit::Model -&gt;
-	MyPageKit::Common -&gt;
-	User Defined Model Classes.
-	</description>
-      </news>
-      <news>
-	<date>January 4th, 2001</date>
-	<title>&quot;Building Web Sites with Apache::PageKit&quot;</title>
-	<description>&lt;a href=&quot;http://take23.org/articles/2001/01/04/pagekit.xml&quot;&gt;Article&lt;/a&gt;
-		appeared in &lt;a href=&quot;http://www.take23.org/&quot;&gt;take23&lt;/a&gt;, discussing how Pagekit seperates
-		the development of your site into manageable components
-		without using embedded Perl code.</description>
-      </news>
-    
+  <html_title>PageKit Examples</html_title>
 </content>

@@ -1,10 +1,10 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.25 2001/05/16 22:13:41 tjmather Exp $
+# $Id: Content.pm,v 1.28 2001/06/04 20:46:35 tjmather Exp $
 
 use strict;
 
-use vars qw($CONTENT $COMPONENT_ID_DIR $INCLUDE_MTIMES);
+use vars qw($CONTENT $PKIT_VIEW $COMPONENT_ID_DIR $PAGE_ID $INCLUDE_MTIMES);
 
 sub new($$) {
   my $class = shift;
@@ -28,6 +28,8 @@ sub generate_template {
   }
 
   $CONTENT = $content;
+  $PKIT_VIEW = $pkit_view;
+  $PAGE_ID = $page_id;
   ($COMPONENT_ID_DIR = $component_id) =~ s![^/]*$!!;
   $INCLUDE_MTIMES = $content->{include_mtimes};
 
@@ -38,8 +40,8 @@ sub generate_template {
       template file $pkit_view/$component_id.tmpl";
   }
 
-  my $xml_mtime = (stat($xml_file))[9];
-  $INCLUDE_MTIMES->{$xml_file} = $xml_mtime;
+#  my $xml_mtime = (stat($xml_file))[9];
+#  $INCLUDE_MTIMES->{$xml_file} = $xml_mtime;
 
   my $xp = XML::XPath->new(filename => $xml_file);
   my @pi_nodes = $xp->findnodes("processing-instruction('xml-stylesheet')");
@@ -54,29 +56,14 @@ sub generate_template {
   unless ($stylesheet_hrefs[0]){
     die qq{must specify <?xml-stylesheet href="file.xsl"?> in $xml_file};
   }
-  my $stylesheet_file = "$content->{view_dir}/$pkit_view/XSL/$stylesheet_hrefs[0]";
-  unless (-e "$stylesheet_file"){
-    $stylesheet_file = "$content->{view_dir}/Default/XSL/$stylesheet_hrefs[0]";
-    unless (-e "$stylesheet_file"){
-      die qq{cannot find $stylesheet_hrefs[0] in $xml_file - looked in $stylesheet_file};
-    }
-  }
+  my $stylesheet_file = $stylesheet_hrefs[0];
 
-  my $stylesheet_mtime = (stat(_))[9];
-  $INCLUDE_MTIMES->{$stylesheet_file} = $stylesheet_mtime;
-
-  # for caching pages including the params info (that way extrenous parameters won't
-  # be taken into account when counting)
-  $xp = XML::XPath->new(filename => "$stylesheet_file");
-  $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id} = {};
-  for my $node ($xp->findnodes(q{xsl:stylesheet/xsl:param})){
-    my $param_name = $node->getAttribute('name');
-    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id}->{$param_name} = 1;
-  }
+#  my $stylesheet_mtime = (stat(_))[9];
+#  $INCLUDE_MTIMES->{$stylesheet_file} = $stylesheet_mtime;
 
   my $parser = XML::LibXML->new(ext_ent_handler => \&open_uri);
   my $xslt = XML::LibXSLT->new();
-  my $source = $parser->parse_file("$content->{content_dir}/$component_id.xml");
+  my $source = $parser->parse_file("/$component_id.xml");
   my $style_doc = $parser->parse_file($stylesheet_file);
 
   my $stylesheet = $xslt->parse_stylesheet($style_doc);
@@ -84,6 +71,9 @@ sub generate_template {
   my @params = map { $_, $input_param_obj->param($_) } $input_param_obj->param ;
 
   my $results = $stylesheet->transform($source, @params);
+
+#  my $content_type = $stylesheet->media_type;
+#  my $encoding = $stylesheet->output_encoding;
 
   my $output = $stylesheet->output_string($results);
 
@@ -116,14 +106,47 @@ sub process_template {
 
 sub rel2abs {
   my ($rel_uri) = @_;
-  my $content_dir = $CONTENT->{content_dir};
-  if($rel_uri =~ m!^/!){
-    return "$content_dir$rel_uri";
+  if($rel_uri =~ m!\.xml!){
+    my $content_dir = $CONTENT->{content_dir};
+    if($rel_uri =~ m!^/!){
+      return "$content_dir$rel_uri";
+    } else {
+      # return relative to component_id_dir
+      my $abs_uri = "$content_dir/$COMPONENT_ID_DIR$rel_uri";
+      while ($abs_uri =~ s![^/]*/\.\./!!) {};
+      return $abs_uri;
+    }
+  } elsif($rel_uri =~ m!\.xsl!){
+    my $view_dir = $CONTENT->{view_dir};
+    my $stylesheet_file;
+    if($rel_uri =~ m!^/!){
+      $stylesheet_file = "$view_dir/$PKIT_VIEW$rel_uri";
+      unless (-e "$stylesheet_file"){
+	$stylesheet_file = "$view_dir/Default$rel_uri";
+      }
+    } else {
+      # return relative to component_id_dir
+      $stylesheet_file = "$view_dir/$PKIT_VIEW/$COMPONENT_ID_DIR$rel_uri";
+      while ($stylesheet_file =~ s![^/]*/\.\./!!) {};
+      unless (-e "$stylesheet_file"){
+	$stylesheet_file = "$view_dir/Default/$COMPONENT_ID_DIR$rel_uri";
+	while ($stylesheet_file =~ s![^/]*/\.\./!!) {};
+      }
+    }
+    die "Stylesheet $stylesheet_file doesn't exist" unless (-e $stylesheet_file);
+    # for caching pages including the params info (that way extrenous parameters
+    # won't be taken into account when counting)
+    # META: do i only need to cache top level params from top level stylesheet?
+    my $xp = XML::XPath->new(filename => "$stylesheet_file");
+    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID} = {};
+    for my $node ($xp->findnodes(q{xsl:stylesheet/xsl:param})){
+      my $param_name = $node->getAttribute('name');
+      $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$PAGE_ID}->{$param_name} = 1;
+    }
+    return $stylesheet_file;
   } else {
-    # return relative to component_id_dir
-    my $abs_uri = "$content_dir/$COMPONENT_ID_DIR$rel_uri";
-    while ($abs_uri =~ s![^/]*/\.\./!!) {};
-    return $abs_uri;
+    die "$rel_uri does not end in .xml or .xsl.  All Content XML files must have
+     xml suffix and all View XSLT files must have xsl suffix.";
   }
 }
 
@@ -135,7 +158,7 @@ sub match_uri {
 sub open_uri {
   my $uri = shift;
   my $abs_uri = &rel2abs($uri);
-  die "$abs_uri doesn't exist" unless (-e $abs_uri);
+  die "XML file $abs_uri doesn't exist" unless (-e $abs_uri);
   open XML, "$abs_uri";
   local($/) = undef;
   my $xml_str = <XML>;

@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.3 2001/05/19 22:20:36 tjmather Exp $
+$Id: reference.xml,v 1.14 2001/06/08 13:47:07 tjmather Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -24,7 +24,7 @@ $Id: reference.xml,v 1.3 2001/05/19 22:20:36 tjmather Exp $
   <sect2>
    <title>Global Attributes</title>
    <para>
-    These settings are global in the sense that they apply over all pages and servers.
+    These settings are global in the sense that they apply over all servers, views, and pages.
     They are attributes of the &lt;GLOBAL&gt; tag in <filename>Config/Config.xml</filename>.
    </para>
    <variablelist>
@@ -46,6 +46,28 @@ but their cookies are not enabled.  Defaults to <literal><link linkend="config.g
       </para>
      </listitem>
     </varlistentry>
+    <varlistentry id="config.global.default_input_charset">
+     <term>default_input_charset</term>
+     <listitem>
+      <para>
+        Default charset that PageKit Templates and Model output are encoded in.
+	Defaults to
+       <emphasis>ISO-8859-1</emphasis>.  PageKit uses this to convert the
+        PageKit templates and output from <link linkend="model.api.output_charset">output_charset</link> to UTF-8.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry id="config.global.default_output_charset">
+     <term>default_output_charset</term>
+     <listitem>
+      <para>
+        Default charset that PageKit templates compiled to.
+	Defaults to
+       <emphasis>ISO-8859-1</emphasis>.  This should be the charset that
+       supports your <link linkend="config.global.default_input_charset">default_input_charset</link> and has good support among the client's browsers.
+      </para>
+     </listitem>
+    </varlistentry>
     <varlistentry id="config.global.default_lang">
      <term>default_lang</term>
      <listitem>
@@ -62,6 +84,35 @@ but their cookies are not enabled.  Defaults to <literal><link linkend="config.g
       <para>
        Default page user gets when no page is specified.  Defaults to
        <emphasis>index</emphasis>.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry id="config.global.fop_command">
+     <term>fop_command</term>
+     <listitem>
+      <para>
+       Command line that should be used to run Apache XML FOP to generate
+       PDF output.  PageKit will append FO file and PDF file arguments at end.
+      </para>
+      <informalexample>
+       <programlisting>
+	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"
+       </programlisting>
+      </informalexample>
+      <para>
+       Can be overriden by specifying the server <link linkend="config.server.fop_command">fop_command</link> configuration option.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry id="config.global.gzip_output">
+     <term>gzip_output</term>
+     <listitem>
+      <para>
+       If set to <emphasis>all</emphasis>, output is gzipped dynamic and static content for browsers that send a 
+       <literal>Accept-Encoding</literal> header containing <literal>gzip</literal>.  If set to <emphasis>static</emphasis>, output is gzipped for
+static pages only.
+       Defaults to
+       <emphasis>none</emphasis>.
       </para>
      </listitem>
     </varlistentry>
@@ -208,6 +259,20 @@ PageKit and should be released by June 2001.
       </para>
      </listitem>
     </varlistentry>
+    <varlistentry id="config.server.fop_command">
+     <term>fop_command</term>
+     <listitem>
+      <para>
+       Command line that should be used to run Apache XML FOP to generate
+       PDF output.  PageKit will append FO file and PDF file arguments at end.
+      </para>
+      <informalexample>
+       <programlisting>
+	fop_command = /usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine
+       </programlisting>
+      </informalexample>
+     </listitem>
+    </varlistentry>
     <varlistentry id="config.server.html_clean_level">
      <term>html_clean_level</term>
      <listitem>
@@ -232,9 +297,80 @@ Default is <emphasis>no</emphasis>.
    </variablelist>
   </sect2>
   <sect2>
+   <title>View Attributes</title>
+   <para>
+    These options are local to each view, but are global across servers and pages.  Currently only the output media can be set, but there are plans to have a <literal>parent_view</literal>, so that there can be multiple levels of
+derived views.
+   </para>
+   <variablelist>
+    <varlistentry id="config.view.content_type">
+     <term>content_type</term>
+     <listitem>
+      <para>
+Sets the content type of the output sent to the client.  
+Content types are strings like "text/plain", "text/html" or "application/xml".
+This corresponds to the "Content-Type" header in the HTTP protocol. 
+The following content types have default views and/or special handing
+associated with them:
+      </para>
+      <informaltable frame="all">
+       <tgroup cols="4">
+        <tbody>
+         <row rowsep="1" role="attrheader">
+	  <entry role="th"><para><emphasis role="bold">content_type</emphasis></para></entry>
+	  <entry role="th"><para><emphasis role="bold">Description</emphasis></para></entry>
+	  <entry role="th"><para><emphasis role="bold">Default Views</emphasis></para></entry>
+	  <entry role="th"><para><emphasis role="bold">Special Handing</emphasis></para></entry>
+	 </row>
+         <row>
+	  <entry>text/html</entry>
+	  <entry>
+ 	   HTML output.  This is for traditional screen browsers such as
+           Netscape and Internet Explorer.
+          </entry>
+	  <entry>This is the default content_type for all views except for
+             those listed below</entry>
+	  <entry>PageKit translates sets the charset in the Content-Type headers and translates the output according
+             to the <literal>Accept-Charset</literal> header.</entry>
+         </row>
+         <row>
+	  <entry>application/pdf</entry>
+	  <entry>
+	   PDF Output, for display in Acrobat Reader.  Uses Apache XML FOP
+          </entry>
+	  <entry>pdf</entry>
+	  <entry>PageKit uses Apache XML FOP to generate the PDF, if 
+            <link linkend="config.global.fop_command">fop_command</link>
+            is set.</entry>
+         </row>
+         <row>
+	  <entry>text/vnd.wap.wml</entry>
+	  <entry>
+ 	   WML output.  This is for WAP handhelds such as Palmpilots
+	   and cellphones.
+          </entry>
+	  <entry>wml</entry>
+	  <entry><emphasis>None</emphasis></entry>
+         </row>
+         <row>
+	  <entry>application/xml</entry>
+	  <entry>
+	   XML output, for Internet Explorer 5.0 and above.
+          </entry>
+	  <entry>xml</entry>
+	  <entry><emphasis>None</emphasis></entry>
+         </row>
+        </tbody>
+       </tgroup>
+      </informaltable>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </sect2>
+  <sect2>
    <title>Page Attributes</title>
    <para>
-    These options are local to each page on the site, but are global across each server.
+    These options are local to each page on the site, but are global across each server and all views.
     The are located in the &lt;PAGES&gt; tag of <filename>Config/Config.xml</filename>.
    </para>
    <variablelist>
@@ -252,6 +388,16 @@ Page ID for this page.
       <para>
 If set to <emphasis>no</emphasis>, sends an Expires = -1 header to disable client-side
 caching on the browser.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry id="config.page.content_type">
+     <term>content_type</term>
+     <listitem>
+      <para>
+Sets the content type for output.  Overrides the View
+<link linkend="config.view.content_type">content_type</link>
+configuration option.
       </para>
      </listitem>
     </varlistentry>
@@ -508,6 +654,9 @@ Note that this is experimental and may change in future releases.
     </refsect1>
    </refentry>
    <refentry id="model.api.pkit_cleanup_code">
+    <refmeta>
+     <refentrytitle>pkit_cleanup_code</refentrytitle>
+    </refmeta>
     <refnamediv>
      <refname>pkit_cleanup_code</refname>
      <refpurpose>
@@ -646,6 +795,9 @@ are on a secure page (the only good use of <literal>pkit_output_filter</literal>
 
   # get all parameters
   my @keys = $model->input;
+
+  # set pkit_view request parameter
+  $model->input(pkit_view => "printable");
      </synopsis>
     </refsynopsisdiv>
     <refsect1>
@@ -724,6 +876,41 @@ one handler to another.
 In the example above the <literal>user_id</literal> is set when the user
 gets authenticated.
      </para>
+    </refsect1>
+   </refentry>
+   <refentry id="model.api.output_charset">
+    <refnamediv>
+     <refname>output_charset</refname>
+     <refpurpose>
+      Outputs data for display, converting charset.
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+      $model->output_charset(output => {foo => $utf8_text},
+			     input_charset => 'UTF-8');
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+      This is a wrapper to the <link linkend="model.api.output">output</link>
+      method.  It converts the output from the character set specified by
+      the charset argument to <link linkend="config.global.default_output_charset">default_output_charset</link>.  If the character set is not specified, then
+      <link linkend="config.global.default_input_charset">default_input_charset</link> is used.
+     </para>
+    </refsect1>
+    <refsect1>
+     <title>Examples</title>
+     <informalexample>
+      <programlisting>
+      # converts from UTF-8
+      $model->output_charset(output => $utf8_text,
+			     charset => 'UTF-8');
+      # converts from default_input_charset
+      $model->output_charset(output => $text)
+      </programlisting>
+     </informalexample>
     </refsect1>
    </refentry>
    <refentry id="model.api.output">
@@ -1050,6 +1237,30 @@ Gets the session id if you have set up session management using
      </para>
     </refsect1>
    </refentry>
+   <refentry id="model.api.pkit_lang">
+    <refnamediv>
+     <refname>pkit_lang</refname>
+     <refpurpose>
+      Gets Language preference of user
+     </refpurpose>
+    </refnamediv>
+    <refsynopsisdiv>
+     <synopsis>
+      my $pkit_lang = $model->pkit_lang;
+     </synopsis>
+    </refsynopsisdiv>
+    <refsect1>
+     <title>Description</title>
+     <para>
+      Gets the language preference of the user, as set by <literal>Accept-Language</literal> incoming HTTP header
+      or by the <literal><link linkend="request.pkit_lang">pkit_lang</link></literal>
+     request parameter.
+     </para>
+     <para>
+      Can be used for selecting which content should be retreived from the database.
+     </para>
+    </refsect1>
+   </refentry>
    <refentry id="model.api.pkit_root">
     <refnamediv>
      <refname>pkit_root</refname>
@@ -1148,6 +1359,34 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
       extract content from the XML file specified by the document function.
       If document is omitted, then defaults to the content file that
       corresponds to the URI being view.
+      </para>
+     </refsect1>
+    </refentry>
+    <refentry id="content.if">
+     <refnamediv>
+      <refname>CONTENT_IF, CONTENT_UNLESS, CONTENT_ELSE</refname>
+      <refpurpose>
+       Displays enclosed section if content sets value to true/false.
+      </refpurpose>
+     </refnamediv>
+     <refsynopsisdiv>
+      <synopsis>
+       &lt;CONTENT_IF NAME="foo"&gt;
+        Text to be included if foo is included in Content and is true
+       &lt;CONTENT_ELSE&gt;
+        Text to be included if foo not inclued in Content or is false
+       &lt;/CONTENT_IF&gt;
+
+       &lt;CONTENT_UNLESS NAME="bar"&gt;
+        Text to be included if bar is included in Content and is true
+       &lt;/CONTENT_UNLESS&gt;
+      </synopsis>
+     </refsynopsisdiv>
+     <refsect1>
+      <title>Description</title>
+      <para>
+       If the XPath query in the name attribute returns a true value, then the text
+       enclosed by the CONTENT_IF tag will be included in the template.
       </para>
      </refsect1>
     </refentry>

@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.54 2001/05/19 22:20:36 tjmather Exp $
+# $Id: View.pm,v 1.61 2001/06/08 01:59:34 tjmather Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -125,6 +125,37 @@ sub fill_in_view {
   return \$output;
 }
 
+# gets static gzipped file, creating it if necessary
+sub get_static_gzip {
+  my ($view, $filename) = @_;
+  my ($gzip_mtime, $gzipped_content);
+
+  (my $relative_filename = $filename) =~ s!^$view->{view_dir}/!!;
+  my $gzipped_filename = "$view->{cache_dir}/$relative_filename.gz";
+
+  # is the cache entry valid or changed on disc?
+  if(-e "$gzipped_filename"){
+    open FH, "<$gzipped_filename" || return undef;
+    # read mtime from first line
+    chomp($gzip_mtime = <FH>);
+
+    # read rest of gzipped content
+    local $/ = undef;
+    $gzipped_content = <FH>;
+    close FH;
+    if($view->{reload} ne 'no'){
+      # is the cache entry valid or changed on disc?
+      my $mtime = ( stat($filename) )[9];
+      if($mtime != $gzip_mtime){
+	$gzipped_content = $view->_create_static_zip($filename, $gzipped_filename);
+      }
+    }
+  } else {
+    $gzipped_content = $view->_create_static_zip($filename, $gzipped_filename);
+  }
+  return $gzipped_content;
+}
+
 # opens template, each 
 sub open_view {
   my ($view, $page_id, $pkit_view, $lang) = @_;
@@ -140,7 +171,7 @@ sub open_view {
       unless $record;
   }
 
-  if($view->{reload} ne "no"){
+  if($view->{reload} ne 'no'){
     # check for updated files on disk
     unless($view->_is_record_uptodate($record, $pkit_view, $page_id)){
       # one of the included files changed on disk, reload
@@ -178,6 +209,33 @@ sub template_file_exists {
 }
 
 # private methods
+
+# creates gzipped file
+sub _create_static_zip {
+  my ($view, $filename, $gzipped_filename) = @_;
+  local $/ = undef;
+  open FH, "<$filename" || return undef;
+  my $content = <FH>;
+  close FH;
+
+  $view->_html_clean(\$content);
+
+  my $gzipped_content = Compress::Zlib::memGzip($content);
+
+  (my $gzipped_dir = $gzipped_filename) =~ s!(/)?[^/]*?$!!;
+
+  File::Path::mkpath("$gzipped_dir");
+
+  if ($gzipped_content) {
+  my $mtime = (stat($filename))[9];
+    open GZIP, ">$gzipped_filename" || warn "can't create gzip cache file $view->{cache_dir}/$gzipped_filename: $!";
+    print GZIP "$mtime\n";
+    print GZIP $gzipped_content;
+    close GZIP;
+    return $gzipped_content;
+  }
+  return undef;
+}
 
 sub _fetch_from_file_cache {
   my ($view, $page_id, $pkit_view, $lang) = @_;
@@ -311,8 +369,22 @@ sub _load_component {
     open TEMPLATE, "$template_file";
     local($/) = undef;
     my $template = <TEMPLATE>;
-    $template_ref = \$template;
     close TEMPLATE;
+
+    my $default_input_charset = $view->{default_input_charset};
+    my $default_output_charset = $view->{default_output_charset};
+    # this MUST be done even if both are the same, to convert $#223; to the native format - (Boris Zentner)
+    my $converter;
+    eval {
+      $converter = Text::Iconv->new($default_input_charset, $default_output_charset);
+    };
+    if ($@) {
+      (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+      die "one or both charsets ($default_input_charset, $default_output_charset) are not supported by Text::Iconv please check file ${config_dir}/Config.xml";
+    }
+
+    my $converted_text = $converter->convert($template);
+    $template_ref = \$converted_text;
 
     my $mtime = (stat(_))[9];
     $view->{include_mtimes}->{$template_file} = $mtime;
@@ -338,8 +410,14 @@ sub _load_page {
 						     default_lang => $view->{default_lang});
 
   $view->{lang_tmpl} = $content->{lang_tmpl} = {};
-  $view->{include_mtimes} = $content->{include_mtimes} = {};
+  $content->{include_mtimes} = {};
   $view->{component_ids_hash} = {};
+
+  # we add Config.xml to the hash of files to be checked for mtimes,
+  # in case default_input_charset or default_output_charset changes!
+  (my $config_file = $view->{view_dir}) =~ s!/View$!/Config/Config.xml!;
+  my $config_mtime = ( stat($config_file) )[9];
+  $view->{include_mtimes} = {$config_file => $config_mtime};
 
   my $template_file = $view->_find_template($pkit_view, $page_id);
   my $template_ref = $view->_load_component($page_id,$page_id,$pkit_view);
@@ -353,7 +431,18 @@ sub _load_page {
     $view->_html_clean($filtered_html);
 
     my $has_form = ($$filtered_html =~ m!<form!i);
-
+    my $default_output_charset = $view->{default_output_charset};
+    my $converter;
+    # this MUST be done even if both are the same, to convert $#223; to the native format - (Boris Zentner)
+    eval {
+      $converter = Text::Iconv->new('UTF-8', $default_output_charset);
+    };
+    if ($@) {
+      (my $config_dir = $view->{content_dir}) =~ s!/Content$!/Config!;
+      die "The charset ($default_output_charset) is not supported by
+Text::Iconv please check file ${config_dir}/Config.xml";
+    }
+    $$filtered_html = $converter->convert($$filtered_html);
     my $tmpl;
     eval {
       $tmpl = HTML::Template->new(scalarref => $filtered_html,
@@ -413,18 +502,21 @@ sub _preparse_model_tags {
   $$html_code_ref =~ s!<MODEL_(VAR|LOOP|IF|ELSE|UNLESS)!<TMPL_$1!sig;
   $$html_code_ref =~ s!</MODEL_(LOOP|IF|UNLESS)!</TMPL_$1!sig;
 
+  # XML-style stand-alone tags
+  $$html_code_ref =~ s!<(TMPL_.*?)/>!<$1>!sig;
+
   # tags generated by XSLT
   $$html_code_ref =~ s!</(MODEL|PKIT)_VAR>!!ig;
 
-  $$html_code_ref =~ s!<PKIT_SELFURL( +exclude=('|")(.*?)('|"))? *>!&process_selfurl_tag($exclude_params_set, $3)!eig;
+  $$html_code_ref =~ s!<PKIT_SELFURL( +exclude=('|")(.*?)('|"))? */?>!&process_selfurl_tag($exclude_params_set, $3)!eig;
 
   $$html_code_ref =~ s!<PKIT_ERRORFONT (NAME=)?"?([^"]*?)"?>(.*?)</PKIT_ERRORFONT>!<TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_$2">$3<TMPL_VAR NAME="PKIT_ERRORFONT_END_$2">!sig;
-  $$html_code_ref =~ s!<PKIT_HOSTNAME>!<TMPL_VAR NAME="PKIT_HOSTNAME">!ig;
+  $$html_code_ref =~ s!<PKIT_HOSTNAME/?>!<TMPL_VAR NAME="PKIT_HOSTNAME">!ig;
 
   $$html_code_ref =~ s!<PKIT_MESSAGES>!<TMPL_LOOP NAME="PKIT_MESSAGES">!ig;
   $$html_code_ref =~ s!<PKIT_IS_ERROR>!<TMPL_IF NAME="PKIT_IS_ERROR">!ig;
   $$html_code_ref =~ s!</PKIT_IS_ERROR>!</TMPL_IF>!ig;
-  $$html_code_ref =~ s!<PKIT_MESSAGE>!<TMPL_VAR NAME="PKIT_MESSAGE">!ig;
+  $$html_code_ref =~ s!<PKIT_MESSAGE/?>!<TMPL_VAR NAME="PKIT_MESSAGE">!ig;
   $$html_code_ref =~ s!</PKIT_MESSAGES>!</TMPL_LOOP>!ig;
 
   $$html_code_ref =~ s!<PKIT_VIEW +NAME *= *('|")?(.*?)('|")? *>!<TMPL_IF NAME="PKIT_VIEW:$2">!sig;
