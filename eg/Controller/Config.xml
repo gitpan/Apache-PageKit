@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+<!DOCTYPE pagekit SYSTEM "./Config.dtd">
+<CONFIG>
+<GLOBAL
+	login_page="login1"
+	page_dispatch_prefix="MyPageKit::PageCode"
+	module_dispatch_prefix="MyPageKit::ModuleCode"
+	uri_prefix = "pagekit/"
+	view_cache = "normal"/>
+<SERVERS>
+   <SERVER server_id="production"
+	reload="no"
+	cookie_domain=".pagekit.org"/>
+   <SERVER server_id="staging"
+	reload="yes"
+	subdomain="staging"
+	cookie_domain=".pagekit.org"/>
+</SERVERS>
+<PAGES>
+  <PAGE page_id="customize" use_nav="yes" is_popup="no" nav_title="Customize" require_login="no" parent_id="examples" new_credential="no">
+  </PAGE>
+  <PAGE page_id="examples" use_nav="yes" is_popup="no" nav_title="Examples" require_login="no" parent_id="index" new_credential="no">
+  </PAGE>
+  <PAGE page_id="index" use_nav="no" is_popup="no" nav_title="Home" require_login="no" cache="normal" new_credential="no">
+  </PAGE>
+  <PAGE page_id="license" use_nav="no" is_popup="no" require_login="no" parent_id="index" new_credential="no">
+  </PAGE>
+  <PAGE page_id="language" use_nav="yes" is_popup="no" nav_title="Language Localization" parent_id="examples">
+  </PAGE>
+  <PAGE page_id="login1" use_nav="yes" is_popup="no" nav_title="Login" require_login="no" parent_id="examples" new_credential="no">
+  </PAGE>
+  <PAGE page_id="login2" use_nav="no" is_popup="no" require_login="no" parent_id="login1" error_page="login1" new_credential="yes">
+  </PAGE>
+  <PAGE page_id="newacct1" use_nav="yes" is_popup="no" nav_title="New Account" require_login="no" parent_id="examples" new_credential="no">
+  </PAGE>
+  <PAGE page_id="newacct2" use_nav="yes" is_popup="no" nav_title="Account Created" require_login="no" parent_id="newacct1" error_page="newacct1" new_credential="yes">    
+  </PAGE>
+</PAGES>
+</CONFIG>

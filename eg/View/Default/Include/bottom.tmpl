@@ -1,0 +1,14 @@
+<p>
+  <PKIT_INCLUDE NAME="begin_cell">
+  Standard View - <a href="<TMPL_VAR NAME="PKIT_SELFURL">pkit_view=print">Printable View</a>
+  <PKIT_INCLUDE NAME="end_cell">
+
+<TMPL_IF NAME="PKIT_USER">
+<p>
+  <PKIT_INCLUDE NAME="begin_cell">
+  You are logged in as <b><TMPL_VAR NAME="PKIT_LOGIN"></b>.  You may
+  <a href="<TMPL_VAR NAME="PKIT_LOGINOUT_LINK">">Log Out</a>.
+  <PKIT_INCLUDE NAME="end_cell">
+</TMPL_IF>
+</body>
+</html>

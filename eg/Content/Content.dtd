@@ -1,0 +1,10 @@
+<!ELEMENT PAGE (TMPL_VAR|TMPL_LOOP)*>
+<!ATTLIST PAGE
+	cache		(yes|default|no)   "no">
+<!ELEMENT TMPL_VAR ANY>
+<!ATTLIST TMPL_VAR
+        NAME                    CDATA   #REQUIRED>
+<!ELEMENT TMPL_LOOP (TMPL_ITEM+)>
+<!ATTLIST TMPL_LOOP
+        NAME                    CDATA   #REQUIRED>
+<!ELEMENT TMPL_ITEM (TMPL_VAR*)>

@@ -1,6 +1,6 @@
 package Apache::PageKit::FormValidator;
 
-# $Id: FormValidator.pm,v 1.3 2000/09/23 22:33:40 tjmather Exp $
+# $Id: FormValidator.pm,v 1.4 2000/11/20 20:57:44 tjmather Exp $
 
 use integer;
 use strict;
@@ -130,12 +130,12 @@ L<Apache::PageKit>, L<Apache::View>, L<HTML::FormValidator>, L<HTML::Template>
 
 =head1 AUTHOR
 
-T.J. Mather (tjmather@thoughtstore.com)
+T.J. Mather (tjmather@anidea.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.  PageKit is a trademark
-of ThoughtStore, Inc.
+Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.  PageKit is
+a trademark of AnIdea Corporation.
 
 =head1 LICENSE
 

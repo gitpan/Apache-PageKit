@@ -1,6 +1,21 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.05
+0.89  Sun Dec  3 18:27:11 2000
+	- Major changes in API, leading up to 0.9 pre-beta and 1.0 beta release
+	- Created Apache::PageKit::Config, for configuration directives,
+		replacing Apache::PageKit::Info
+	- Created Apache::PageKit::Content, for XML content
+	- Created content XML files for separation of
+		content from presentation
+	- Reorganized pagekit.org files into Model/View/Content/Controller
+		directories
+	- Rewrote pagekit.org site to use DBD::Sprite and Apache::Session::File
+		instead of MySQL, so could include in test suite without
+		requiring MySQL
+	- Used Apache::Test in test suite to test working copy of pagekit.org
+		web site.
+
+0.05  Tue Oct 31 14:12:00 2000
 	- Added support for language localization
 	- No longer require that entry in page.xml exist for all pages
 	- Replaced View and Module templates with Include templates

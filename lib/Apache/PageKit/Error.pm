@@ -1,6 +1,6 @@
 package Apache::PageKit::Error;
 
-# $Id: Error.pm,v 1.3 2000/10/31 22:51:23 tjmather Exp $
+# $Id: Error.pm,v 1.4 2000/11/20 20:57:44 tjmather Exp $
 
 use integer;
 use strict;
@@ -114,12 +114,12 @@ This should be used on a production site.
 
 =head1 AUTHOR
 
-T.J. Mather (tjmather@thoughtstore.com)
+T.J. Mather (tjmather@anidea.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.  PageKit is a trademark
-of ThoughtStore, Inc.
+Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.
+PageKit is a trademark of AnIdea Corporation.
 
 =head1 LICENSE
 

@@ -99,7 +99,8 @@ Writes any pending data, releases all locks and deletes all data from memory.
 
 =head1 AUTHORS
 
-This module was adapted from HTML::Embperl::Session by T.J. Mather <tjmather@thoughtstore.com>.
+This module was adapted from HTML::Embperl::Session by T.J. Mather
+<tjmather@anidea.com>.
 
 Gerald Richter <richter@dev.ecos.de> is the current maintainer of HTML::Embperl::Session.
 
