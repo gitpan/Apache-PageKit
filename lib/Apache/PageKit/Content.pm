@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.21 2001/05/07 17:34:59 tjmather Exp $
+# $Id: Content.pm,v 1.24 2001/05/13 03:42:36 tjmather Exp $
 
 use strict;
 
@@ -14,10 +14,18 @@ sub new($$) {
 }
 
 sub generate_template {
-  my ($content, $type, $page_id, $component_id, $pkit_view, $input_param_obj) = @_;
+  my ($content, $page_id, $component_id, $pkit_view, $input_param_obj) = @_;
 
-  use XML::LibXML;
-  use XML::LibXSLT;
+  unless(exists $INC{'XML/LibXML.pm'}){
+    require XML::LibXML;
+    require XML::LibXSLT;
+
+    # call backs so that we can note the mtimes of dependant files
+    XML::LibXML->match_callback(\&match_uri);
+    XML::LibXML->open_callback(\&open_uri);
+    XML::LibXML->close_callback(\&close_uri);
+    XML::LibXML->read_callback(\&read_uri);
+  }
 
   $CONTENT = $content;
   ($COMPONENT_ID_DIR = $component_id) =~ s![^/]*$!!;
@@ -27,7 +35,7 @@ sub generate_template {
   my $xml_file = "$content->{content_dir}/$component_id.xml";
   unless(-e "$xml_file"){
     die "Cannot find xml file $content->{content_dir}/$component_id.xml or
-      template file $pkit_view/$type/$component_id.tmpl";
+      template file $pkit_view/$component_id.tmpl";
   }
 
   my $xml_mtime = (stat($xml_file))[9];
@@ -110,11 +118,11 @@ sub rel2abs {
   my ($rel_uri) = @_;
   my $content_dir = $CONTENT->{content_dir};
   if($rel_uri =~ m!^/!){
-    return "$content_dir/$rel_uri";
+    return "$content_dir$rel_uri";
   } else {
     # return relative to component_id_dir
     my $abs_uri = "$content_dir/$COMPONENT_ID_DIR$rel_uri";
-    while ($abs_uri =~ s![^/]/\.\./!!) {};
+    while ($abs_uri =~ s![^/]*/\.\./!!) {};
     return $abs_uri;
   }
 }
@@ -142,12 +150,6 @@ sub read_uri {
 }
 
 sub close_uri {}
-
-# call backs so that we can note the mtimes of dependant files
-XML::LibXML->match_callback(\&match_uri);
-XML::LibXML->open_callback(\&open_uri);
-XML::LibXML->close_callback(\&close_uri);
-XML::LibXML->read_callback(\&read_uri);
 
 1;
 __END__

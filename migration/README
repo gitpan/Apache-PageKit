@@ -1,3 +1,32 @@
+Please BACK UP ALL YOUR FILES before applying attempting to migrate
+your files.
+
+=============================================================
+Migration from 0.98 to 0.99
+
+1. The View/Component and View/Page directories have merged into one
+directory under View.  To merge the templates, run
+migration/migrate_pagekit_0.98_to_0.99.pl
+
+2. <PKIT_VAR NAME="SELFURL"> has been changed to <PKIT_SELFURL>
+You can apply this change easily by running from the View directory:
+
+cd /path/to/pagekitroot/View
+perl -pi -e 's!<PKIT_VAR +NAME *= *"?SELFURL"? *>!<PKIT_SELFURL>!gi' \
+	`find . -name "*.tmpl"`
+
+3. $model->input_param has been changed to $model->input for getting
+	request parameters and $model->fillinform for filling in HTML forms
+	and $model->pnotes for passing around data between different handlers
+
+	$model->output_param has been changed to $model->output
+
+4. $model->input_param('pkit_user') and $model->output_param('pkit_user')
+	is no longer set by authentication code.  Instead, set 
+	$model->pnotes(pkit_user => $pkit_user) in your
+	pkit_auth_session_key in your model code and use
+	$model->pnotes('pkit_user') to access the set value
+
 =============================================================
 Migration from 0.97 to 0.98
 

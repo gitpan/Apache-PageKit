@@ -87,6 +87,7 @@ sub _fill_in_content {
 				   die_on_bad_params=>0,
 				   # built in __FIRST__, __LAST__, etc vars
 				   loop_context_vars=>1,
+				   case_sensitive=>1,
 				   max_includes => 50);
   };
   if($@){
@@ -193,6 +194,12 @@ sub _get_document_xpath {
   my ($xml_filename, $xpath);
   if($name =~ m!^document\('?(.*?)'?\)(.*)$!){
     ($xml_filename, $xpath) = ($1, $2);
+    unless($xml_filename =~ s!^/!!){
+      # return relative to $default_xml_filename
+      (my $default_xml_dir = $default_xml_filename) =~ s![^/]*$!!;
+      $xml_filename = "$default_xml_dir$xml_filename";
+      while ($xml_filename =~ s![^/]*/\.\./!!) {};
+    }
   } else {
     ($xml_filename, $xpath) = ($default_xml_filename, $name);
   }
@@ -208,8 +215,12 @@ sub _get_xp {
     my $filename = "$xpt->{root_dir}/$xml_filename";
 #    die "Can't load $filename" unless
 #      (-e "$filename");
-    die "Can't load content file $filename" unless
-      (-e "$filename");
+#    die "Can't load content file $filename" unless
+#      (-e "$filename");
+    unless (-e "$filename"){
+      warn "Can't load content file $filename";
+      return;
+    }
     my $xp = XML::XPath->new(filename => "$filename");
 
     # get default context (root XML element)
@@ -225,6 +236,7 @@ sub _get_xpath_langs {
 
   my $xml_filename = $arg{xml_filename};
   my $xp = $xpt->_get_xp($xml_filename);
+  return [] unless $xp;
 
   my $xpath = $arg{xpath};
   my $context = $arg{context} || $xpt->{root_element_node}->{$xml_filename};
@@ -251,15 +263,16 @@ sub _get_xpath_nodeset {
   my ($xpt, %arg) = @_;
 
   my $xml_filename = $arg{xml_filename};
+
+  my $return_nodeset = XML::XPath::NodeSet->new;
   my $xp = $xpt->_get_xp($xml_filename);
+  return $return_nodeset unless $xp;
   my $xpath = $arg{xpath};
   my $lang = $arg{lang};
   my $context = $arg{context} || $xpt->{root_element_node}->{$xml_filename};
 
   my $nodeset = $xp->find($xpath, $context);
   my @nodelist = $nodeset->get_nodelist;
-
-  my $return_nodeset = XML::XPath::NodeSet->new;
 
   # pass 1, return node that has matching xml:lang tag
   for my $node (@nodelist) {
@@ -314,8 +327,10 @@ In your perl code:
 Your XPathTemplate template:
 
   Header
+  <CONTENT_VAR NAME="document('foo.xml')/aaa/bbb">
   <CONTENT_VAR NAME="/ddd/aaa/@bbb">
   <CONTENT_VAR NAME="/ddd/eee">
+  <CONTENT_VAR NAME="eee">
   <CONTENT_LOOP NAME="/ddd/fff">
         <CONTENT_VAR NAME="@ttt">
         <CONTENT_VAR NAME="ggg">
@@ -341,11 +356,20 @@ Your XML file:
         </fff>
   </ddd>
 
+Second XML file (foo.xml)
+
+  <aaa>
+    <bbb>Content from second XML file</bbb>
+  </aaa>
+
 Output:
 
   Header
+  Content from second XML file
   ccc
   jjj
+  jjj
+
         uuu
         sss
         lll rrr

@@ -1,6 +1,6 @@
 package Apache::ErrorReport;
 
-# $Id: ErrorReport.pm,v 1.2 2001/05/07 17:34:58 tjmather Exp $
+# $Id: ErrorReport.pm,v 1.5 2001/05/13 03:42:36 tjmather Exp $
 
 use integer;
 use strict;
@@ -123,7 +123,7 @@ adminstrator as specified in the Apache C<ServerAdmin> configuration directive.
 This should be used on a production site.
 
 This modules uses $SIG{__WARN__} to display warning messages and
-C<fatal> to display fatal messages.
+the C<fatal> method to display fatal messages.
 
 =head1 AUTHOR
 

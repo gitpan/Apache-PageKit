@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.26 2001/05/07 17:34:59 tjmather Exp $
+# $Id: Model.pm,v 1.30 2001/05/13 03:42:36 tjmather Exp $
 
 use integer;
 use strict;
@@ -8,10 +8,14 @@ use HTML::FormValidator;
 
 use Apache::Constants qw(REDIRECT);
 
+use Data::Dumper;
+
 sub new {
-  my ($class) = @_;
-  my $self = {};
+  my $class = shift;
+  my $self = { @_ };
   bless $self, $class;
+  $self->{pkit_pk}->{output_param_object} ||= Apache::PageKit::Param->new();
+  $self->{pkit_pk}->{fillinform_object} ||= Apache::PageKit::Param->new();
   return $self;
 }
 
@@ -34,7 +38,7 @@ sub pkit_root {
 
 sub pkit_get_orig_uri {
   my $model = shift;
-  return $model->{pkit_pk}->{uri_with_query};
+  return $model->{pkit_pk}->{apr}->notes('orig_uri');
 }
 
 sub pkit_get_page_id {
@@ -44,7 +48,7 @@ sub pkit_get_page_id {
 
 sub pkit_user {
   my $model = shift;
-  return $model->{pkit_pk}->{view}->param('pkit_user');
+  return $model->{pkit_pk}->{apr}->connection->user;
 }
 
 sub pkit_set_errorfont {
@@ -55,8 +59,8 @@ sub pkit_set_errorfont {
   my $begin_value = qq{<font color="#ff000">};
   my $end_name = "PKIT_ERRORFONT_END_$field";
   my $end_value = qq{</font>};
-  $model->output_param($begin_name => $begin_value);
-  $model->output_param($end_name => $end_value);
+  $model->output($begin_name => $begin_value);
+  $model->output($end_name => $end_value);
 }
 
 sub pkit_validate_input {
@@ -64,7 +68,7 @@ sub pkit_validate_input {
 
   my $validator = new HTML::FormValidator({default => $input_profile});
 
-  # put the data from input_param into a %fdat hash so HTML::FormValidator can read it
+  # put the data from input into a %fdat hash so HTML::FormValidator can read it
   my $input_hashref = $model->pkit_input_hashref;
 
   # put derived Model object in pkit_model
@@ -75,7 +79,7 @@ sub pkit_validate_input {
   my ($valids, $missings, $invalids, $unknowns) = $validator->validate($input_hashref, 'default');
   # used to change apply changes from filter to apr
   while (my ($key, $value) = each %$valids){
-    $model->input_param($key,$value);
+    $model->input($key,$value);
   }
 
   # used to change undef values to "", in case db field is defined as NOT NULL
@@ -117,8 +121,8 @@ sub pkit_input_hashref {
   return $model->{pkit_input_hashref} if
     exists $model->{pkit_input_hashref};
   my $input_hashref = {};
-  for my $key ($model->input_param){
-    $input_hashref->{$key} = $model->input_param($key);
+  for my $key ($model->input){
+    $input_hashref->{$key} = $model->input($key);
   }
   $model->{pkit_input_param_ref} = $input_hashref;
 }
@@ -129,10 +133,10 @@ sub pkit_message {
 
   my $options = {@_};
 
-  my $array_ref = $model->output_param('pkit_message') || [];
+  my $array_ref = $model->output('pkit_message') || [];
   push @$array_ref, {pkit_message => $message,
 		    pkit_is_error => $options->{'is_error'}};
-  $model->output_param('pkit_message',$array_ref);
+  $model->output('pkit_message',$array_ref);
 }
 
 sub pkit_internal_redirect {
@@ -140,8 +144,13 @@ sub pkit_internal_redirect {
   $model->{pkit_pk}->{page_id} = $page_id;
 }
 
-# currently input_param is just a wrapper around $apr
 sub input_param {
+  warn "input_param is depreciated - use input, fillinform or pnotes instead";
+  input(@_);
+}
+
+# currently input_param is just a wrapper around $apr
+sub input {
   my $model = shift;
   if (exists $model->{pkit_pk} && exists $model->{pkit_pk}->{apr}){
     if(wantarray){
@@ -156,35 +165,26 @@ sub input_param {
   }
 }
 
-# currently output_param is just a wrapper around $view
-sub output_param {
-  my $model = shift;
-  if (exists $model->{pkit_pk}){
-    return $model->{pkit_pk}->{view}->param(@_);
-  } else {
-    return $model->_param("output",@_);
-  }
+sub fillinform {
+  return shift->{pkit_pk}->{fillinform_object}->param(@_);
 }
 
-# used internally when there is no pkit_pk object
-sub _param {
-  my ($model, $type, @p) = @_;
-  my ($name, $value);
+sub output_param {
+  warn "output_param is depreciated - use output instead";
+  output(@_);
+}
 
-  # deal with case of setting mul. params with hash ref.
-  if (ref($p[0]) eq 'HASH'){
-    my $hash_ref = shift(@p);
-    push(@p, %$hash_ref);
-  }
-  if (@p > 1){
-    die "param called with odd number of parameters" unless ((@p % 2) == 0);
-    while(($name, $value) = splice(@p, 0, 2)){
-      $model->{"pkit_${type}_param"}->{$name} = $value;
-    }
-  } else {
-    $name = $p[0];
-  }
-  return $model->{"pkit_${type}_param"}->{$name};
+# currently output_param is just a wrapper around $view
+sub output {
+  return shift->{pkit_pk}->{output_param_object}->param(@_);
+#  if (exists $model->{pkit_pk}){
+#    return $model->{pkit_pk}->{view}->param(@_);
+#  } else {
+#  }
+}
+
+sub pnotes {
+  return shift->{pkit_pk}->{apr}->pnotes(@_);
 }
 
 # put here so that it can be overriden in derived classes
@@ -192,11 +192,18 @@ sub pkit_get_default_page {
   return shift->{pkit_pk}->{config}->get_global_attr('default_page');
 }
 
+sub create {
+  my ($model, $class) = @_;
+  my $create_model = $class->new(pkit_pk => $model->{pkit_pk});
+  return $create_model;
+}
+
 # this is experimental and subject to change
 sub dispatch {
+  warn "dispatch is depreciated - use create instead";
   my ($model, $class, $method, @args) = @_;
-  my $dispatch_model = $class->new;
-  $dispatch_model->{pkit_pk} = $model->{pkit_pk} if exists $model->{pkit_pk};
+  my $dispatch_model = $class->new(pkit_pk => $model->{pkit_pk});
+#  $dispatch_model->{pkit_pk} = $model->{pkit_pk} if exists $model->{pkit_pk};
   no strict 'refs';
   return &{$class . '::' . $method}($dispatch_model, @args);
 }
@@ -211,6 +218,7 @@ sub dbh {
     return $Apache::Model::dbh;
   }
 }
+
 sub apr {return shift->{pkit_pk}->{apr};}
 sub session {return shift->{pkit_pk}->{session};}
 
@@ -218,7 +226,7 @@ sub pkit_redirect {
   my ($model, $url) = @_;
   my $pk = $model->{pkit_pk};
   my $apr = $pk->{apr};
-  if(my $pkit_message = $model->output_param('pkit_message')){
+  if(my $pkit_message = $model->output('pkit_message')){
     my $add_url = join("", map { "&pkit_" . ($_->{pkit_is_error} ? "error_" : "") . "message=" . Apache::Util::escape_uri($_->{pkit_message}) } @$pkit_message);
     $add_url =~ s!^&!?! unless $url =~ m/\?/;
     $url .= $add_url;
@@ -273,14 +281,14 @@ Method in derived class.
     my $session = $model->session;
 
     # get inputs (from request parameters)
-    my $foo = $model->input_param('bar');
+    my $foo = $model->input('bar');
 
     # do some processing
 
     ...
 
     # set outputs in template
-    $model->output_param(result => $result);
+    $model->output(result => $result);
   }
 
 =head1 METHODS 
@@ -292,20 +300,15 @@ Apache::PageKit::Model API.
 
 =over 4
 
-=item input_param
+=item input
 
 Gets requested parameter from the request object C<$apr>.
 
-  my $value = $model->input_param($key);
+  my $value = $model->input($key);
 
 If called without any parameters, gets all available input parameters:
 
-  my @keys = $model->input_param;
-
-Can also be used to set parameter that Model gets as input.  For example
-you can set the userID when the user gets authenticated:
-
-  $model->input_param(pkit_user => $userID);
+  my @keys = $model->input;
 
 =item pkit_input_hashref
 
@@ -316,12 +319,28 @@ is returned as a reference to an array.
 
   $params = $model->pkit_input_hashref;
 
-=item output_param
+=item fillinform
+
+Used with L<HTML::FillInForm> to fill in HTML forms.  Useful for example
+when you want to fill an edit form with data from the database.
+
+  $model->fillinform(email => $email);
+
+=item pnotes
+
+Wrapper to mod_perl's C<pnotes> function, used to pass values from
+one handler to another.
+
+For example you can set the userID when the user gets authenticated:
+
+  $model->pnotes(user_id => $user_id);
+
+=item output
 
 This is similar to the L<HTML::Template|HTML::Template/param> method.  It is
 used to set <MODEL_*> template variables.
 
-  $model->output_param(USERNAME => "John Doe");
+  $model->output(USERNAME => "John Doe");
 
 Sets the parameter USERNAME to "John Doe".
 That is C<E<lt>MODEL_VAR NAME="USERNAME"E<gt>> will be replaced
@@ -329,18 +348,18 @@ with "John Doe".
 
 It can also be used to set multiple parameters at once by passing a hash:
 
-  $model->output_param(firstname => $firstname,
+  $model->output(firstname => $firstname,
                lastname => $lastname);
 
 Alternatively you can pass a hash reference:
 
-  $model->output_param({firstname => $firstname,
+  $model->output({firstname => $firstname,
                lastname => $lastname});
 
 Note, to set the bread crumb for the <PKIT_LOOP NAME="BREAD_CRUMB"> tag,
 use the following code:
 
-  $model->output_param(pkit_bread_crumb =>
+  $model->output(pkit_bread_crumb =>
 		       [
 			{ pkit_page => 'toplink', pkit_name='Top'},
 			{ pkit_page => 'sublink', pkit_name='Sub Class'},
@@ -429,7 +448,7 @@ and returns true if the request parameters are valid.
   # validate user input
   unless($model->pkit_validate_input($input_profile)){
     # user must have not filled out name field, 
-    # i.e. $apr->param('name') = $model->input_param('name') is
+    # i.e. $apr->param('name') = $model->input('name') is
     # not set, so go back to original form
     # if you used a <PKIT_ERRORFONT NAME="name"> tag, then it will be set to
     # red
@@ -465,6 +484,11 @@ httpd.conf file.
 
   my $pkit_root = $model->pkit_root
 
+=item pkit_user
+
+Gets the user_id from C<$apr->connection->user>, as set by the return
+value of C<pkit_auth_session_key>.
+
 =back
 
 =head2 Methods to be defined in your base Model class.
@@ -495,7 +519,7 @@ Note that the string returned should not contain any commas, spaces, or semi-col
 
 Verifies the session key (previously generated by C<auth_credential>)
 and return the user ID.
-This user ID will be fed to C<$model-E<gt>input_param('pkit_user')>.
+The returned user ID will be fed to C<$apr->connection->user>.
 
 =item pkit_common_code
 

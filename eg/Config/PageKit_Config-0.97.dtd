@@ -29,7 +29,7 @@
 <!ATTLIST PAGE
         id                 ID      #REQUIRED
         browser_cache           CDATA   #IMPLIED
-	fill_in_form		(yes|auto|no)	"auto"
+	fill_in_form		(yes|no)	"yes"
         internal_title          CDATA   #IMPLIED
 	request_param_in_tmpl	CDATA	#IMPLIED
         require_login           CDATA   #IMPLIED

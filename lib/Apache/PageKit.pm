@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.58 2001/05/07 17:34:58 tjmather Exp $
+# $Id: PageKit.pm,v 1.63 2001/05/13 03:42:36 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -22,6 +22,7 @@ use XML::Parser ();
 $| = 1;
 
 # PageKit modules
+use Apache::PageKit::Param ();
 use Apache::PageKit::View ();
 use Apache::PageKit::Content ();
 use Apache::PageKit::Model ();
@@ -31,7 +32,7 @@ use Apache::PageKit::Config ();
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '0.98';
+$VERSION = '0.99';
 
 # typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
@@ -67,7 +68,7 @@ sub startup ($$$) {
   eval "require $model_base_class";
 #  eval "import $model_base_class";
 
-  my $default_lang = $config->get_global_attr('default_lang');
+  my $default_lang = $config->get_global_attr('default_lang') || 'en';
   my $html_clean_level = $config->get_server_attr('html_clean_level');
   my $can_edit = $config->get_server_attr('can_edit');
 
@@ -95,6 +96,8 @@ sub handler ($$){
 
   my ($pk, $status_code);
 
+  $| = 1;
+
   eval {
     $pk = $class->new;
     my $model = $pk->{model};
@@ -102,7 +105,7 @@ sub handler ($$){
     my $view = $pk->{view};
     my $config = $pk->{config};
     $status_code = $pk->prepare_page;
-    my $use_template = $config->get_page_attr($pk->{page_id},'use_template');
+    my $use_template = $config->get_page_attr($pk->{page_id},'use_template') || 'yes';
     if ($status_code eq OK && $use_template ne 'no'){
       $pk->open_view;
       for my $component_id (@{$view->{record}->{component_ids}}){
@@ -138,14 +141,30 @@ sub fatal_error {
   die $error;
 }
 
-sub _params_as_string {
-  my ($apr) = @_;
-  my $query_string = join ('&', map {$_ . "=" . $apr->param($_)} $apr->param);
+sub params_as_string {
+  my ($apr, $exclude_param) = @_;
+
+  my $args;
+  unless ($args = $apr->pnotes('r_args')){
+    my %args = $apr->args;
+    delete $args{pkit_login};
+    delete $args{pkit_view};
+    $args = \%args;
+    $apr->pnotes(r_args => $args);
+  }
+
+  my $query_string = join ('&', map {$_ . "=" . $args->{$_}} keys %$args);
 
   # make available for future use (such as logging stage)
+  # should deleted (now that we have notes(orig_uri)
   $apr->notes('query_string', $query_string);
 
-  return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($apr->param($_) || "")} grep !/^(pkit_logout|pkit_view)$/, $apr->param);
+  if($exclude_param && @$exclude_param){
+    my %exclude_param = map {$_ => 1} @$exclude_param;
+    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} grep !{exists $exclude_param{$_}}, grep !/^(pkit_logout|pkit_view|pkit_check_cookie)$/, keys %$args);
+  } else {
+    return join ('&', map { Apache::Util::escape_uri("$_") ."=" . Apache::Util::escape_uri($args->{$_} || "")} grep !/^(pkit_logout|pkit_view|pkit_check_cookie)$/, keys %$args);
+  }
 }
 
 sub prepare_page {
@@ -180,6 +199,45 @@ sub prepare_page {
   if($model->can('pkit_fixup_uri')){
     $uri = $model->pkit_fixup_uri($uri);
   }
+
+#  my $host = (split(':',$apr->headers_in->{'Host'}))[0];
+  my ($host, $uri_with_query);
+  if(my $X_Original_URI = $apr->headers_in->{'X-Original-URI'}){
+    ($host) = ($X_Original_URI =~ m!^https?://([^/]*)!);
+    $uri_with_query = $X_Original_URI;
+  } else {
+    $host = $apr->headers_in->{'Host'};
+
+    # this is not quite right and should be fixed
+    $uri_with_query = 'http://' . $host . $uri;
+  }
+#  my $pkit_selfurl;
+
+  $apr->notes(orig_uri => $uri_with_query);
+
+  my $query_string = params_as_string($apr);
+  if($query_string){
+    $uri_with_query .= "?" . $query_string;
+#    $pkit_selfurl = $uri_with_query . '&';
+#  } else {
+#    $pkit_selfurl = $uri_with_query . '?';
+  }
+#  $view->param(PKIT_SELFURL => $pkit_selfurl);
+
+  my $output_param_object = $pk->{output_param_object};
+  my $fillinform_object = $pk->{fillinform_object};
+
+  $pk->{output_param_object}->param(PKIT_HOSTNAME => $host);
+
+#  my $pkit_done = Apache::Util::escape_uri($apr->param('pkit_done') || $uri_with_query);
+  my $pkit_done = $apr->param('pkit_done') || $uri_with_query;
+
+#  $pkit_done =~ s/"/\%22/g;
+#  $pkit_done =~ s/&/\%26/g;
+#  $pkit_done =~ s/\?/\%3F/g;
+  $output_param_object->param("pkit_done",$pkit_done);
+  $fillinform_object->param("pkit_done",$pkit_done);
+
   $pk->{page_id} = $uri;
 
   # get rid of leading forward slash
@@ -202,51 +260,8 @@ sub prepare_page {
     }
   }
 
-  # $pk->authenticate sets pkit_user in apr, which applications rely on
-  # to verify the autheticity of the user.  we prevent a hack of 
-  # setting the "pkit_user" through a request variable:
-  $apr->param(pkit_user => undef);
-
-#  my $host = (split(':',$apr->headers_in->{'Host'}))[0];
-  my ($host, $uri_with_query);
-  if(my $X_Original_URI = $apr->headers_in->{'X-Original-URI'}){
-    ($host) = ($X_Original_URI =~ m!^https?://([^/]*)!);
-    $uri_with_query = $X_Original_URI;
-  } else {
-    $host = $apr->headers_in->{'Host'};
-    $uri_with_query = 'http://' . $host . $uri;
-  }
-  $pk->{uri_with_query} = $uri_with_query;
-  my $pkit_selfurl;
-  my $query_string = _params_as_string($apr);
-  if($query_string){
-    $uri_with_query .= "?" . $query_string;
-    $pkit_selfurl = $uri_with_query . '&';
-  } else {
-    $pkit_selfurl = $uri_with_query . '?';
-  }
-  $view->param(PKIT_SELFURL => $pkit_selfurl);
-
-  $view->param(PKIT_HOSTNAME => $host);
-
-#  my $pkit_done = Apache::Util::escape_uri($apr->param('pkit_done') || $uri_with_query);
-  my $pkit_done = $apr->param('pkit_done') || $uri_with_query;
-
-#  $pkit_done =~ s/"/\%22/g;
-#  $pkit_done =~ s/&/\%26/g;
-#  $pkit_done =~ s/\?/\%3F/g;
-  $view->param("pkit_done",$pkit_done);
-  $apr->param("pkit_done",$pkit_done);
-
   my $auth_user;
 
-  my @credentials;
-  while (my $credential = $apr->param("pkit_credential_" . ($#credentials + 1))){
-    push @credentials, $credential;
-  }
-
-  # if pkit_crendential_0 field is present, user is attempting to log in
-#  if(defined $apr->param('pkit_credential_0')){
   if($apr->param('pkit_login')){
     if ($pk->login){
       # if login is sucessful, redirect to (re)set cookie
@@ -262,7 +277,8 @@ sub prepare_page {
     $apr->param('pkit_check_cookie','');
     # goto home page when user logouts (if from page that requires login) 
     my $add_message = "";
-    if ($config->get_page_attr($pk->{page_id},'require_login') =~ m!^(yes|recent)$!){
+    my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
+    if (defined($require_login) && $require_login =~ m!^(yes|recent)$!){
       $pk->{page_id} = $config->get_global_attr('default_page');
       $add_message = "You can log back in again below:";
     }
@@ -271,24 +287,37 @@ sub prepare_page {
     $auth_user = $pk->authenticate;
   }
 
+  # session handling
+  if($model->can('pkit_session_setup')){
+    $pk->setup_session;
+  }
+
   if($auth_user){
-    $model->pkit_message("You have successfully logged in.")
-      if($apr->param('pkit_check_cookie') eq 'on');
+    my $pkit_check_cookie = $apr->param('pkit_check_cookie');
+    if(defined($pkit_check_cookie) && $pkit_check_cookie eq 'on'){
+      $model->pkit_message("You have successfully logged in.");
+    }
 
-    if ($config->get_page_attr($pk->{page_id},'require_login') eq 'recent' &&
-	$pk->{session}->{last_activity} + $config->get_global_attr('recent_login_timeout') < time()){
-      # user is logged in, but has not been active recently
+    my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
+    if(defined($require_login) && $require_login eq 'recent'){
+      my $recent_login_timeout = $config->get_global_attr('recent_login_timeout');
+      my $last_activity = $pk->{session}->{last_activity};
+      if(defined($recent_login_timeout) && defined($last_activity) &&
+	 $last_activity + $recent_login_timeout < time()){
+	# user is logged in, but has not been active recently
 
-      # display verify password form
-      $pk->{page_id} = $config->get_global_attr('verify_page') ||
-			$config->get_global_attr('login_page');
-      # pkit_done parameter is used to return user to page that they originally requested
-      # after login is finished
-      $view->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
+	# display verify password form
+	$pk->{page_id} = $config->get_global_attr('verify_page') ||
+	  $config->get_global_attr('login_page');
+	# pkit_done parameter is used to return user to page that they originally requested
+	# after login is finished
+	$output_param_object->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
+      }
     }
   } else {
     # check if cookies should be set
-    if($apr->param('pkit_check_cookie') eq 'on'){
+    my $pkit_check_cookie = $apr->param('pkit_check_cookie');
+    if(defined($pkit_check_cookie) && $pkit_check_cookie eq 'on'){
       # cookies should be set but aren't.
       if($config->get_global_attr('cookies_not_set_page')){
 	# display "cookies are not set" error page.
@@ -301,10 +330,11 @@ sub prepare_page {
       }
     }
 
-    if($config->get_page_attr($pk->{page_id},'require_login') =~ /^(yes|recent)$/){
+    my $require_login = $config->get_page_attr($pk->{page_id},'require_login');
+    if(defined($require_login) && $require_login =~ /^(yes|recent)$/){
       # this page requires that the user has a valid cookie
       $pk->{page_id} = $config->get_global_attr('login_page');
-      $view->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
+      $output_param_object->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
       $model->pkit_message("This page requires a login.");
       $pk->logout;
     }
@@ -315,7 +345,9 @@ sub prepare_page {
   # run the page code!
   my $status_code = $pk->page_code;
   $status_code ||= $pk->{status_code};
-  return $status_code if $status_code eq REDIRECT;
+  if(defined($status_code) && $status_code eq REDIRECT){
+    return $status_code;
+  }
 
   # add pkit_message from previous page, if that pagekit did a pkit_redirect
   if(my @pkit_message = $apr->param('pkit_message')){
@@ -331,7 +363,7 @@ sub prepare_page {
 
   # deal with different views
   if(my $pkit_view = $apr->param('pkit_view')){
-    $view->param('pkit_view:' . $pkit_view => 1);
+    $output_param_object->param('pkit_view:' . $pkit_view => 1);
   }
 
   return OK;
@@ -359,7 +391,7 @@ sub open_view {
   $lang ||= substr($apr->header_in('Accept-Language'),0,2);
 
   # TEMP only, until fix problems with localization in content
-  $view->param("PKIT_LANG_$lang" => 1);
+  $pk->{output_param_object}->param("PKIT_LANG_$lang" => 1);
 
   # open template file
   $view->open_view($page_id, $pkit_view, $lang);
@@ -375,13 +407,17 @@ sub prepare_and_print_view {
 
   my $page_id = $pk->{page_id};
 
-  # set view fill_in_form_objects and associated_objects, if approriate
-  if($config->get_page_attr($page_id,'fill_in_form') ne 'no'){
-    $view->{fill_in_form_objects} = [$apr];
+  # set view fillinform_objects and associated_objects, if approriate
+  my $fill_in_form = $config->get_page_attr($page_id,'fill_in_form') || 'yes';
+  if($fill_in_form ne 'no'){
+    $view->{fillinform_objects} = [$apr, $pk->{fillinform_object}];
+  } else {
+    $view->{fillinform_objects} = [$pk->{fillinform_object}];
   }
-  my $page_rpit = $config->get_page_attr($page_id,'request_param_in_tmpl');
+  my $page_rpit = $config->get_page_attr($page_id,'request_param_in_tmpl') || '';
+  my $global_rpit = $config->get_global_attr('request_param_in_tmpl') || 'no';
   if($page_rpit eq 'yes' || ($page_rpit ne 'no' &&
-     $config->get_global_attr('request_param_in_tmpl') eq 'yes')){
+     $global_rpit eq 'yes')){
     $view->{associated_objects} = [$apr];
   }
 
@@ -392,7 +428,8 @@ sub prepare_and_print_view {
   #$apr->no_cache(1) if $apr->param('pkit_logout') || $config->get_page_attr($pk->{page_id},'template_cache') eq 'no';
   # see http://support.microsoft.com/support/kb/articles/Q234/0/67.ASP
   # and http://www.pacificnet.net/~johnr/meta.html
-  $apr->header_out('Expires','-1') if $apr->param('pkit_logout') || $config->get_page_attr($pk->{page_id},'browser_cache') eq 'no' || $apr->connection->user;
+  my $browser_cache =  $config->get_page_attr($pk->{page_id},'browser_cache') || 'yes';
+  $apr->header_out('Expires','-1') if $apr->param('pkit_logout') || $browser_cache eq 'no' || $apr->connection->user;
 
   $apr->content_type('text/html');
   $apr->send_http_header if $apr->is_initial_req;
@@ -423,16 +460,9 @@ sub new {
 						 server => $server);
   my $apr = $self->{apr} = Apache::Request->new($r, POST_MAX => $self->{config}->get_global_attr('post_max'));
   my $model_base_class = $self->{config}->get_global_attr('model_base_class');
-  my $model = $self->{model} = $model_base_class->new;
-
-  $model->{pkit_pk} = $self;
+  my $model = $self->{model} = $model_base_class->new(pkit_pk => $self);
 
   $self->{dbh} = $model->pkit_dbi_connect if $model->can('pkit_dbi_connect');
-
-  # session handling
-  if($model->can('pkit_session_setup')){
-    $self->setup_session;
-  }
 
   my $default_lang = $config->get_global_attr('default_lang') || 'en';
   my $html_clean_level = $config->get_server_attr('html_clean_level');
@@ -449,7 +479,8 @@ sub new {
 					     default_lang => $default_lang,
 					     reload => $reload,
 					     html_clean_level => $html_clean_level,
-					     input_param_obj => $apr,
+					     input_param_object => $apr,
+					     output_param_object => $self->{output_param_object},
 					     can_edit => $can_edit,
 					    );
 
@@ -472,6 +503,21 @@ sub page_sub {
   }
 
   return $perl_sub if defined &{$perl_sub};
+
+  my ($class_package) = $perl_sub =~ m/^(.*)::/;
+  return if exists $Apache::PageKit::checked_classes{$class_package};
+
+  eval "require $class_package";
+
+  $Apache::PageKit::checked_classes{$class_package} = 1;
+
+  return undef unless (defined &{$perl_sub});
+
+  my $model_base_class = $pk->{config}->get_global_attr('model_base_class');
+
+  warn qq{For full preformance please add "use $class_package" in your $model_base_class or startup.pl script\n};
+
+  return $perl_sub;
 }
 
 sub page_code {
@@ -516,8 +562,11 @@ sub call_model_code {
   # extract class and method from perl subroutine
   my ($model_class, $method) = ($perl_sub =~ m!^(.+?)::([^:]+)$!);
 
+  my $dispatch_model = $model->create($model_class);
+
   # dispatch message to model class
-  $model->dispatch($model_class,$method);
+  no strict 'refs';
+  return &{$model_class . '::' . $method}($dispatch_model);
 }
 
 sub login {
@@ -529,12 +578,15 @@ sub login {
   my $model = $pk->{model};
 
   my $remember = $apr->param('pkit_remember');
-  my $done = $apr->param('pkit_done');
+  my $done = $apr->param('pkit_done') || $apr->notes('orig_uri');
 
   unless($done){
     $model->pkit_get_default_page;
   }
 
+  unless($model->can('pkit_auth_credential')){
+    die "Must set pkit_auth_credential in your model base class";
+  }
   my $ses_key = $model->pkit_auth_credential;
 
   $ses_key || return 0;
@@ -547,11 +599,11 @@ sub login {
   # save session
   delete $pk->{session};
 
-  my @cookie_domains = split(' ',$config->get_server_attr('cookie_domain'));
-  @cookie_domains = (undef) if @cookie_domains == 0;
+  my $cookie_domain_str = $config->get_server_attr('cookie_domain');
+  my @cookie_domains = defined($cookie_domain_str) ? split(' ',$cookie_domain_str) : (undef);
   for my $cookie_domain (@cookie_domains){
     my $cookie = Apache::Cookie->new($apr,
-				   -name => 'id',
+				   -name => 'pkit_id',
 				   -value => $ses_key,
 				   -path => "/");
     $cookie->domain($cookie_domain) if $cookie_domain;
@@ -582,9 +634,9 @@ sub authenticate {
 
   my %cookies = Apache::Cookie->fetch;
 
-  return unless $cookies{'id'};
+  return unless $cookies{'pkit_id'};
 
-  my %ticket = $cookies{'id'}->value;
+  my %ticket = $cookies{'pkit_id'}->value;
 
   # in case pkit_auth_session_key is not defined, but cookie
   # is somehow already set
@@ -595,9 +647,9 @@ sub authenticate {
   return unless $auth_user;
 
   $apr->connection->user($auth_user);
-  $apr->param(pkit_user => $auth_user);
+#  $apr->param(pkit_user => $auth_user);
 
-  $pk->{view}->param(pkit_user => $auth_user);
+#  $pk->{output_param_object}->param(pkit_user => $auth_user);
 
   return $auth_user;
 }
@@ -607,12 +659,13 @@ sub logout {
 
   my %cookies = Apache::Cookie->fetch;
 
-  return unless defined $cookies{'id'};
+  return unless defined $cookies{'pkit_id'};
 
-  my @cookie_domains = split(' ',$pk->{config}->get_server_attr('cookie_domain'));
-  @cookie_domains = (undef) if @cookie_domains == 0;
+  my $cookie_domain = $pk->{config}->get_server_attr('cookie_domain');
+  my @cookie_domains = defined($cookie_domain) ? split(' ',$cookie_domain) :
+    (undef);
   for my $cookie_domain (@cookie_domains){
-    my $tcookie = $cookies{'id'};
+    my $tcookie = $cookies{'pkit_id'};
     $tcookie->value("");
     $tcookie->domain($cookie_domain) if $cookie_domain;
     $tcookie->expires('-5y');
@@ -629,7 +682,7 @@ sub setup_session {
   my $ss = $model->pkit_session_setup;
 
   unless($ss->{session_store_class} && $ss->{session_lock_class}){
-    print "failed to set up session";
+    warn "failed to set up session";
     $pk->{session} = {};
     return;
   }
@@ -657,7 +710,7 @@ sub setup_session {
   my $session_store_class = $ss->{session_store_class};
 
   {
-    local $Apache::PageKit::Error::in_use = 'no';
+#    local $Apache::PageKit::Error::in_use = 'no';
     tie %session, 'Apache::PageKit::Session', $session_id,
     {
      Lock => $session_lock_class,
@@ -708,23 +761,15 @@ sub page_exists{
   my ($pk, $page_id) = @_;
 
   # check to see if template file exists
-  return 1 if $pk->{view}->template_file_exists($page_id);
+  my $pkit_view = $pk->{apr}->param('pkit_view') || 'Default';
+  return 1 if $pk->{view}->template_file_exists($page_id, $pkit_view);
 
   # check to see if perl subroutine for page exists
   return 1 if $pk->page_sub;
 
   # check to see if content file exists
   my $pkit_root = $pk->{apr}->dir_config('PKIT_ROOT');
-  return 1 if "$pkit_root/Content/$page_id.xml";
-}
-
-sub _get_content_file {
-  my $pk = shift;
-  my $page_id = $pk->{page_id};
- 
-  my $site_id = $pk->{model}->input_param('site_id');
- 
-  return "Content/xml/$page_id.xml";
+  return 1 if (-e "$pkit_root/Content/$page_id.xml");
 }
 
 1;
@@ -774,8 +819,8 @@ In MyPageKit/Common.pm
     my ($model) = @_;
 
     # in this example, login and passwd are the names of the credential fields
-    my $login = $model->input_param('login');
-    my $passwd = $model->input_param('passwd');
+    my $login = $model->input('login');
+    my $passwd = $model->input('passwd');
 
     # create a session key
     # your code here.........
@@ -1096,6 +1141,9 @@ C<--disable-rule=expat>.
 For more information see http://axkit.org/faq.xml under
 "I install AxKit and Apache segfaults when it starts".
 
+The mod_perl guide (http://perl.apache.org/guide) has an excellect
+section on compiling mod_perl and Apache from source.
+
 =head1 SEE ALSO
 
 L<Apache::PageKit::Config>,
@@ -1107,7 +1155,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.98
+This document describes Apache::PageKit module version 0.99
 
 =head1 NOTES
 
@@ -1159,9 +1207,9 @@ T.J. Mather (tjmather@anidea.com)
 
 Fixes, Bug Reports, Docs have been generously provided by:
 
+  Boris Zentner
   Stu Pae
   Yann Kerhervé
-  Boris Zentner
   Chris Burbridge
 
 Thanks!

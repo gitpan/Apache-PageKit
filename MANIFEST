@@ -7,6 +7,7 @@ lib/Apache/PageKit.pm
 lib/Apache/PageKit/Config.pm
 lib/Apache/PageKit/Content.pm
 lib/Apache/PageKit/Model.pm
+lib/Apache/PageKit/Param.pm
 lib/Apache/PageKit/Session.pm
 lib/Apache/PageKit/View.pm
 lib/HTML/FormValidator.pm

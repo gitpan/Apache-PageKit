@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.16 2001/05/07 17:34:59 tjmather Exp $
+# $Id: Config.pm,v 1.19 2001/05/13 03:42:36 tjmather Exp $
 
 use integer;
 use strict;
@@ -284,6 +284,8 @@ their browser.
 
 Prefix of URI that should be trimmed before dispatching to the Model code.
 
+See also C<pkit_fixup_uri> in L<Apache::PageKit::Model>.
+
 =item verify_page
 
 Verify password form.  Defaults to C<login_page>.
@@ -302,7 +304,7 @@ tag of Config.xml
 
 If set to C<yes>, enables on-line editing tools that are provided with
 PageKit CMS.  PageKit CMS is a Commercial Content Management System for
-PageKit and should be released by May 2001.
+PageKit and should be released by June 2001.
 
 =item cookie_domain
 
@@ -348,16 +350,7 @@ caching on the browser.
 =item fill_in_form
 
 When set to I<yes>, automatically fills in HTML forms with values from the C<$apr> 
-(L<Apache::Request>) object.  If set to I<auto>, fills in HTML forms when it
-detects a <form> tag.  Default is I<auto>.
-
-=item new_credential
-
-Should be set to I<yes> for pages that process credentials and update the
-database, such as pages that process new registration and forms that set a new login and/or password.
-
-If set to I<yes>, then it reissues the cookie that contains the credentials and
-authenticates the user.
+(L<Apache::Request>) object when it detects a <form> tag.  Default is I<yes>.
 
 =item request_param_in_tmpl
 
@@ -374,9 +367,8 @@ C<recent_login_timeout> seconds.  Default is I<no>.
 
 =item template_cache
 
-If set to I<normal>, enables C<cache> option of L<HTML::Template> for the Page and Include templates.
-
-If set to I<shared>, enables C<shared_cache> option of L<HTML::Template>.
+This is currently not in use, but if enabled, will cache page templates
+in memory instead of on disk.
 
 =item uri_match
 

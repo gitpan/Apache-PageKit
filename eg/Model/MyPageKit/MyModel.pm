@@ -12,9 +12,9 @@ sub customize {
   my $model = shift;
   my $session = $model->session;
   my $change_flag;
-  for (grep /color$/, $model->input_param){
-    $session->{$_} = $model->input_param($_);
-    $model->output_param($_ => $model->input_param($_));
+  for (grep /color$/, $model->input){
+    $session->{$_} = $model->input($_);
+    $model->output($_ => $model->input($_));
     $change_flag = 1;
   }
   $model->pkit_message("Your changes have been made.") if $change_flag;
@@ -61,17 +61,17 @@ sub newacct2 {
     return;
   }
 
-  my $login = $model->input_param('login');
-  my $passwd = $model->input_param('passwd1');
+  my $login = $model->input('login');
+  my $passwd = $model->input('passwd1');
 
   # page to return to after user is logged in
-  my $pkit_done = $model->input_param('pkit_done');
+  my $pkit_done = $model->input('pkit_done');
 
   # make up userID
   my $user_id = substr(MD5->hexhash(MD5->hexhash(time(). {}. rand(). $$)), 0, 8);
 
   my $sql_str = "INSERT INTO pkit_user (user_id,email,login,passwd) VALUES (?,?,?,?)";
-  $dbh->do($sql_str, {}, $user_id, $model->input_param('email'),
+  $dbh->do($sql_str, {}, $user_id, $model->input('email'),
 				$login, $passwd);
 
   $model->pkit_redirect("/?login=$login&passwd=$passwd&pkit_done=$pkit_done&pkit_login=1");
