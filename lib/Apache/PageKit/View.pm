@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.52 2001/05/13 03:42:36 tjmather Exp $
+# $Id: View.pm,v 1.53 2001/05/16 22:13:41 tjmather Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -248,6 +248,13 @@ sub _include_components {
   sub get_component {
     my ($page_id,$component_id, $view, $pkit_view) = @_;
 
+    unless($component_id =~ s!^/!!){
+      # relative component, component relative to page_id
+      (my $page_id_dir = $page_id) =~ s![^/]*$!!;
+      $component_id = $page_id_dir . $component_id;
+      while ($component_id =~ s![^/]*/\.\./!!) {};
+    }
+
     # check for recursive pkit_components
     $view->{component_ids_hash}->{$component_id}++;
     if($view->{component_ids_hash}->{$component_id} > 100){
@@ -413,8 +420,23 @@ sub _preparse_model_tags {
   $$html_code_ref =~ s!<PKIT_SELFURL( +exclude=('|")(.*?)('|"))? *>!&process_selfurl_tag($exclude_params_set, $3)!eig;
 
   $$html_code_ref =~ s!<PKIT_ERRORFONT (NAME=)?"?([^"]*?)"?>(.*?)</PKIT_ERRORFONT>!<TMPL_VAR NAME="PKIT_ERRORFONT_BEGIN_$2">$3<TMPL_VAR NAME="PKIT_ERRORFONT_END_$2">!sig;
-  $$html_code_ref =~ s!<PKIT_(VAR|LOOP|IF|UNLESS) +NAME *= *("?)__(FIRST|INNER|ODD|LAST)!<TMPL_$1 NAME=$2__$3!sig;
-  $$html_code_ref =~ s!<PKIT_(VAR|LOOP|IF|UNLESS) +NAME *= *("?)!<TMPL_$1 NAME=$2PKIT_!sig;
+  $$html_code_ref =~ s!<PKIT_HOSTNAME>!<TMPL_VAR NAME="PKIT_HOSTNAME">!ig;
+
+  $$html_code_ref =~ s!<PKIT_MESSAGES>!<TMPL_LOOP NAME="PKIT_MESSAGES">!ig;
+  $$html_code_ref =~ s!<PKIT_IS_ERROR>!<TMPL_IF NAME="PKIT_IS_ERROR">!ig;
+  $$html_code_ref =~ s!</PKIT_IS_ERROR>!</TMPL_IF>!ig;
+  $$html_code_ref =~ s!<PKIT_MESSAGE>!<TMPL_VAR NAME="PKIT_MESSAGE">!ig;
+  $$html_code_ref =~ s!</PKIT_MESSAGES>!</TMPL_LOOP>!ig;
+
+  $$html_code_ref =~ s!<PKIT_VIEW +NAME *= *('|")?(.*?)('|")? *>!<TMPL_IF NAME="PKIT_VIEW:$2">!sig;
+  $$html_code_ref =~ s!</PKIT_VIEW>!</TMPL_IF>!ig;
+
+  if($$html_code_ref =~ m!<PKIT_(VAR|LOOP|IF|UNLESS) (.*?)>!){
+    warn "PKIT_VAR, PKIT_LOOP, PKIT_IF, and PKIT_UNLESS are depreciated.  use PKIT_HOSTNAME, PKIT_VIEW, PKIT_MESSAGES, PKIT_IS_ERROR, or PKIT_MESSAGE instead";
+  }
+
+#  $$html_code_ref =~ s!<PKIT_(VAR|LOOP|IF|UNLESS) +NAME *= *("?)__(FIRST|INNER|ODD|LAST)!<TMPL_$1 NAME=$2__$3!sig;
+#  $$html_code_ref =~ s!<PKIT_(VAR|LOOP|IF|UNLESS) +NAME *= *("?)!<TMPL_$1 NAME=$2PKIT_!sig;
   $$html_code_ref =~ s!<PKIT_ELSE!<TMPL_ELSE!sig;
   $$html_code_ref =~ s!</PKIT_(LOOP|IF|UNLESS)!</TMPL_$1!sig;
 
@@ -431,36 +453,3 @@ sub _preparse_model_tags {
 }
 
 1;
-__END__
-
-=head1 NAME
-
-Apache::PageKit::View - Bridge between Apache::PageKit and HTML::Template
-
-=head1 SYNOPSIS
-
-This class is a wrapper class to HTML::Template.  It simplifies the calls to 
-output a new template, and
-fills in CGI forms using L<HTML::FillInForm> and resolves <MODEL_*>,
-<CONTENT_*> and <PKIT_*> tags.
-
-=head1 AUTHOR
-
-T.J. Mather (tjmather@anidea.com)
-
-=head1 COPYRIGHT
-
-Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.  PageKit is
-a trademark of AnIdea Corporation.
-
-=head1 LICENSE
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
-without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the Ricoh Source Code Public License for more details.
-
-You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
-
-You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license
-
-=cut

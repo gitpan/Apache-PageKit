@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.63 2001/05/13 03:42:36 tjmather Exp $
+# $Id: PageKit.pm,v 1.66 2001/05/16 22:13:41 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -32,7 +32,7 @@ use Apache::PageKit::Config ();
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '0.99';
+$VERSION = '1.00';
 
 # typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
@@ -253,6 +253,27 @@ sub prepare_page {
 
   # redirect "not found" pages
   unless ($pk->page_exists($pk->{page_id})){
+    # first try to see if we can find a static file that we
+    # can return
+    my $filename = $pk->static_page_exists($pk->{page_id});
+    unless($filename){
+      $pk->{page_id} = $config->uri_match($pk->{page_id})
+	|| $config->get_global_attr('not_found_page')
+	  || $config->get_global_attr('default_page');
+      unless ($pk->page_exists($pk->{page_id})){
+	# if not_found_page is static, the return DECLINED...
+	$filename = $pk->static_page_exists($pk->{page_id});
+      }
+    }
+    if ($filename){
+      # set path_info to '', otherwise Apache tacks it on at the end
+      require MIME::Types;
+      my ($media_type, $content_encoding) = MIME::Types::by_suffix($filename);
+      $apr->content_type($media_type);
+      $apr->path_info('');
+      $apr->filename($filename);
+      return DECLINED;
+    }
     $pk->{page_id} = $config->uri_match($pk->{page_id})
       || $config->get_global_attr('not_found_page');
     unless($pk->{page_id}){
@@ -769,7 +790,19 @@ sub page_exists{
 
   # check to see if content file exists
   my $pkit_root = $pk->{apr}->dir_config('PKIT_ROOT');
-  return 1 if (-e "$pkit_root/Content/$page_id.xml");
+  return 1 if (-f "$pkit_root/Content/$page_id.xml");
+}
+
+sub static_page_exists{
+  my ($pk, $page_id) = @_;
+  my $apr = $pk->{apr};
+  foreach ($apr->param('pkit_view'), 'Default') {
+    if (defined ($_)){
+      my $filename = $apr->dir_config('PKIT_ROOT') . '/View/' . $_ . '/' . $page_id;
+      return $filename if (-e "$filename");
+    }
+  }
+  return undef;
 }
 
 1;
@@ -1016,117 +1049,6 @@ the Config and Content XML files and pre-parses the View template files.
 
 =back
 
-=head1 MARKUP TAGS
-
-Most tags get "compiled" into <TMPL_VAR>, <TMPL_LOOP>, <TMPL_IF>,
-<TMPL_UNLESS>, and <TMPL_ELSE> tags.
-See the L<HTML::Template> manpage for description of these tags.
-
-=over 4
-
-=item <PKIT_COMPONENT NAME="component_id">
-
-Calls the component code (if applicable) and includes the template for
-the component I<component_id>.
-
-Note that the components are loaded at compile time, and the component_id
-cannot be set dynamically at runtime.
-
-=item <PKIT_ERRORFONT NAME="FIELD_NAME"> </PKIT_ERRORFONT>
-
-This tag highlights fields in red that L<Apache::PageKit::Model>
-reported as being filled in incorrectly.
-
-=item <PKIT_VAR NAME="HOSTNAME">
-
-Returns the hostname in the URL of the page being served.  Particulary
-useful when you have production and development servers and you need
-to link to a secure page.
-
-Note that if you are running a proxy server in front of the PageKit server, you
-probably want to use mod_proxy_add_uri.c.  PageKit will extract the hostname
-from the frontend server using the X-Original-URI header that mod_proxy_add_uri sets.
-
-=item <PKIT_LOOP NAME="MESSAGE"> </PKIT_LOOP>
-
-Displays messages passed to C<$model-E<gt>pkit_message> method.
-
-Template should contain something that looks like
-
-  <PKIT_LOOP NAME="MESSAGE">
-     <PKIT_IF NAME="IS_ERROR"><font color="#ff0000"></PKIT_IF>
-     <PKIT_VAR NAME="MESSAGE">
-     <PKIT_IF NAME="IS_ERROR"></font></PKIT_IF>
-     <p>
-  </PKIT_LOOP>
-
-This code will display error message seperated by the HTML C<E<lt>pE<gt>> tag,
-highlighting error messages in red.
-
-=item <PKIT_VAR NAME="SELFURL">
-
-The URL of the current page, including CGI parameters.
-Appends a '&' or '?' at the end to allow additionial parameters.
-
-Note that if you are running a proxy server in front of the PageKit server, you
-probably want to use mod_proxy_add_uri.c (available from
-http://tjmather.com/mod_proxy_add_uri.c ).  PageKit will take the URL from the
-frontend server using the X-Original-URI header that mod_proxy_add_uri sets.
-
-=item <PKIT_IF NAME="VIEW:I<view>"> </PKIT_IF>
-
-Set to true if C<pkit_view> request parameter equals I<view>.
-
-=back
-
-=head1 OPTIONS
-
-Global, server and page configuration variables are described in
-the L<Apache::PageKit::Config> perldoc page.  In addition you
-can set up the session management in L<MyPageKit::Common>.
-
-=head1 REQUEST PARAMETERS
-
-These are parameters that are specified in B<GET> requests and B<POST> requests where
-I<Content-type> is one of I<application/x-www-form-urlencoded> or I<multipart/form-data>.
-
-=over 4
-
-=item pkit_done
-
-The page to return to after the user has finished logging in or creating a new account.
-
-=item pkit_lang
-
-Sets the user's preferred language, using a ISO 639 identifier.
-
-=item pkit_login_page
-
-This parameter is used to specify the page that user attempted to login from.
-If the login fails, this page is redisplayed.
-
-=item pkit_login
-
-If this is set to true, then an attempt to log in is made.
-
-=item pkit_logout
-
-If this is set to true, logs user out.
-
-=item pkit_remember
-
-If set to true upon login, will save user's cookie so that they are still logged
-in next time they restart their browser.
-
-=item pkit_view
-
-Used to implement multiple views/co-branding.  For example, if set to I<print>,
-will search for templates in the C<View/print> directory before using
-templates in the C<View/Default> directory, and sets the
-C<pkit_view:print> parameter in the view to true.
-
-=back
-
 =head1 FREQUENTLY ASKED QUESTIONS
 
 Please look in here before you send me an email.
@@ -1146,16 +1068,12 @@ section on compiling mod_perl and Apache from source.
 
 =head1 SEE ALSO
 
-L<Apache::PageKit::Config>,
-L<Apache::PageKit::Content>,
-L<Apache::PageKit::Error>,
-L<Apache::PageKit::Model>, L<Apache::PageKit::View>,
 L<Apache::Request>, L<HTML::FillInForm>, L<HTML::Template>,
 L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.99
+This document describes Apache::PageKit module version 1.00
 
 =head1 NOTES
 
@@ -1227,6 +1145,6 @@ See the Ricoh Source Code Public License for more details.
 
 You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
 
-You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license
+You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license.html
 
 =cut

@@ -9,25 +9,13 @@ H1, H2, H3, H4, H5, H6 {font-family: Verdana, Arial, Helvetica, Geneva, SunSans-
 </head>
 <body bgcolor="<MODEL_VAR NAME="BGCOLOR">" link="<MODEL_VAR NAME="LINK_COLOR">" vlink="<MODEL_VAR NAME="LINK_COLOR">" text="<MODEL_VAR NAME="TEXT_COLOR">">
 
-  <!-- Navigation -->
-  <PKIT_IF NAME="BREAD_CRUMB">
-  <PKIT_COMPONENT NAME="begin_cell">
-  <PKIT_LOOP NAME="BREAD_CRUMB">
-    <PKIT_UNLESS NAME="__LAST__"><a href="/<PKIT_VAR name="page">"></PKIT_UNLESS><PKIT_VAR NAME="NAME"><PKIT_UNLESS NAME="__LAST__"></a></PKIT_UNLESS>
-    <PKIT_UNLESS NAME="__LAST__"> &gt; </PKIT_UNLESS>
-  </PKIT_LOOP>
-  <PKIT_COMPONENT NAME="end_cell">
-  <p>
-  </PKIT_IF>
-  <!-- /Navigation -->
-
   <!-- Messages -->
 
-  <PKIT_LOOP NAME="MESSAGE">
-    <PKIT_IF NAME="IS_ERROR"><font color="#ff0000"></PKIT_IF>
-    <PKIT_VAR NAME="MESSAGE">
-    <PKIT_IF NAME="IS_ERROR"></font></PKIT_IF>
+  <PKIT_MESSAGES>
+    <PKIT_IS_ERROR><font color="#ff0000"></PKIT_IS_ERROR>
+    <PKIT_MESSAGE>
+    <PKIT_IS_ERROR></font></PKIT_IS_ERROR>
     <p>
-  </PKIT_LOOP>
+  </PKIT_MESSAGES>
 
   <!-- /Messages -->

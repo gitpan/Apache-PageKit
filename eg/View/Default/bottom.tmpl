@@ -1,14 +1,14 @@
 <p>
-  <PKIT_COMPONENT NAME="begin_cell">
+  <PKIT_COMPONENT NAME="/begin_cell">
   Standard View - <a href="<PKIT_SELFURL>pkit_view=print">Printable View</a>
-  <PKIT_COMPONENT NAME="end_cell">
+  <PKIT_COMPONENT NAME="/end_cell">
 
-<PKIT_IF NAME="USER">
+<MODEL_IF NAME="PKIT_USER">
 <p>
-  <PKIT_COMPONENT NAME="begin_cell">
-  You are logged in as <b><PKIT_VAR NAME="LOGIN"></b>.  You may
+  <PKIT_COMPONENT NAME="/begin_cell">
+  You are logged in as <b><MODEL_VAR NAME="PKIT_LOGIN"></b>.  You may
   <a href="<PKIT_SELFURL>pkit_logout=1">Log Out</a>.
-  <PKIT_COMPONENT NAME="end_cell">
-</PKIT_IF>
+  <PKIT_COMPONENT NAME="/end_cell">
+</MODEL_IF>
 </body>
 </html>

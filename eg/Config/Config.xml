@@ -2,6 +2,7 @@
 <!DOCTYPE CONFIG SYSTEM "./PageKit_Config-0.97.dtd">
 <CONFIG>
 <GLOBAL
+	default_page = "index"
 	login_page="login1"
 	model_dispatch_prefix="MyPageKit::MyModel"
 	session_expires="+1y"

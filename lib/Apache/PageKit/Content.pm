@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.24 2001/05/13 03:42:36 tjmather Exp $
+# $Id: Content.pm,v 1.25 2001/05/16 22:13:41 tjmather Exp $
 
 use strict;
 
@@ -152,29 +152,3 @@ sub read_uri {
 sub close_uri {}
 
 1;
-__END__
-
-=head1 NAME
-
-Apache::PageKit::Content - Adaptor to XML::LibXSLT and XML::XPathTemplate
-
-=head1 AUTHOR
-
-T.J. Mather (tjmather@anidea.com)
-
-=head1 COPYRIGHT
-
-Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.  PageKit is
-a trademark of AnIdea Corporation.
-
-=head1 LICENSE
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
-without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the Ricoh Source Code Public License for more details.
-
-You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
-
-You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license
-
-=cut

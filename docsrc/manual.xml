@@ -1,0 +1,32 @@
+<!DOCTYPE book
+  PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
+<!ENTITY reference.xml SYSTEM "reference.xml">
+]>
+<book><?dbhtml filename="index.html"?>
+<bookinfo>
+<title>PageKit 1.00</title>
+<subtitle>Developer's Guide</subtitle>
+<!-- $Id: -->
+<author>
+	<surname>Mather</surname>
+	<firstname>T.J.</firstname>
+</author>
+<copyright>
+	<year>2001</year>
+	<holder>T.J. Mather</holder>
+</copyright>
+</bookinfo>
+
+<preface>
+	<title>Preface</title>
+
+<para>This is the beginnings of documentation for the Apache::PageKit
+web application framework.</para>
+<para>It covers PageKit 1.00, which is currently unreleased</para>
+
+</preface>
+
+&reference.xml;
+
+</book>

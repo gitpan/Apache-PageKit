@@ -3,9 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 0.99 (Alpha)
-	API is subject to change, and should stabilize as
-	we approach version 1.00
+	Version: 1.00 (Alpha)
 
 Description
 -----------
@@ -63,6 +61,8 @@ Required for make test
 Recommended
 -----------
 	- Apache::DBI (*strongly* recommended if you use DBI)
+	- MIME::Types (needed if you want to serve static files from
+		View/Default directory)
 	- Unicode::String (useful for converting accented characters in Content)
 	- XML::LibXSLT (needed if you want to use XSLT tranformations)
 

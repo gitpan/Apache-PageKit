@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.7 2001/05/13 03:42:36 tjmather Exp $
+# $Id: Common.pm,v 1.8 2001/05/16 02:56:15 tjmather Exp $
 
 use strict;
 
@@ -9,7 +9,7 @@ use vars qw(@ISA);
 
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
-$MyPageKit::Common::secret_md5 = 'you_should_place_your_own_md5_string_here';
+$__PACKAGE__::secret_md5 = 'you_should_place_your_own_md5_string_here';
 
 use DBI;
 use MyPageKit::MyModel;
@@ -77,7 +77,7 @@ sub pkit_auth_credential {
     return;
   }
 
-  my $hash = Digest::MD5->md5_hex(join ':', $MyPageKit::Common::secret_md5, $user_id, $epasswd);
+  my $hash = Digest::MD5->md5_hex(join ':', $__PACKAGE__::secret_md5, $user_id, $epasswd);
 
   my $ses_key = {
 		 'user_id'   => $user_id,
@@ -100,7 +100,7 @@ sub pkit_auth_session_key {
 
   # create a new hash and verify that it matches the supplied hash
   # (prevents tampering with the cookie)
-  my $newhash = Digest::MD5->md5_hex(join ':', $MyPageKit::Common::secret_md5, $user_id, crypt($epasswd,"pk"));
+  my $newhash = Digest::MD5->md5_hex(join ':', $__PACKAGE__::secret_md5, $user_id, crypt($epasswd,"pk"));
 
   return unless $newhash eq $ses_key->{'hash'};
 

@@ -1,5 +1,12 @@
-Please BACK UP ALL YOUR FILES before applying attempting to migrate
-your files.
+Please remember to BACK UP YOUR FILES before attempting to run migration
+scripts.
+
+=============================================================
+Migration from 0.99 to 1.00
+
+1. Several of the <PKIT_*> tags have changed.  To update the templates
+run
+migration/migrate_pagekit_0.99_to_1.00.pl /path/to/pagekit_root
 
 =============================================================
 Migration from 0.98 to 0.99

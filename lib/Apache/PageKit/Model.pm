@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.30 2001/05/13 03:42:36 tjmather Exp $
+# $Id: Model.pm,v 1.32 2001/05/16 22:13:41 tjmather Exp $
 
 use integer;
 use strict;
@@ -133,10 +133,10 @@ sub pkit_message {
 
   my $options = {@_};
 
-  my $array_ref = $model->output('pkit_message') || [];
+  my $array_ref = $model->output('pkit_messages') || [];
   push @$array_ref, {pkit_message => $message,
 		    pkit_is_error => $options->{'is_error'}};
-  $model->output('pkit_message',$array_ref);
+  $model->output('pkit_messages',$array_ref);
 }
 
 sub pkit_internal_redirect {
@@ -331,7 +331,7 @@ when you want to fill an edit form with data from the database.
 Wrapper to mod_perl's C<pnotes> function, used to pass values from
 one handler to another.
 
-For example you can set the userID when the user gets authenticated:
+For example you can set the userID when the user gets authenticated.
 
   $model->pnotes(user_id => $user_id);
 
@@ -431,12 +431,12 @@ Note that this passes along the messages set my C<pkit_message> if applicable.
 
 =item pkit_set_errorfont
 
-Sets the corresponding C<&lt;PKIT_ERRORFONT&gt;> tag in the template.  Useful
+Sets the corresponding &lt;PKIT_ERRORFONT&gt; tag in the template.  Useful
 for implementing your own custom constraints.
 
   $model->pkit_set_errorfont('state');
 
-Sets C<&lt;PKIT_ERRORFONT NAME="state"&gt;> to C<&lt;font color="red"&gt;>
+Sets &lt;PKIT_ERRORFONT NAME="state"&gt; to C<&lt;font color="red"&gt;>
 
 =item pkit_validate_input
 

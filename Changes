@@ -1,7 +1,27 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.99
+	For more details on migration, see migration/README
 
+1.00
+	- Moved most of POD documentation to DocBook, published
+		at http://www.pagekit.org/guide
+	- Renamed <PKIT_*> tags as follows:
+	  <PKIT_IF NAME="VIEW:view"> -> <PKIT_VIEW NAME="view">
+	  <PKIT_LOOP NAME="MESSAGE"> -> <PKIT_MESSAGES>, <PKIT_IS_ERROR>, <PKIT_MESSAGE>
+	  <PKIT_VAR NAME="HOSTNAME"> -> <PKIT_HOSTNAME>
+	- support for relative and absolute names for PKIT_COMPONENT
+	- you may now place static HTML files in the pagekit/View/Default
+		or View/pkit_view directories.
+		If pagekit can not locate the approriate
+		template/xml file, it will return declined, but set
+		the filepath so that apache returns the files.
+	- fixed up static handing with default_page and not_found_page
+		(Boris Zentner)
+	- Replaced MyPageKit::Common with __PACKAGE__ in Common.pm
+		(Boris Zentner)
+
+0.99
+	- document() function now works in XML::XPathTemplate
 	- logins are redirected to selfurl if there is no pkit_done param
 	- merged View/Component and Page directories.
 	- $model->input_param -> $model->input, $model->fillinform, $model->pnotes
