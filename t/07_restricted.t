@@ -7,8 +7,11 @@ use Apache::TestRequest qw'POST GET';
 # skip tests if we use a old version of LWP.
 plan tests => 6, sub {  have_lwp() && $LWP::VERSION >= 5.76 };
 
-Apache::TestRequest::user_agent( reset      => 1,
-                                 cookie_jar => {} );
+Apache::TestRequest::user_agent(
+                                 reset                 => 1,
+                                 cookie_jar            => {},
+                                 requests_redirectable => [qw/GET HEAD POST/]
+);
 
 # check if we can request a page
 my $url = '/restricted';

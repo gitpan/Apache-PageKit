@@ -1,6 +1,12 @@
 Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
+1.18
+ 	- Allow testsuit to catch up with Changes in Apache::Test.
+ 		POST's can be redirected on the fly. 
+		Otherwise the tests 05, 06 and 07 fail.
+		( Boris Zentner )
+
 1.17
 	- Fix: a new typo in Makefile.PL
 		-+binmode $template_fh, ':encoding($default_input_charset)';

@@ -10,8 +10,12 @@ plan tests => 9, sub {  have_lwp() && $LWP::VERSION >= 5.76 };
 require HTTP::Cookies;
 
 my $cookie_jar = HTTP::Cookies->new;
-Apache::TestRequest::user_agent( reset      => 1,
-                                 cookie_jar => $cookie_jar );    
+
+Apache::TestRequest::user_agent(
+                                 reset                 => 1,
+                                 cookie_jar            => $cookie_jar,
+                                 requests_redirectable => [qw/GET HEAD POST/]
+);
 
  my  $r = POST '/login2',
     [

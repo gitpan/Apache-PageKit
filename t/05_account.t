@@ -4,23 +4,29 @@ use strict;
 use Apache::Test;
 use Apache::TestUtil;
 use Apache::TestRequest qw'GET POST';
+
 # skip tests if we use a old version of LWP.
-plan tests => 6, sub {  have_lwp() && $LWP::VERSION >= 5.76 };
+plan tests => 6, sub { have_lwp() && $LWP::VERSION >= 5.76 };
 require HTTP::Cookies;
 require HTML::Form;
 my $cookie_jar = HTTP::Cookies->new;
-Apache::TestRequest::user_agent( reset      => 1,
-                                 cookie_jar => $cookie_jar );
+Apache::TestRequest::user_agent(
+                                 reset                 => 1,
+                                 cookie_jar            => $cookie_jar,
+                                 requests_redirectable => [qw/GET HEAD POST/]
+);
 
 # check if we can request a page
 my $r = GET '/newacct1';
 ok t_cmp( $r->code, 200, '$r->code == HTTP_OK?' );
-ok t_cmp( $r->content, qr:\Q<title>PageKit.org | New Account</title>:, "new account page" );
+ok t_cmp( $r->content,
+          qr:\Q<title>PageKit.org | New Account</title>:,
+          "new account page" );
 
-# not all HTML::Form versions know about parse($r) so we use 
+# not all HTML::Form versions know about parse($r) so we use
 # HTML::Form->parse($r->content, $r->base ) instead
 #my @forms     = HTML::Form->parse($r);
-my @forms     = HTML::Form->parse( $r->content, $r->base );
+my @forms = HTML::Form->parse( $r->content, $r->base );
 my $pkit_done = eval { $forms[0]->find_input('pkit_done')->value };
 
 my $t = 0;
@@ -50,16 +56,17 @@ continue {
 
 ok t_cmp( 200, $r->code, '$r->code == 200 Found?' );
 
-my $cookie_cnt = 0;
+my $cookie_cnt  = 0;
 my $pkit_id_cnt = 0;
 $cookie_jar->scan(
   sub {
     $cookie_cnt++;
     next unless ( $_[1] eq 'pkit_id' );
     $pkit_id_cnt++;
+
     # cookie has no expire field and or discard is set
     ok( !$_[8] or $_[9] );    # temp cookie
   }
 );
-ok $cookie_cnt  >= 1;
+ok $cookie_cnt >= 1;
 ok $pkit_id_cnt >= 1;

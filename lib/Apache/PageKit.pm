@@ -50,7 +50,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED HTTP_NOT_MODIFIED);
 
 use vars qw($VERSION);
-$VERSION = '1.17';
+$VERSION = '1.18';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
