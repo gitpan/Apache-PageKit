@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.49 2002/03/22 19:59:13 borisz Exp $
+$Id: reference.xml,v 1.54 2002/04/25 15:48:07 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -142,7 +142,12 @@ but their cookies are not enabled.  Defaults to <literal><link linkend="config.g
       </para>
       <informalexample>
        <programlisting>
+        # some example fop command lines
 	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"
+	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"
+	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.Fop"
+	fop_command = "/usr/lib/java/bin/java -classpath /opt/fop-0.20.3/lib/xerces-1.2.3.jar:/opt/fop-0.20.3/lib/xalanj1compat.jar:/opt/fop-0.20.3/lib/xalan-2.0.0.jar:/opt/fop-0.20.3/lib/xalan-1.2.2.jar:/opt/fop-0.20.3/lib/stylebook.jar:/opt/fop-0.20.3/lib/logkit-1.0b4.jar:/opt/fop-0.20.3/lib/buildtools.jar:/opt/fop-0.20.3/lib/bsf.jar:/opt/fop-0.20.3/lib/batik.jar:/opt/fop-0.20.3/lib/avalon-framework-4.0.jar:/opt/fop-0.20.3/lib/ant.jar:/opt/fop-0.20.3/lib/ant-1.3-optional.jar:/opt/fop-0.20.3/build/fop.jar: org.apache.fop.apps.Fop"
+
        </programlisting>
       </informalexample>
       <para>
@@ -464,7 +469,11 @@ If set to <emphasis>yes</emphasis>, enables on-line editing tools.
       </para>
       <informalexample>
        <programlisting>
-	fop_command = /usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine
+        # some example fop command lines
+	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"
+	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"
+	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.Fop"
+	fop_command = "/usr/lib/java/bin/java -classpath /opt/fop-0.20.3/lib/xerces-1.2.3.jar:/opt/fop-0.20.3/lib/xalanj1compat.jar:/opt/fop-0.20.3/lib/xalan-2.0.0.jar:/opt/fop-0.20.3/lib/xalan-1.2.2.jar:/opt/fop-0.20.3/lib/stylebook.jar:/opt/fop-0.20.3/lib/logkit-1.0b4.jar:/opt/fop-0.20.3/lib/buildtools.jar:/opt/fop-0.20.3/lib/bsf.jar:/opt/fop-0.20.3/lib/batik.jar:/opt/fop-0.20.3/lib/avalon-framework-4.0.jar:/opt/fop-0.20.3/lib/ant.jar:/opt/fop-0.20.3/lib/ant-1.3-optional.jar:/opt/fop-0.20.3/build/fop.jar: org.apache.fop.apps.Fop"
        </programlisting>
       </informalexample>
      </listitem>

@@ -17,7 +17,7 @@
       <fo:region-after extent="1.5cm"/>
     </fo:simple-page-master>
   </fo:layout-master-set>
-  <fo:page-sequence master-name="simple">
+  <fo:page-sequence master-reference="simple">
    <fo:flow flow-name="xsl-region-body">
     <xsl:apply-templates/>
    </fo:flow>

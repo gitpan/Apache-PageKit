@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.74 2002/03/14 14:41:38 borisz Exp $
+# $Id: Model.pm,v 1.77 2002/04/30 09:27:39 borisz Exp $
 
 use integer;
 use strict;
@@ -20,6 +20,8 @@ sub new {
   }
   $self->{pkit_pk}->{output_param_object} ||= Apache::PageKit::Param->new();
   $self->{pkit_pk}->{fillinform_object} ||= Apache::PageKit::Param->new();
+  $self->{pkit_pk}->{ignore_fillinform_fields} ||= [];
+
   return $self;
 }
 
@@ -248,6 +250,13 @@ sub input {
 sub fillinform {
   return shift->{pkit_pk}->{fillinform_object}->param(@_);
 }
+
+# undocumented
+sub ignore_fillinform_fields {
+  my $model = shift;
+  push @{$model->{pkit_pk}->{ignore_fillinform_fields}}, @_;
+}
+
 
 sub output {
   return shift->{pkit_pk}->{output_param_object}->param(@_);

@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.175 2002/03/13 22:41:15 borisz Exp $
+# $Id: PageKit.pm,v 1.191 2002/04/30 09:27:39 borisz Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -34,7 +34,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = 1.08_01;
+$VERSION = '1.09';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -651,6 +651,7 @@ sub prepare_and_print_view {
     shift @fillinform_objects_array;
   }
   $view->{fillinform_objects} = [ grep {$_->param} @fillinform_objects_array ];
+  $view->{ignore_fillinform_fields} = $pk->{ignore_fillinform_fields};
 
   my $page_rpit = $config->get_page_attr($page_id,'request_param_in_tmpl') || '';
   my $global_rpit = $config->get_global_attr('request_param_in_tmpl') || 'no';
@@ -675,7 +676,6 @@ sub prepare_and_print_view {
   my $browser_cache =  $config->get_page_attr($page_id,'browser_cache') || 'yes';
   $apr->header_out('Expires','-1') if $apr->param('pkit_logout') || $browser_cache eq 'no' || $apr->connection->user;
 
-  my $retcharset;
   my $default_output_charset = $view->{default_output_charset};
   my @charsets = ();
   if($output_media eq 'text/html'){
@@ -710,9 +710,13 @@ sub prepare_and_print_view {
     my $fop_command = $config->get_server_attr('fop_command') ||
       $config->get_global_attr('fop_command');
     die "fop_command not specifed in configuration - must specify to use Apache XML FOP to generate PDFs" unless $fop_command;
-    my $error_message = `$fop_command $fo_file $pdf_file 2>&1 1>/dev/null`;
+ #   my $error_message = `$fop_command $fo_file $pdf_file 2>&1 1>/dev/null`;
+    my $error_message = `$fop_command $fo_file $pdf_file 2>&1`;
 
-    if(-s "$pdf_file"){
+    ## the recommended fop converter has no usefull error messages.
+    ## the errormoessages go also to STDOUT
+    ## and the returncode is always 0
+    unless ($error_message =~ /^\[ERROR\]:/m){
       local $/;
       open PDF_OUTPUT, "<$pdf_file" or die "can't open file: $pdf_file ($!)";
       $$output_ref = <PDF_OUTPUT>;
@@ -726,10 +730,6 @@ sub prepare_and_print_view {
     $apr->content_type($output_media);
   }
 
-  if($pk->{use_gzip} eq 'all'){
-    $apr->content_encoding("gzip");
-  }
-
   # for a head request
   if ($apr->header_only) {
     $apr->send_http_header if $apr->is_initial_req;
@@ -740,7 +740,7 @@ sub prepare_and_print_view {
   $model->pkit_output_filter($output_ref)
     if $model->can('pkit_output_filter');
 
-  my $converted_data;
+  my ( $converted_data, $retcharset );
   if ($output_media eq 'text/html'){
     my $data;
     while (@charsets){
@@ -758,25 +758,22 @@ sub prepare_and_print_view {
     ## we deliver in our default_output_charset.
 
     # correct the header
-    $apr->content_encoding('') unless ($retcharset);
     $apr->content_type("text/html; charset=$retcharset") if ($retcharset);
     $apr->content_type("text/html")                      unless ($retcharset);
   }
 
+  # only pages with propper $retcharset are tranfered gzipped.
+  # this can maybe changed!? Needs some tests
+  my $send_gzipped = ( $retcharset && $pk->{use_gzip} eq 'all' );
+  $apr->content_encoding('gzip') if ($send_gzipped);
+
   $apr->send_http_header if $apr->is_initial_req;
 
-  if($converted_data){
-    if($pk->{use_gzip} eq 'all'){
-      $apr->print(Compress::Zlib::memGzip($converted_data));
-    } else {
-      $apr->print($converted_data);
-    }
+
+  if ($send_gzipped) {
+    $apr->print(Compress::Zlib::memGzip($converted_data || $$output_ref));
   } else {
-    if($pk->{use_gzip} eq 'all' && $retcharset){
-      $apr->print(Compress::Zlib::memGzip($$output_ref));
-    } else {
-      $apr->print($$output_ref);
-    }
+    $apr->print($converted_data || $$output_ref);
   }
 }
 
@@ -1449,6 +1446,7 @@ Fixes, Bug Reports, Docs have been generously provided by:
   David Christian
   Rob Starkey
   Anton Permyakov
+  John Robinson
   Daniel Gardner
   Andy Massey
   Michael Cook
@@ -1457,6 +1455,7 @@ Fixes, Bug Reports, Docs have been generously provided by:
   Sheldon Hearn
   Vladimir Sekissov
   Gabriel Burka
+  Tomasz Konefal
 
 Also, thanks to Dan Von Kohorn for helping shape the initial architecture
 and for the invaluable support and advice. 

@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.41 2002/03/22 23:12:04 tjmather Exp $
+# $Id: Content.pm,v 1.42 2002/04/30 09:20:17 borisz Exp $
 
 use strict;
 
@@ -101,7 +101,11 @@ sub process_template {
 					xml_filename  => "$component_id.xml");
     my $file_mtimes = $xpt->file_mtimes;
     while (my ($k, $v) = each %$file_mtimes){
-      $content->{include_mtimes}->{$k} = $v;
+      # $v (mtime) can be undef in case where the content came from
+      # xpath document function. This is not changed in HTML::Template::XPath
+      # since otherwise the H:T:X try to put the file into his mtimes hash
+      # over and over
+      $content->{include_mtimes}->{$k} = $v if $v;
     }
   } else {
     $lang_tmpl->{$content->{default_lang}} = $template_ref;

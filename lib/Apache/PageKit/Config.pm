@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.30 2002/03/05 14:13:22 borisz Exp $
+# $Id: Config.pm,v 1.34 2002/04/16 20:20:06 borisz Exp $
 
 use integer;
 use strict;

@@ -1,5 +1,8 @@
 <?xml version="1.0" ?>
 <CONFIG>
+
+<!-- this is a comment -->
+
 <GLOBAL
 	default_page = "index"
 	fop_command = "/usr/java/jdk1.3.0_02/bin/java -cp /usr/local/javaclass/fop org.apache.fop.apps.CommandLine"

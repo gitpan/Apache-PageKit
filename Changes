@@ -2,6 +2,15 @@ Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
 1.09
+	- Fix: case where something.xml was added to the mtimes hash even
+		if it does not exists (only if all your content came from
+		another file via xpath document() function) this result in a 
+		slowdown for the page unless reload="no" (Boris Zentner)
+	- Fix: die with the error from the fop command.
+        	So the errors show up in your browser or log (Boris Zentner)
+	- Fix content_encoding header. If unsure, play save and send
+        	the page NOT gzipped (Boris Zentner)
+	- Fix fop example pages (John Robinson)
 	- Add new global option protect_static (Boris Zentner)
 	- Remove some mystery chars (0xA0) (Boris Zentner)
 	- Add new hook pkit_on_error to catch and maybe repair fatal errors

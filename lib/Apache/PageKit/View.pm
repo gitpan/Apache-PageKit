@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.87 2002/03/22 23:12:04 tjmather Exp $
+# $Id: View.pm,v 1.93 2002/04/30 09:27:39 borisz Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -143,7 +143,9 @@ sub fill_in_view {
     if(@{$view->{fillinform_objects}}){
       $fif = HTML::FillInForm->new();
       $output = $fif->fill(scalarref => \$output,
-                           fobject   => $view->{fillinform_objects} );
+                           fobject   => $view->{fillinform_objects},
+			   ignore_fields => $view->{ignore_fillinform_fields}
+			  );
     }
   }
   if($view->{can_edit} eq 'yes'){
