@@ -5,10 +5,9 @@
 	default_lang			CDATA	"en"
 	default_page			CDATA	"index"
 	html_clean_level		(0|1|2|3|4|5|6|7|8|9)	"9"
-	component_dispatch_prefix	CDATA	"MyPageKit::ComponentCode"
 	login_page			CDATA	"login"
 	not_found_page			CDATA	#IMPLIED
-	page_dispatch_prefix		CDATA	"MyPageKit::PageCode"
+	model_dispatch_prefix		CDATA	"MyPageKit::MyModel"
 	post_max			CDATA	"100000000"
 	recent_login_timeout		CDATA	"3600"
 	uri_prefix			CDATA	#IMPLIED

@@ -1,9 +1,21 @@
 <?xml version="1.0" ?>
 <!DOCTYPE pagekit SYSTEM "../Content.dtd">
 <PAGE>
-<NAV_TITLE>Home</NAV_TITLE>
+<NAV_TITLE xml:lang="de">Oberseite</NAV_TITLE>
+<NAV_TITLE xml:lang="en">Home</NAV_TITLE>
+<NAV_TITLE xml:lang="es">Tapa</NAV_TITLE>
+<NAV_TITLE xml:lang="fr">Dessus</NAV_TITLE>
 <CONTENT_VAR NAME="html_title"><![CDATA[Welcome to PageKit.org]]></CONTENT_VAR>
 <CONTENT_LOOP NAME="news">
+      <CONTENT_ITEM>
+	<CONTENT_VAR NAME="date"><![CDATA[December 31st, 2000]]></CONTENT_VAR>
+	<CONTENT_VAR NAME="title"><![CDATA[Release of PageKit 0.92]]></CONTENT_VAR>
+	<CONTENT_VAR NAME="description"><![CDATA[Rewrote Apache::PageKit::Model
+	to support OO pluggable modules.  These modules are simply Perl classes
+	derived from Apache::PageKit::Model
+	containing methods that take request parameters and set view variables.
+	]]></CONTENT_VAR>
+      </CONTENT_ITEM>
       <CONTENT_ITEM>
 	<CONTENT_VAR NAME="date"><![CDATA[December 23rd, 2000]]></CONTENT_VAR>
 	<CONTENT_VAR NAME="title"><![CDATA[Release of PageKit 0.90]]></CONTENT_VAR>

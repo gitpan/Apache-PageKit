@@ -1,6 +1,6 @@
 package Apache::PageKit::Error;
 
-# $Id: Error.pm,v 1.4 2000/11/20 20:57:44 tjmather Exp $
+# $Id: Error.pm,v 1.5 2001/01/01 00:38:07 tjmather Exp $
 
 use integer;
 use strict;
@@ -89,12 +89,9 @@ Apache::PageKit::Error - Error Handling under mod_perl
 
 =head1 SYNOPSIS
 
-In your perl code or C<startup.pl> file:
-
-  use Apache::PageKit::Error;
-
 In your Apache configuration file:
 
+  PerlModule Apache::PageKit::Error
   PerlSetVar PKIT_ERROR_HANDLER email
 
 =head1 DESCRIPTION

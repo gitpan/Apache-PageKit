@@ -1,6 +1,6 @@
 package MyPageKit;
 
-# $Id: MyPageKit.pm,v 1.4 2000/12/11 16:10:35 tjmather Exp $
+# $Id: MyPageKit.pm,v 1.6 2001/01/01 00:38:07 tjmather Exp $
 
 use strict;
 
@@ -9,52 +9,10 @@ use vars qw(@ISA);
 
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
+$Apache::PageKit::secret_md5 = 'you_should_place_your_own_md5_string_here';
+
 use DBI;
-use MyPageKit::PageCode;
-use MyPageKit::IncludeCode;
-
-# form profiles for FormValidator
-my $input_profile 
-  = {
-     newacct2 => {
-		  required => [ qw( pkit_object email login passwd1 passwd2 ) ],
-		  constraints => {
-				  email => "email",
-				  login => { constraint => sub {
-					       my ($new_login, $pk) = @_;
-					       my $dbh = $pk->{dbh};
-					       my $user_id = $pk->{apr}->connection->user;
-					       my $sql_str = "SELECT login FROM pkit_user WHERE user_id=?";
-					       my ($old_login) = $dbh->selectrow_array($sql_str,{},$user_id);
-
-					       # return ok if user didn't change login
-					       # (assumes that login is case-insensitive)
-					       return 1 if lc($old_login) eq lc($new_login);
-
-					       # user changed login, check to make sure it isn't used
-					       $sql_str = "SELECT login FROM pkit_user WHERE login = ?";
-					       # login is used, return false
-					       return 0 if $dbh->selectrow_array($sql_str,{},$new_login);
-					       # login isn't used, return true
-					       return 1;
-					     },
-					     params => [ qw( login pkit_object )]
-					   },
-				  passwd1 => { constraint => sub { return $_[0] eq $_[1]; },
-					       params => [ qw( passwd1 passwd2 ) ]
-					     },
-				  passwd2 => { constraint => sub { return $_[0] eq $_[1]; },
-					       params => [ qw( passwd1 passwd2 ) ]
-					     },
-				 },
-		  messages => {
-			       login => "The login, <b>%%VALUE%%</b>, has already been used.",
-			       email => "The E-mail address, <b>%%VALUE%%</b>, is invalid.",
-			       phone => "The phone number you entered is invalid.",
-			       passwd1 => "The passwords you entered do not match."
-			      },
-		 },
-    };
+use MyPageKit::MyModel;
 
 sub handler {
   my $r = shift;
@@ -63,7 +21,6 @@ sub handler {
   my $dbh = DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
 
   my $pk = MyPageKit->new(
-			  form_validator_input_profile => $input_profile,
 			  session_store_class => 'File',
 			  session_lock_class => 'File',
 			  dbh => $dbh,
@@ -78,12 +35,12 @@ sub handler {
 
   # put code that is common to all pages here
   # begin EXAMPLE code
-  my $view = $pk->{view};
-  my $session = $pk->{session};
-  $view->param(link_color => $session->{'link_color'} || 'ff9933');
-  $view->param(text_color => $session->{'text_color'} || '000000');
-  $view->param(bgcolor => $session->{'bgcolor'} || 'dddddd');
-  $view->param(mod_color => $session->{'mod_color'} || 'ffffff');
+  my $model = $pk->{model};
+  my $session = $model->{session};
+  $model->output_param(link_color => $session->{'link_color'} || 'ff9933');
+  $model->output_param(text_color => $session->{'text_color'} || '000000');
+  $model->output_param(bgcolor => $session->{'bgcolor'} || 'dddddd');
+  $model->output_param(mod_color => $session->{'mod_color'} || 'ffffff');
   # end EXAMPLE code
 
   $pk->prepare_view;
@@ -94,12 +51,13 @@ sub handler {
 
 sub auth_credential {
   my ($pk, @credentials) = @_;
-  my $dbh = $pk->{dbh};
+  my $model = $pk->{model};
+  my $dbh = $model->{dbh};
   my $login = $credentials[0];
   my $passwd = $credentials[1];
 
   unless ($login ne "" && $passwd ne ""){
-    $pk->message("You did not fill all of the fields.  Please try again.",
+    $model->pkit_message("You did not fill all of the fields.  Please try again.",
 		 is_error => 1);
     return;
   }
@@ -110,14 +68,12 @@ sub auth_credential {
   my ($user_id, $dbpasswd) = $dbh->selectrow_array($sql_str, {}, $login);
 
   unless ($epasswd eq crypt($dbpasswd,$epasswd)){
-    $pk->message("Your login/password is invalid. Please try again.",
+    $model->pkit_message("Your login/password is invalid. Please try again.",
 		is_error => 1);
     return;
   }
 
-  my $secret_md5 = $pk->{secret_md5};
-
-  my $hash = Digest::MD5->md5_hex(join ':', $secret_md5, $user_id, $epasswd);
+  my $hash = Digest::MD5->md5_hex(join ':', $Apache::MyPageKit::secret_md5, $user_id, $epasswd);
 
   my $ses_key = {
 		 'user_id'   => $user_id,
@@ -130,11 +86,8 @@ sub auth_credential {
 sub auth_session_key {
   my ($pk, $ses_key) = @_;
 
-  my $apr = $pk->{apr};
-  my $dbh = $pk->{dbh};
-  my $view = $pk->{view};
-
-  my $secret_md5 = $pk->{secret_md5};
+  my $model = $pk->{model};
+  my $dbh = $model->{dbh};
 
   my $user_id = $ses_key->{user_id};
 
@@ -144,11 +97,11 @@ sub auth_session_key {
 
   # create a new hash and verify that it matches the supplied hash
   # (prevents tampering with the cookie)
-  my $newhash = Digest::MD5->md5_hex(join ':', $secret_md5, $user_id, crypt($epasswd,"pk"));
+  my $newhash = Digest::MD5->md5_hex(join ':', $Apache::MyPageKit::secret_md5, $user_id, crypt($epasswd,"pk"));
 
   return unless $newhash eq $ses_key->{'hash'};
 
-  $view->param('pkit_login',$login);
+  $model->output_param('pkit_login',$login);
 
   return $user_id;
 }
@@ -171,12 +124,12 @@ It is a good starting point for building your own subclass.
 
 =head1 AUTHOR
 
-T.J. Mather (tjmather@thoughtstore.com)
+T.J. Mather (tjmather@anidea.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.  PageKit is a trademark
-of ThoughtStore, Inc.
+Copyright (c) 2000, AnIdea, Corp.  All rights Reserved.  PageKit is a trademark
+of AnIdea Corp.
 
 =head1 LICENSE
 

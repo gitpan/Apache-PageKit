@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.11 2000/12/26 08:51:35 tjmather Exp $
+# $Id: View.pm,v 1.13 2001/01/01 02:25:03 tjmather Exp $
 
 use integer;
 use strict;
@@ -73,7 +73,8 @@ sub _init {
   $view->{pk} = $pk;
 
   my $apr = $pk->{apr};
-  my $session = $pk->{session};
+  my $model = $pk->{model};
+  my $session = $model->{session};
 
   $view->{template_root} = $apr->dir_config('PKIT_ROOT') . "/View";
 
@@ -90,9 +91,9 @@ sub _init {
   # set PKIT_NETSCAPE or PKIT_INTERNET_EXPLORER tag
   my $agent = $apr->header_in('User-Agent');
   if($agent =~ /MSIE/){
-    $view->param(PKIT_INTERNET_EXPLORER => 1);
+    $model->output_param(PKIT_INTERNET_EXPLORER => 1);
   } elsif ($agent =~ /Mozilla/){
-    $view->param(PKIT_NETSCAPE => 1);
+    $model->output_param(PKIT_NETSCAPE => 1);
   }
 
   # get Locale settings
@@ -127,7 +128,6 @@ sub prepare_component {
   } else {
     $options->{file_cache} = 1;
   }
-#  $options->{cache} = 1;
 
   my $output = $view->prepare_template($template_name,
 				       $options);
@@ -149,6 +149,7 @@ sub prepare_output {
   my $pk = $view->{pk};
   my $config = $pk->{config};
   my $apr = $pk->{apr};
+  my $model = $pk->{model};
 
   my $page_id = $pk->{page_id};
 
@@ -161,7 +162,6 @@ sub prepare_output {
   } else {
     $options->{file_cache} = 1;
   }
-#  $options->{cache} = 1;
 
   my $output = $view->prepare_template($template_name,
 				       $options);
@@ -170,8 +170,7 @@ sub prepare_output {
 
   my $pkit_errorfont_ref = sub {
     my ($name, $text) = @_;
-    my $model = $pk->{model};
-    if($model && $model->is_error_field($name)){
+    if($model && $model->pkit_is_error_field($name)){
       return qq{<font color="#ff000">$text</font>};
     } else {
       return $text;
@@ -181,7 +180,7 @@ sub prepare_output {
   $output =~ s/<PKIT_ERRORFONT (NAME=)?"?([^"]*?)"?>(.*?)<\/PKIT_ERRORFONT>/&$pkit_errorfont_ref($2,$3)/eigs;
 
   # make html forms "sticky"
-  my $fill_in_form = $config->get_page_attr('fill_in_form');
+  my $fill_in_form = $config->get_page_attr($pk->{page_id},'fill_in_form');
 
   # here we call HTML::FillInForm if fill_in_form=yes
   # or fill_in_form=auto and output contains form tag
@@ -219,15 +218,15 @@ sub prepare_template {
 
   my $output = "";
 
-  if($view->param('pkit_admin')){
-    # add edit link for pkit_admins
-
-    $template_name =~ s!^/!!;
-
-    my $pkit_done = Apache::Util::escape_uri($view->param('pkit_done'));
-
-    $output = qq{<font size="-1"><a href="/pkit_edit/open_view?template=$template_name&pkit_done=$pkit_done">(edit template $template_name)</a></font>};
-  }
+#  if($view->param('pkit_admin')){
+#    # add edit link for pkit_admins
+#
+#    $template_name =~ s!^/!!;
+#
+#    my $pkit_done = Apache::Util::escape_uri($view->param('pkit_done'));
+#
+#    $output = qq{<font size="-1"><a href="/pkit_edit/open_view?template=$template_name&pkit_done=$pkit_done">(edit template $template_name)</a></font>};
+#  }
 
   $output .= $template->output;
 
@@ -240,6 +239,7 @@ sub _apply_param {
   my ($view, $template) = @_;
 
   my $pk = $view->{pk};
+  my $model = $pk->{model};
 
   my $page_id = $pk->{page_id};
 
@@ -256,9 +256,9 @@ sub _apply_param {
       if $template->query(name => $key) eq 'VAR';
   }
 
-  # get params from $view object
-  foreach my $key ($view->param){
-    my $value = $view->param($key);
+  # get params from $model object
+  foreach my $key ($model->output_param){
+    my $value = $model->output_param($key);
     unless (ref($value) eq 'ARRAY' && $template->query(name => $key) ne 'LOOP'){
       $template->param($key, $value);
     } else {
@@ -267,60 +267,6 @@ sub _apply_param {
       $template->param($key, scalar @$value);
     }
   }
-
-  # set laugauge localization, if applicable
-
-  # replaced with xml:lang support in content xml files
-
-#  while(my $lang = shift @{$view->{lang}}){
-#    if ($template->query(name => "PKIT_LANG_$lang")){
-#      $template->param("PKIT_LANG_$lang" => 1);
-#      last;
-#    }
-#  }
-}
-
-# param method - can be called in two forms
-# when passed two arguments ($name, $value), it sets the value of the 
-# $name attributes to $value
-# when passwd one argument ($name), retrives the value of the $name attribute
-# used to access and set values of <MODEL_*> tags
-sub param {
-  my ($view, @p) = @_;
-
-  unless(@p){
-    # the no-parameter case - return list of parameters
-    return () unless defined($view) && $view->{'.parameters'};
-    return () unless @{$view->{'.parameters'}};
-    return @{$view->{'.parameters'}};
-  }
-  my ($name, $value);
-  if (@p > 1){
-    die "param called with odd number of parameters" unless ((@p % 2) == 0);
-    while(($name, $value) = splice(@p, 0, 2)){
-      $view->_add_parameter($name);
-      $view->{param}->{$name} = $value;
-    }
-  } else {
-    $name = $p[0];
-  }
-  return $view->{param}->{$name};
-}
-
-# used to access and set values of <CONTENT_VAR> and <CONTENT_LOOP> tags
-sub content_param {
-  my ($view, @p) = @_;
-  for my $i (0 .. @p/2){
-    $p[$i] = "content:".$p[$i];
-  }
-  $view->param(@p);
-}
-
-sub _add_parameter {
-  my ($view, $param) = @_;
-  return unless defined $param;
-  push (@{$view->{'.parameters'}},$param)
-    unless defined($view->{$param});
 }
 
 sub output_ref {
@@ -345,8 +291,9 @@ Apache::PageKit::View - Bridge between Apache::PageKit and HTML::Template
 =head1 SYNOPSIS
 
 This class is a wrapper class to HTML::Template.  It simplifies the calls to 
-output a new template, stores the parameters to be used in a template, and
-fills in CGI forms using L<HTML::FillInForm> and resolves <PKIT_*> tags.
+output a new templat, and
+fills in CGI forms using L<HTML::FillInForm> and resolves <MODEL_*>,
+<CONTENT_*> and <PKIT_*> tags.
 
 =head1 METHODS
 
@@ -359,27 +306,6 @@ The following methods are available to the user as Apache::PageKit::View API.
   my $view = new Apache::PageKit::View;
 
 Constructor for new object.
-
-=item param
-
-This is similar to the L<HTML::Template|HTML::Template/param> method.  It is
-used to set <MODEL_*> template variables.
-
-  $view->param(USERNAME => "John Doe");
-
-Sets the parameter USERNAME to "John Doe".
-That is C<E<lt>MODEL_VAR NAME="USERNAME"E<gt>> will be replaced
-with "John Doe".
-
-It can also be used to set multiple parameters at once:
-
-  $view->param(firstname => $firstname,
-               lastname => $lastname);
-
-=item content_param
-
-Similar to C<param> but accesses and sets content variables
-associated with the <CONTENT_VAR> and <CONTENT_LOOP> tags.
 
 =item prepare_component
 

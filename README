@@ -3,20 +3,21 @@ Apache::PageKit
 
 Status
 ------
-Version: 0.91 (Alpha)
-API is subject to change, and should stablize as
+Version: 0.92 (Alpha)
+API is subject to change, and should stabilize as
 we approach version 1.00 (First Beta Release)
 
 Description
 -----------
 	PageKit is a web applications framework that is based on mod_perl.
 	This framework is distinguished from others such as Embperl and Mason
-	by providing a clear seperation of programming, content and
+	by providing a clear separation of programming, content and
 	presentation.
 
-	It does this by implementing a Model/View/Content/Controller paradigm:
-		- Model is user supplied Perl classes
-		- View is set of HTML::Templates
+	It does this by implementing a Model/View/Content/Controller (MVCC)
+	design paradigm:
+		- Model is user supplied Perl Classes
+		- View is set of HTML Templates
 		- Content is set of XML Files
 		- Controller is PageKit
 
@@ -36,7 +37,7 @@ Description
 
 Requirements
 ------------
-	- mod_perl
+	- mod_perl 1.24_01 (lastest version requir'd for make test only)
 	- libapreq
 	- Apache::Session 1.5
 	- HTML::FillInForm
@@ -61,7 +62,7 @@ Installation
 	make test
 	make install
 
-	You will be prompted for the location of your mod_perl server.
+	You will be prompted for the location of your mod_perl enabled server.
 	This will be used to start a running PageKit enabled web server
 	for testing.
 
@@ -73,7 +74,10 @@ Configuration
 
 		SetHandler perl-script
 		PerlSetVar PKIT_ROOT /path/to/pagekit/files
-		PerlModule Apache::PageKit 
+		PerlModule Apache::PageKit
+		<Perl>
+			Apache::PageKit::startup("/path/to/pagekit/files");
+		</Perl>
 		PerlHandler +MyPageKit
 
 	and changing the settings in

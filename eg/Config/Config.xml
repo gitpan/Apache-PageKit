@@ -3,8 +3,7 @@
 <CONFIG>
 <GLOBAL
 	login_page="login1"
-	page_dispatch_prefix="MyPageKit::PageCode"
-	component_dispatch_prefix="MyPageKit::ComponentCode"
+	model_dispatch_prefix="MyPageKit::MyModel"
 	uri_prefix = "pagekit/"
 />
 <SERVERS>

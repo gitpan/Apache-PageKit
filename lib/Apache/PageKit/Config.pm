@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.4 2000/12/26 08:51:35 tjmather Exp $
+# $Id: Config.pm,v 1.5 2001/01/01 00:38:07 tjmather Exp $
 
 use integer;
 use strict;
@@ -92,6 +92,9 @@ sub uri_match {
 
 ##################################
 # methods for parsing XML file
+sub CONFIG {}
+sub CONFIG_ {}
+
 # called at <GLOBAL> tag in XML file
 sub GLOBAL {
   my ($p, $edtype, %attr) = @_;
@@ -100,6 +103,10 @@ sub GLOBAL {
     $global_attr->{$cur_config->{config_dir}}->{$key} = $value;
   }
 }
+
+sub GLOBAL_ {}
+sub SERVERS {}
+sub SERVERS_ {}
 
 # called at <SERVER> tag in XML file
 sub SERVER {
@@ -111,6 +118,11 @@ sub SERVER {
     $server_attr->{$config->{config_dir}}->{$server_id}->{$key} = $value;
   }
 }
+
+sub SERVER_ {}
+
+sub PAGES {}
+sub PAGES_ {}
 
 # called at beginning <PAGE> tag in XML file
 sub PAGE {
@@ -128,6 +140,8 @@ sub PAGE {
     }
   }
 }
+
+sub PAGE_ {}
 
 sub Attlist {
   my ($p, $elname, $attname, $type, $default, $fixed) = @_;
@@ -206,27 +220,19 @@ but their cookies are not enabled.  Defaults to C<login_page>.
 
 Default page user gets when no page is specified.  Defaults to I<index>.
 
-=item include_dispatch_prefix
-
-This prefixes the class that the contains the include code.  Defaults to MyPageKit::IncludeCode.
-
-Methods in this class must be named include_I<include_id> where I<include_id> is the ID of the include,
-and take an Apache::PageKit object as their only argument.
-
 =item login_page
 
 Page that gets displayed when user attempts to log in.  Defaults to I<login>.
 
+=item model_dispatch_prefix
+
+This prefixes the class that the contains the model code.  Defaults to MyPageKit::MyModel.
+
+Methods in this class take an Apache::PageKit::Model object as their only argument.
+
 =item not_found_page
 
 Error page when page cannot be found.  Defaults to C<default_page>.
-
-=item page_dispatch_prefix
-
-This prefixes the class that the contains the page code.  Defaults to MyPageKit::PageCode.
-
-Methods in this class must be named page_I<page_id> where I<page_id> is the ID of the include,
-and take an Apache::PageKit object as their only argument.
 
 =item post_max
 
@@ -240,7 +246,7 @@ set to I<recent>.  Defaults to 3600 (1 hour).
 
 =item uri_prefix
 
-Prefix of URI that should be trimmed before dispatching to the Page code.
+Prefix of URI that should be trimmed before dispatching to the Model code.
 
 =item verify_page
 

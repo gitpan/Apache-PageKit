@@ -10,8 +10,7 @@ eg/Content/xml/license.xml
 eg/Content/xml/login1.xml
 eg/Content/xml/newacct1.xml
 eg/Model/MyPageKit.pm
-eg/Model/MyPageKit/IncludeCode.pm
-eg/Model/MyPageKit/PageCode.pm
+eg/Model/MyPageKit/MyModel.pm
 eg/README
 eg/View/Default/Component/begin_cell.tmpl
 eg/View/Default/Component/end_cell.tmpl

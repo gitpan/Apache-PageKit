@@ -1,6 +1,33 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.91
+0.92
+	- Rewrote Model class so that Model classes are
+		standalone and not dependent on the PageKit
+		architecture.
+		* functions in Model now get called
+			as methods of derived Model class
+		* inputs and outputs are now accessed
+			by $model->input_param and 
+			$model->output_param instead of
+			$apr->param and $view->param
+		* $pk->redirect is no longer available
+		* $pk->continue no longer available, use
+			$model->pkit_set_page_id instead
+		* $pk->message moved to $model->pkit_message
+		* page and component_dispatch_prefix replaced
+			by model_dispatch_prefix
+	- XML and template files are now parsed by calling
+		Apache::PageKit::startup function.  Should fix
+		problems when PageKit is used inside a
+		<Directory>, <Location> or <Files> section.
+	- Fixed bug with not getting fill_in_form configuration
+		setting in View.pm
+	- Fixed bugs with language localization and session
+		management.
+	- Improved language localization example on pagekit.org
+		web site
+
+0.91  Tue Dec 26 04:05:56 2000 EST
 	- Changed name of page_id_match configuration directive to
 		uri_match.
 	- Fixed some permission problems when 'make test' is run

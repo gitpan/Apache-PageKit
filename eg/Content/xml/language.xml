@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE pagekit SYSTEM "../Content.dtd">
 <PAGE>
 <NAV_TITLE>Language Localization</NAV_TITLE>
@@ -14,6 +14,27 @@
       </CONTENT_ITEM>
 
     </CONTENT_LOOP>
+<CONTENT_VAR NAME="title" xml:lang="de"><![CDATA[Titel auf Deutsch]]></CONTENT_VAR>
 <CONTENT_VAR NAME="title" xml:lang="en"><![CDATA[Title in English]]></CONTENT_VAR>
-<CONTENT_VAR NAME="title" xml:lang="es"><![CDATA[Titulo en Espanol]]></CONTENT_VAR>
+<CONTENT_VAR NAME="title" xml:lang="es"><![CDATA[Titulo en Español ]]></CONTENT_VAR>
+<CONTENT_VAR NAME="title" xml:lang="fr"><![CDATA[Titre en Français]]></CONTENT_VAR>
+<CONTENT_VAR NAME="de" xml:lang="en"><![CDATA[German]]></CONTENT_VAR>
+<CONTENT_VAR NAME="en" xml:lang="en"><![CDATA[English]]></CONTENT_VAR>
+<CONTENT_VAR NAME="es" xml:lang="en"><![CDATA[Spanish]]></CONTENT_VAR>
+<CONTENT_VAR NAME="fr" xml:lang="en"><![CDATA[French]]></CONTENT_VAR>
+
+<CONTENT_VAR NAME="de" xml:lang="de"><![CDATA[Deutsch]]></CONTENT_VAR>
+<CONTENT_VAR NAME="en" xml:lang="de"><![CDATA[Englisch]]></CONTENT_VAR>
+<CONTENT_VAR NAME="es" xml:lang="de"><![CDATA[Spanisch ]]></CONTENT_VAR>
+<CONTENT_VAR NAME="fr" xml:lang="de"><![CDATA[Franzoesisch ]]></CONTENT_VAR>
+
+<CONTENT_VAR NAME="de" xml:lang="es"><![CDATA[Alemán ]]></CONTENT_VAR>
+<CONTENT_VAR NAME="en" xml:lang="es"><![CDATA[Inglés ]]></CONTENT_VAR>
+<CONTENT_VAR NAME="es" xml:lang="es"><![CDATA[Español ]]></CONTENT_VAR>
+<CONTENT_VAR NAME="fr" xml:lang="es"><![CDATA[Francés ]]></CONTENT_VAR>
+
+<CONTENT_VAR NAME="de" xml:lang="fr"><![CDATA[Allemand]]></CONTENT_VAR>
+<CONTENT_VAR NAME="en" xml:lang="fr"><![CDATA[Anglais]]></CONTENT_VAR>
+<CONTENT_VAR NAME="es" xml:lang="fr"><![CDATA[Espagnol ]]></CONTENT_VAR>
+<CONTENT_VAR NAME="fr" xml:lang="fr"><![CDATA[Français ]]></CONTENT_VAR>
 </PAGE>

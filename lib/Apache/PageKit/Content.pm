@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.4 2000/12/23 07:10:38 tjmather Exp $
+# $Id: Content.pm,v 1.5 2001/01/01 02:25:03 tjmather Exp $
 
 use strict;
 use XML::Parser ();
@@ -76,6 +76,7 @@ sub parse_page {
   # set up parser
   my $p = XML::Parser->new(Style => 'Subs',
 			   ParseParamEnt => 1,
+			   ErrorContext => 2,
 			   NoLWP => 1);
 
   $p->setHandlers(Default => \&Default);
@@ -135,15 +136,16 @@ sub get_param {
 
   # iterate through available languages
   for my $lang (reverse @{$content->{lang_arrayref}}){
-    if($value = $memory_cache->{$page_id}->{$lang}->{$key}){
+    if(my $m_val = $memory_cache->{$page_id}->{$lang}->{$key}){
       # first check server process memory
-      return $value;
+      $value = $m_val if $m_val;
     } elsif (-e "$content->{content_dir}/cache/$page_id.$lang.dat"){
       # if not in memory, attempt to load from file
       my $h2 = Storable::retrieve("$content->{content_dir}/cache/$page_id.$lang.dat");
-      return $h2->{$key};
+      $value = $h2->{$key} if exists $h2->{$key};
     }
   }
+  return $value;
 }
 
 sub get_param_hashref {
@@ -159,7 +161,8 @@ sub get_param_hashref {
   # iterate through available languages
   my $param_hashref = {};
   for my $lang (reverse @{$content->{lang_arrayref}}){
-    if(my $h = $memory_cache->{$page_id}->{$lang} &&
+    my $h = $memory_cache->{$page_id}->{$lang};
+    if($h && 
 	not exists $memory_cache->{$page_id}->{$lang}->{pkit_file_cache}){
       # first check server process memory
       while(my ($k, $v) = each %$h){
@@ -182,6 +185,8 @@ sub PAGE {
   my ($p, $edtype, %attr) = @_;
   $page_cache = $attr{cache} || 'no';
 }
+
+sub PAGE_ {}
 
 sub NAV_TITLE {
   my ($p, $edtype, %attr) = @_;

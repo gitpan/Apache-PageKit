@@ -8,13 +8,22 @@ my %params = Apache::test->get_test_params();
 my $pwd = `pwd`;
 chomp($pwd);
 $more_directives = <<END;
+# PageKit Setup
 PerlSetVar PKIT_ROOT $pwd/eg
 PerlSetVar PKIT_SERVER staging
 SetHandler perl-script
 PerlModule Apache::PageKit
+<Perl>
+	Apache::PageKit::startup("$pwd/eg");
+</Perl>
 PerlHandler +MyPageKit
 PerlInitHandler +Apache::Reload
+
+# Error Handling
+PerlModule Apache::PageKit::Error
+PerlSetVar PKIT_ERROR_HANDLER display
 END
+
 Apache::test->write_httpd_conf(%params, include => $more_directives);
 *MY::test = sub { Apache::test->MM_test(%params) };
 
@@ -36,7 +45,8 @@ WriteMakefile(
 				Mail::Mailer => 0,
 				SQL::Statement => 0,
 				Text::CSV_XS => 0,
-				XML::Parser => 0},
+				XML::Parser => 0,
+				mod_perl => 1.2401},
 );
 
 mkdir '/tmp/csvdb', 0777;
