@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.2 2001/01/16 07:27:50 tjmather Exp $
+# $Id: Common.pm,v 1.4 2001/01/22 03:30:35 tjmather Exp $
 
 use strict;
 
@@ -48,6 +48,11 @@ sub pkit_common_code {
   $model->output_param(text_color => $session->{'text_color'} || '000000');
   $model->output_param(bgcolor => $session->{'bgcolor'} || 'dddddd');
   $model->output_param(mod_color => $session->{'mod_color'} || 'ffffff');
+
+  # for testing/illustration purposes only:
+  # uncomment the following code to enable editing on the website 
+  # for any user
+  #$model->output_param(pkit_admin => 1);
 }
 
 sub pkit_auth_credential {

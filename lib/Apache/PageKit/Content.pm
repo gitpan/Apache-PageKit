@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.7 2001/01/14 05:35:19 tjmather Exp $
+# $Id: Content.pm,v 1.9 2001/01/24 01:14:52 tjmather Exp $
 
 use strict;
 use XML::Parser ();
@@ -392,6 +392,16 @@ Corresponds to <CONTENT_LOOP> tag in HTML::Template file.
 
 This example is from the content file for the front page of the
 pagekit website at http://www.pagekit.org/
+
+=item <NAV_TITLE>
+
+Sets the title used in C<E<lt>PKIT_LOOP NAME="BREAD_CRUMB"E<gt> E<lt>/PKIT_LOOPE<gt>>
+and C<E<lt>PKIT_VAR NAME="LAST_CRUMB"E<gt>>.
+
+  <NAV_TITLE xml:lang="de">Oberseite</NAV_TITLE>
+  <NAV_TITLE xml:lang="en">Home</NAV_TITLE>
+  <NAV_TITLE xml:lang="es">Tapa</NAV_TITLE>
+  <NAV_TITLE xml:lang="fr">Dessus</NAV_TITLE>
 
 =back
 

@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.19 2001/01/16 07:27:51 tjmather Exp $
+# $Id: View.pm,v 1.28 2001/02/02 08:40:34 tjmather Exp $
 
 use integer;
 use strict;
@@ -10,6 +10,14 @@ use HTML::Clean ();
 
 # stores components that are cached so we can we can pass cached=>1 to HTML::Template
 $Apache::PageKit::View::cache_component = {};
+%Apache::PageKit::View::template_options = (
+			      # don't die when we set a parameter that is not in the template
+			      die_on_bad_params=>0,
+			      # built in __FIRST__, __LAST__, etc vars
+			      loop_context_vars=>1,
+			      filter => \&preparse_filter,
+			      global_vars=>1,
+			     );
 
 sub new($$) {
   my $class = shift;
@@ -21,7 +29,7 @@ sub new($$) {
 
 #class method to clean, pre-parse templates
 sub preparse_templates {
-  my ($class, $template_root, $html_clean_level, $cache_dir) = @_;
+  my ($class, $pkit_root, $html_clean_level, $cache_dir) = @_;
 
   # set to global variable so it is seen when called back
   # from HTML::Template
@@ -38,7 +46,7 @@ sub preparse_templates {
 					 filter => \&preparse_filter
 					);
 		   },
-		   $template_root
+		   $pkit_root
 		  );
 }
 
@@ -50,7 +58,7 @@ sub preparse_filter {
   my $html_code_ref = shift;
 
   my $h = new HTML::Clean($html_code_ref,$Apache::PageKit::View::html_clean_level) || die("can't open HTML::Clean object: $!");
-  $h->strip;
+  $h->strip if $Apache::PageKit::View::html_clean_level > 0;
   $$html_code_ref = ${$h->data()};
 
   # "compile" PageKit templates into HTML::Templates
@@ -76,19 +84,8 @@ sub _init {
   my $model = $pk->{model};
   my $session = $pk->{session};
   my $config = $pk->{config};
-  my $cache_dir = $config->get_global_attr('cache_dir') . '/pagekit_view_cache';
 
-  $view->{template_root} = $apr->dir_config('PKIT_ROOT') . "/View";
-
-  $view->{templateOptions} = {
-			      # don't die when we set a parameter that is not in the template
-			      die_on_bad_params=>0,
-			      # built in __FIRST__, __LAST__, etc vars
-			      loop_context_vars=>1,
-			      file_cache_dir => $cache_dir,
-			      filter => \&preparse_filter,
-			      global_vars=>1,
-			     };
+  $view->{pkit_root} = $apr->dir_config('PKIT_ROOT');
 
   # get Locale settings
   my @accept_language = map {substr($_,0,2) } split(", ",$apr->header_in('Accept-Language'));
@@ -108,8 +105,6 @@ sub prepare_component {
   my $pk = $view->{pk};
   my $config = $pk->{config};
 
-  $pk->component_code($component_id);
-
   my $template_name = "/Component/" . $component_id;
 
   my $options = {};
@@ -123,27 +118,32 @@ sub prepare_component {
     $options->{file_cache} = 1;
   }
 
-  my $output = $view->prepare_template($template_name,
-				       $options);
+  # we store this here in case the Model calls back $view->query, 
+  # so the query method will know which template file the model is referring to
+  # and will know whether to open
+  $view->open_template($template_name,
+		       $options);
+
+  $pk->component_code($component_id);
+
+  my $output = $view->fill_in_template;
   return $output;
 }
 
 sub template_file_exists {
   my ($view, $page_id) = @_;
-  my $template_file = $view->{template_root} . "/Default/Page/" . $page_id . '.tmpl';
+  my $template_file = $view->{pkit_root} . "/View/Default/Page/" . $page_id . '.tmpl';
   return 1 if (-e "$template_file");
   my $pkit_view = $view->{pk}->{apr}->param('pkit_view'); 
-  $template_file = $view->{template_root} . "/$pkit_view/Page/" . $page_id . '.tmpl';
-  return 1 if (-e "$template_file"); 
+  $template_file = $view->{pkit_root} . "/View/$pkit_view/Page/" . $page_id . '.tmpl';
+  return 1 if (-e "$template_file");
   return 0;
 }
 
-sub prepare_output {
+sub open_output {
   my $view = shift;
   my $pk = $view->{pk};
   my $config = $pk->{config};
-  my $apr = $pk->{apr};
-  my $model = $pk->{model};
 
   my $page_id = $pk->{page_id};
 
@@ -156,9 +156,16 @@ sub prepare_output {
   } else {
     $options->{file_cache} = 1;
   }
+  my $output = $view->open_template($template_name,
+				    $options);
+} 
 
-  my $output = $view->prepare_template($template_name,
-				       $options);
+sub prepare_output {
+  my $view = shift;
+  my $pk = $view->{pk};
+  my $apr = $pk->{apr};
+  my $config = $pk->{config};
+  my $output = $view->fill_in_template;
 
   my @params = $apr->param;
 
@@ -178,42 +185,84 @@ sub prepare_output {
 }
 
 # common code for page, view and component templates
-sub prepare_template {
-  my $view = shift;
-  my $template_name = shift;
-  my $options = shift;
+sub open_template {
+  my ($view, $template_name, $options) = @_;
+  my $pk = $view->{pk};
+  my $config = $pk->{config};
+  my $file_cache_dir = $config->get_global_attr('cache_dir') . '/pagekit_view_cache';
+
+  $options->{file_cache_dir} = $file_cache_dir;
+
+  return if (exists $view->{template_name} && ($view->{template_name} eq $template_name));
+
+  $view->{filename} = $view->_find_template($template_name);
+
+  my $template = HTML::Template->new_file("$view->{pkit_root}/$view->{filename}",
+					  %Apache::PageKit::View::template_options,
+					  %$options);
+  $view->{template} = $template;
+  $view->{template_name} = $template_name;
+}
+
+# find template to open
+sub _find_template {
+  my ($view, $template_name) = @_;
+  my $filename;
+  my $pkit_view = $view->{pk}->{apr}->param('pkit_view');
+  if ($pkit_view && -e "$view->{pkit_root}/View/$pkit_view/$template_name.tmpl"){
+    $filename = "View/$pkit_view$template_name.tmpl";
+  } elsif (-e "$view->{pkit_root}/View/Default/$template_name.tmpl") {
+    $filename = "View/Default$template_name.tmpl";
+  } else {
+    $view->{error_msg} = "Error could not locate $view->{pkit_root}/View/Default/$template_name.tmpl";
+  }
+  return $filename;
+}
+
+# common code for page, view and component templates
+sub fill_in_template {
+  my ($view) = @_;
 
   my $pk = $view->{pk};
 
-  my $filename;
-  my $pkit_view = $pk->{apr}->param('pkit_view');
-  if ($pkit_view && -e "$view->{template_root}/$pkit_view/$template_name.tmpl"){
-    $filename = "$view->{template_root}/$pkit_view/$template_name.tmpl";
-  } elsif (-e "$view->{template_root}/Default/$template_name.tmpl") {
-    $filename = "$view->{template_root}/Default/$template_name.tmpl";
-  } else {
-    return "Error could not locate $view->{template_root}/Default/$template_name.tmpl";
+  if (exists $view->{error_msg}){
+    my $buffer = $view->{error_msg};
+
+    # display MODEL variables, to aid in constructing a template
+    foreach my $key ($view->param){
+      my $value = $view->param($key);
+      if(ref($value) eq 'ARRAY'){
+	$buffer .= qq{<li>&lt;MODEL_LOOP NAME="$key"&gt;<ul>};
+	for my $row (@$value){
+	  while (my ($k, $v) = each %$row){
+	    $buffer .= qq{<li>&lt;MODEL_VAR NAME="$k"&gt; $v};
+	  }
+	}
+      } else {
+	$buffer .= qq{<li>&lt;MODEL_VAR NAME="$key"&gt; $value};
+      }
+    }
+    return $view->{error_msg};
   }
 
-  my $template = HTML::Template->new_file($filename,
-					  %{$view->{templateOptions}},
-					  %$options);
+  my $template = $view->{template};
 
   $view->_apply_param($template);
 
   my $output = "";
 
-#  if($view->param('pkit_admin')){
-#    # add edit link for pkit_admins
-#
-#    $template_name =~ s!^/!!;
-#
-#    my $pkit_done = Apache::Util::escape_uri($view->param('pkit_done'));
-#
-#    $output = qq{<font size="-1"><a href="/pkit_edit/open_view?template=$template_name&pkit_done=$pkit_done">(edit template $template_name)</a></font>};
-#  }
+  if($view->param('pkit_admin')){
+    # add edit link for pkit_admins
+
+    my $pkit_done = Apache::Util::escape_uri($view->param('pkit_done'));
+    my $filename= $view->{filename};
+
+    $output = qq{<font size="-1"><a href="/pkit_edit/open_view?file=$filename&pkit_done=$pkit_done">(edit template $filename)</a></font>};
+  }
 
   $output .= $template->output;
+
+  delete $view->{template};
 
   $output =~ s/<PKIT_COMPONENT (NAME=)?"?(.*?)"?>/$view->prepare_component($2)/eig;
 
@@ -237,10 +286,11 @@ sub _apply_param {
 
   # get params from GET/POST request
   # so programmer doesn't have to manually put them in the view object
-  if($config->get_global_attr('request_param_in_tmpl') eq 'yes'){
+  if($config->get_page_attr($page_id,'request_param_in_tmpl') eq 'yes'){
     foreach my $key ($pk->{apr}->param){
-      $template->param($key,$pk->{apr}->param($key))
-        if $template->query(name => $key) eq 'VAR';
+      if ($template->query(name => $key) eq 'VAR'){
+	$template->param($key,$pk->{apr}->param($key));
+      }
     }
   }
 
@@ -263,9 +313,10 @@ sub output_ref {
   return $view->{output};
 }
 
-sub get_template_root {
-  my $view = shift;
-  return $view->{template_root};
+sub query {
+  my ($view, @p) = @_;
+  $view->open_output unless $view->{template};
+  return $view->{template}->query(@p);
 }
 
 # param method - can be called in two forms

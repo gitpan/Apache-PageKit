@@ -1,3 +1,14 @@
+=============================================================
+Migration from 0.94 to 0.95
+
+1. A couple of new configuration options have been added to
+Config/Config.xml.
+
+You should replace the Config/Config.dtd file in your Pagekit directory
+with the Config.dtd contained in the eg/ directory of your distribution
+to reflect this change.
+
+==============================================================
 Migration from 0.93 to 0.94
 
 1. MyPageKit has been replaced with MyPageKit::Model.

@@ -39,11 +39,14 @@ Requirements
 ------------
 	- perl 5.005 or greater
 	- mod_perl 1.24_01 (lastest version requir'd for make test only)
+	- Apache 1.3.x compiled _without_ expat
 	- libapreq
 	- Apache::Session 1.5
 	- HTML::FillInForm
 	- HTML::Template 2.2
+	- HTML::Clean
 	- Mail::Mailer
+	- expat library
 	- XML::Parser
 
 Required for make test
@@ -53,9 +56,36 @@ Required for make test
 	- HTTP::Headers
 	- SQL::Statement
 	- Text::CSV_XS
+	- Apache::Reload
 
 Installation
 ------------
+	First you must have a mod_perl enabled apache server _without_
+	expat compiled in.  That is you should supply the option
+	RULE_EXPAT=NO to ./configure when you build Apache.  Alternatively
+	if you build Apache with mod_perl, it will supply this option
+	automatically for you.  For more information on the expat conflict,
+	read http://www.axkit.org/faq.xml under "I install AxKit and Apache
+	segfaults when it starts".  For an excellent reference on installing
+	a mod_perl server from source, see http://perl.apache.org/guide/
+
+	It is recommended that you compile mod_perl with the EVERYTHING switch.
+	In any case, you should make sure that you allow the httpd.conf <Perl>
+	directive.
+
+	By the way, you may download the expat library from sourceforge
+		http://sourceforge.net/projects/expat/
+	(Required for XML::Parser)
+
+	For make test to work, when installing Apache::Session, you will have
+	to manually create a database 'sessions', and include a table (this
+	example is for MySQL, adjust as needed for your target database)
+
+		CREATE TABLE sessions (
+			id char(32) not null primary key,
+			a_session text
+		);
+
 	After installing the requirements, you can use the standard
 
 	perl Makefile.PL
@@ -67,6 +97,31 @@ Installation
 	This will be used to start a running PageKit enabled web server
 	for testing.
 
+Upgrading
+---------
+	To upgrade from an earlier version of PageKit, follow the
+	installation instructions above.  You may have to change your
+	Model, View, Content, or Config files.  For more information,
+	see migration/README.
+
+Setup
+-----
+	You should use the directories and files contained in the eg/
+	directory of the distribution as a starting point for your own
+	application.  In fact, the eg/Config/Config.dtd,
+	eg/Content/Content.dtd, and the eg/View/Default/Page/pkit_edit/
+	files are required for the sucessful operation of a pagekit
+	server.
+
+	Note that the example application uses DBD::CSV to store the
+	login data.  This is choosen because it will work on any platform
+	for 'make test'.  However, when building your own application
+	you should rip this out and put in a real database.  But in case
+	you still want to use DBD::CSV, you'll have to run something like
+
+	my $dbh = DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
+	$dbh->do("CREATE TABLE pkit_user (user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255))");
+
 Configuration
 -------------
 
@@ -77,7 +132,7 @@ Configuration
 		PerlSetVar PKIT_ROOT /path/to/pagekit/files
 		PerlHandler +Apache::PageKit
 		<Perl>
-			Apache::PageKit::startup("/path/to/pagekit/files");
+			Apache::PageKit->startup("/path/to/pagekit/files");
 		</Perl>
 
 	and changing the settings in

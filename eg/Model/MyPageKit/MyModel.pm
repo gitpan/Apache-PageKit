@@ -14,6 +14,7 @@ sub customize {
   my $change_flag;
   for ($model->input_param){
     $session->{$_} = $model->input_param($_);
+    $model->output_param($_ => $model->input_param($_));
     $change_flag = 1;
   }
   $model->pkit_message("Your changes have been made.") if $change_flag;

@@ -4,18 +4,17 @@
 <GLOBAL
 	login_page="login1"
 	model_dispatch_prefix="MyPageKit::MyModel"
+	session_expires="+1y"
 	uri_prefix = "pagekit/"
 />
 <SERVERS>
    <SERVER id="production"
-	reload="no"
-	cookie_domain=".pagekit.org"/>
+	reload="no"/>
    <SERVER id="staging"
-	reload="yes"
-	cookie_domain=".pagekit.org"/>
+	reload="yes"/>
 </SERVERS>
 <PAGES>
-  <PAGE id="customize" use_bread_crumb="yes" require_login="no" parent_id="examples">
+  <PAGE id="customize" use_bread_crumb="yes" require_login="no" parent_id="examples" request_param_in_tmpl="yes">
   </PAGE>
   <PAGE id="examples" use_bread_crumb="yes" require_login="no" parent_id="index">
   </PAGE>

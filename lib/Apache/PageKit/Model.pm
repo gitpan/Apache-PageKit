@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.10 2001/01/16 05:55:25 tjmather Exp $
+# $Id: Model.pm,v 1.16 2001/02/02 09:19:24 tjmather Exp $
 
 use integer;
 use strict;
@@ -26,25 +26,24 @@ sub pkit_validate_input {
   my $validator = new HTML::FormValidator({default => $input_profile});
 
   # put the data from input_param into a %fdat hash so HTML::FormValidator can read it
-  my %fdat = ();
-  foreach my $field ($model->input_param()){
-    $fdat{$field} = $model->input_param("$field");
-  }
+  my $input_hashref = $model->pkit_input_hashref;
 
   # put derived Model object in pkit_model
   # so form validation can access $dbh, etc
   # this is used, for example, to see if a login already exists
-  $fdat{'pkit_model'} = $model;
+  $input_hashref->{'pkit_model'} = $model;
 
-  my ($valids, $missings, $invalids, $unknowns) = $validator->validate(\%fdat, 'default');
+  my ($valids, $missings, $invalids, $unknowns) = $validator->validate($input_hashref, 'default');
   # used to change apply changes from filter to apr
   while (my ($key, $value) = each %$valids){
     $model->input_param($key,$value);
   }
+
   # used to change undef values to "", in case db field is defined as NOT NULL
-  for my $field (keys %fdat){
+  for my $field (keys %$input_hashref){
     $valids->{$field} ||= "";
   }
+
   for my $field (@$missings, @$invalids){
     my $begin_name = "PKIT_ERRORFONT_BEGIN_$field";
     # should change color to be user configurable...
@@ -58,7 +57,7 @@ sub pkit_validate_input {
     if(@$invalids){
       foreach my $field (@$invalids){
 	next unless exists $input_profile->{messages}->{$field};
-	my $value = $fdat{$field};
+	my $value = $input_hashref->{$field};
 	# gets error message for that field which was filled in incorrectly
 	my $msg = $input_profile->{messages}->{$field};
 
@@ -80,6 +79,17 @@ sub pkit_validate_input {
   }
 }
 
+sub pkit_input_hashref {
+  my $model = shift;
+  return $model->{pkit_input_hashref} if
+    exists $model->{pkit_input_hashref};
+  my $input_hashref = {};
+  for my $key ($model->input_param){
+    $input_hashref->{$key} = $model->input_param($key);
+  }
+  $model->{pkit_input_param_ref} = $input_hashref;
+}
+
 sub pkit_message {
   my $model = shift;
   my $message = shift;
@@ -92,7 +102,7 @@ sub pkit_message {
   $model->output_param('pkit_message',$array_ref);
 }
 
-sub pkit_set_page_id {
+sub pkit_internal_redirect {
   my ($model, $page_id) = @_;
   $model->{pkit_pk}->{page_id} = $page_id;
 }
@@ -105,12 +115,14 @@ sub pkit_get_page_id {
 # currently input_param is just a wrapper around $apr
 sub input_param {
   my $model = shift;
+  return unless exists $model->{pkit_pk};
   return $model->{pkit_pk}->{apr}->param(@_);
 }
 
 # currently output_param is just a wrapper around $view
 sub output_param {
   my $model = shift;
+  return unless exists $model->{pkit_pk};
   return $model->{pkit_pk}->{view}->param(@_);
 }
 
@@ -150,6 +162,13 @@ sub pkit_redirect {
   my $apr = $pk->{apr};
   $apr->headers_out->set(Location => $url);
   $pk->{status_code} = REDIRECT;
+}
+
+sub pkit_query {
+  my ($model, @p) = @_;
+  my $pk = $model->{pkit_pk};
+  my $view = $pk->{view};
+  return $view->query(@p);
 }
 
 1;
@@ -217,6 +236,15 @@ you can set the userID when the user gets authenticated:
 
   $model->input_param(pkit_user => $userID);
 
+=item pkit_input_hashref
+
+This method fetches all of the parameters from the request object C<$apr>,
+returning a reference to a hash containing the parameters as keys, and
+the parameters' values as values.  Note a multivalued parameters
+is returned as a reference to an array.
+
+  $params = $model->pkit_input_hashref;
+
 =item output_param
 
 This is similar to the L<HTML::Template|HTML::Template/param> method.  It is
@@ -237,6 +265,23 @@ Alternatively you can pass a hash reference:
 
   $model->output_param({firstname => $firstname,
                lastname => $lastname});
+
+Note, to set the bread crumb for the <PKIT_LOOP NAME="BREAD_CRUMB"> tag,
+use the following code:
+
+  $model->output_param(pkit_bread_crumb =>
+		       [
+			{ pkit_page => 'toplink', pkit_name='Top'},
+			{ pkit_page => 'sublink', pkit_name='Sub Class'},
+			{ pkit_name => 'current page' },
+		       ]
+		      );
+
+=item pkit_query
+
+Basically a wrapper to the L<HTML::Template/"query()"> method of HTML::Template:
+
+  my $type = $model->pkit_query(name => 'foo');
 
 =item content_param
 
@@ -276,11 +321,19 @@ To add an error message (typically highlighted in red), use
   $model->pkit_message("You did not fill out the required fields.",
                is_error => 1);
 
-=item pkit_set_page_id
+=item pkit_internal_redirect
 
-Sets the page_id. This is usually used "redirect" to different template.
+Resets the page_id. This is usually used "redirect" to different template.
 
-  $model->pkit_set_page_id($page_id);
+  $model->pkit_internal_redirect($page_id);
+
+=item pkit_redirect
+
+Redirect to another URL.
+
+  $model->pkit_redirect("http://www.pagekit.org/");
+
+Redirects user to the PageKit home page.
 
 =item pkit_validate_input
 
@@ -294,17 +347,9 @@ and returns true if the request parameters are valid.
     # user must have not filled out name field, 
     # i.e. $apr->param('name') = $model->input_param('name') is
     # not set, so go back to original form
-    $model->pkit_set_page_id('orig_form');
+    $model->pkit_internal_redirect('orig_form');
     return;
   }
-
-=item pkit_redirect
-
-Redirect to another URL.
-
-  $model->pkit_redirect("http://www.pagekit.org/");
-
-Redirects user to the PageKit home page.
 
 =back
 

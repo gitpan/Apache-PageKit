@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.7 2001/01/15 00:24:55 tjmather Exp $
+# $Id: Config.pm,v 1.9 2001/01/23 03:40:21 tjmather Exp $
 
 use integer;
 use strict;
@@ -261,6 +261,15 @@ Seconds that user's session has to be inactive before a user is asked
 to verify a password on pages with the C<require_login> attribute
 set to I<recent>.  Defaults to 3600 (1 hour).
 
+=item session_expires
+
+Sets the expire time for the cookie that stores the session id on 
+the user's computer.  If it is not set, then the expire time on the
+cookie will not be set, and the cookie will expire when the user closes
+their browser.
+
+  session = "+3h"
+
 =item uri_prefix
 
 Prefix of URI that should be trimmed before dispatching to the Model code.
@@ -351,10 +360,6 @@ detects a <form> tag.  Default is I<auto>.
 
 Title of page displayed on Content Management System. (Forthcoming)
 
-=item nav_title
-
-Title used in navigation bar - used in C<E<lt>TMPL_LOOP NAME="PKIT_NAV"E<gt> E<lt>/TMPL_LOOPE<gt>> tag.
-
 =item new_credential
 
 Should be set to I<yes> for pages that process credentials and update the
@@ -366,6 +371,11 @@ authenticates the user.
 =item parent_id
 
 Parent page id - used for navigation bar.
+
+=item request_param_in_tmpl
+
+If set to yes, then <MODEL_VAR> tags in template automatically get filled in
+with corresponding request values.  Defaults to no.
 
 =item require_login
 

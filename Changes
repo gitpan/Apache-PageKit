@@ -1,6 +1,30 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.95
+0.96
+	- added $model->pkit_input_hashref method, gets inputs
+		(request params) as a reference to hash
+	- renamed pkit_set_page_id to pkit_internal_redirect
+		easier to remember and naming consistant with
+		pkit_redirect method
+	- Added installation troubleshooting tips, thanks to
+		Chris Burbridge and Nick Wood for helpful pointers
+	- Apache::PageKit->handler and startup are now called as
+		 class methods
+	- pagekit.org example cookies should work even when
+		the url is not of the form *.pagekit.org
+	- fixed error when cookie_domain was not set
+	- cookie_domain is now a NMTOKENS field and you can pass
+		multiple domains to it, seperated by spaces
+	- Added $model->pkit_query method which is a wrapper to
+		HTML::Template::query
+	- Added online editing tools for editing View templates
+		using Apache::PageKit::Edit.
+	- Added support for <PKIT_VAR NAME="LAST_CRUMB">
+	- Fixed errors with s/cookie_crumb/bread_crumb/
+	- Added session_expires to control the expire time for
+		the session cookie
+
+0.95	Tue Jan 16 15:12:21 2001 EST
 	- Added method $model->pkit_redirect($url)
 	- Cache files are now 'chown'ed to the user and group
 		specified in the User and Group apache configuration
@@ -20,7 +44,7 @@ Revision history for Perl extension Apache::PageKit.
 		MyPageKit::Common->pkit_dbi_connect if there isn't
 		already a database handle.
 
-0.94
+0.94	Wed Jan 10 02:25:51 2001 EST
 	- Replaced derived Apache::PageKit handler module (eg MyPageKit)
 		with MyPageKit::Common and Apache::PageKit->handler.
 		See migration/README for details.

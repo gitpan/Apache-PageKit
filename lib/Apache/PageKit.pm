@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.26 2001/01/16 07:27:51 tjmather Exp $
+# $Id: PageKit.pm,v 1.36 2001/02/02 09:19:24 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -23,18 +23,19 @@ use Apache::PageKit::Model ();
 use Apache::PageKit::Session ();
 use Apache::PageKit::Content ();
 use Apache::PageKit::Config ();
+use Apache::PageKit::Edit ();
 
 use strict;
 
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION %info_hash);
-$VERSION = '0.95';
+$VERSION = '0.96';
 
 # typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
 sub startup {
-  my $pkit_root = shift;
+  my ($class, $pkit_root) = @_;
 
   my $s = Apache->server;
 
@@ -48,7 +49,6 @@ sub startup {
   my $config_dir = $pkit_root . '/Config';
   my $config = Apache::PageKit::Config->new(config_dir => $config_dir);
   $config->parse_xml;
-  my $page_dispatch_prefix = $config->get_global_attr('page_dispatch_prefix');
 
   my $view_cache_dir = $config->get_global_attr('cache_dir') .
     '/pagekit_view_cache';
@@ -58,16 +58,9 @@ sub startup {
   eval "require $model_base_class";
 
   # clean and pre-parse templates
-  Apache::PageKit::View->preparse_templates($pkit_root . '/View',
+  Apache::PageKit::View->preparse_templates($pkit_root,
 			$config->get_global_attr('html_clean_level'),
 			$view_cache_dir);
-
-  # Alias /pkit_edit/ urls to be dispatched to Apache::PageKit::Edit;
-# this might enabled for later versions (with Apache::PageKit::Edit)
-#  {
-#    no strict 'refs';
-#    *{$page_dispatch_prefix . "::pkit_edit::"} = \%Apache::PageKit::Edit;
-#  }
 
   my $content_dir = $pkit_root . '/Content';
   my $content_cache_dir = $config->get_global_attr('cache_dir') . '/pagekit_content_cache';
@@ -86,9 +79,12 @@ sub startup {
   File::Find::find($change_owner_sub,$view_cache_dir,$content_cache_dir);
 }
 
-sub handler {
-  my $pk = Apache::PageKit->new;
+# object oriented method call, see Eagle p.65
+sub handler ($$){
+  my $class = shift;
+  my $pk = $class->new;
   my $model = $pk->{model};
+  $model->pkit_common_code if $model->can('pkit_common_code');
   my $status_code = $pk->prepare_page;
   unless ($status_code eq OK){
     # save session
@@ -96,7 +92,6 @@ sub handler {
     return $status_code
   }
 
-  $model->pkit_common_code if $model->can('pkit_common_code');
   $pk->prepare_view;
   $pk->print_view;
 
@@ -189,13 +184,7 @@ sub prepare_page {
   }
   $view->param(PKIT_SELFURL => $pkit_selfurl);
 
-  # make sure that we have a subdomain so cookies work
-  # ie. redirect domain.tld -> www.domain.tld
   my $host = (split(':',$apr->headers_in->{'Host'}))[0];
-  if($host =~ m(^[^.]+\.[^.]+$)){
-    $apr->headers_out->set(Location => 'http://www.' . $host . $uri_with_query);
-    return REDIRECT;
-  }
 
 #  my $pkit_done = Apache::Util::escape_uri($apr->param('pkit_done') || $uri_with_query);
   my $pkit_done = $apr->param('pkit_done') || 'http://' . $host . $uri_with_query;
@@ -296,16 +285,23 @@ sub prepare_page {
   return $status_code if $status_code eq REDIRECT;
 
   # prepare navigation
-  if ($config->get_page_attr($pk->{page_id},'use_bread_crumb') eq 'yes') {
+  my $pkit_bread_crumb = $view->param('pkit_bread_crumb');
+  if (($config->get_page_attr($pk->{page_id},'use_bread_crumb') eq 'yes') &&
+    (!$pkit_bread_crumb)) {
     my $nav_page_id = $pk->{page_id};
-    my $pkit_cookie_crumb = [];
+    $pkit_bread_crumb = [];
     while ($nav_page_id) {
-      unshift @$pkit_cookie_crumb, { pkit_name => $content->get_param($nav_page_id,'pkit_nav_title'),
+      unshift @$pkit_bread_crumb, { pkit_name => $content->get_param($nav_page_id,'pkit_nav_title'),
 			    pkit_page => $nav_page_id
 			  };
       $nav_page_id = $config->get_page_attr($nav_page_id,'parent_id');
     }
-    $view->param('pkit_cookie_crumb', $pkit_cookie_crumb);
+    $view->param('pkit_bread_crumb', $pkit_bread_crumb);
+  }
+
+  # set pkit_last_crumb
+  if($pkit_bread_crumb){
+    $view->param(pkit_last_crumb => $pkit_bread_crumb->[-1]->{pkit_name});
   }
 
   # deal with different views
@@ -320,6 +316,9 @@ sub prepare_view {
   my ($pk) = @_;
 
   return if $pk->{config}->get_page_attr($pk->{page_id},'use_template') eq 'no';
+
+  # open template file
+  $pk->{view}->open_output;
 
   # set up page template and run component code
   $pk->{view}->prepare_output;
@@ -414,12 +413,13 @@ sub page_sub {
   # change all the / to ::
   $page_id =~ s!/!::!g;
 
-  # insert a page_ before the method
-#  $page_id =~ s/^(.*?)([^:]+)$/$1::$2/;
-
-  my $model_dispatch_prefix = $pk->{config}->get_global_attr('model_dispatch_prefix');
-
-  my $perl_sub = $model_dispatch_prefix . '::' . $page_id;
+  my $perl_sub;
+  if($page_id =~ s/^pkit_edit:://){
+    $perl_sub = 'Apache::PageKit::Edit::' . $page_id;
+  } else {
+    my $model_dispatch_prefix = $pk->{config}->get_global_attr('model_dispatch_prefix');
+    $perl_sub = $model_dispatch_prefix . '::' . $page_id;
+  }
 
   return $perl_sub if defined &{$perl_sub};
 }
@@ -486,15 +486,20 @@ sub login {
   # save session
   delete $pk->{session};
 
-  my $cookie = Apache::Cookie->new($apr,
+  my @cookie_domains = split(' ',$config->get_server_attr('cookie_domain'));
+  @cookie_domains = (undef) if @cookie_domains == 0;
+  for my $cookie_domain (@cookie_domains){
+    my $cookie = Apache::Cookie->new($apr,
 				   -name => 'id',
 				   -value => $ses_key,
-				   -domain => $config->get_server_attr('cookie_domain'),
 				   -path => "/");
-  if ($remember){
-    $cookie->expires("+10y");
+    $cookie->domain($cookie_domain) if $cookie_domain;
+    if ($remember){
+      $cookie->expires("+10y");
+    }
+    $cookie->bake;
   }
-  $cookie->bake;
+
 
   # this is used to check if cookie is set
   if($done =~ /\?/){
@@ -536,17 +541,19 @@ sub authenticate {
 sub logout {
   my ($pk) = @_;
 
-#  my $cookie = Apache::Cookie->new($r);
   my %cookies = Apache::Cookie->fetch;
 
   return unless defined $cookies{'id'};
 
-  my $tcookie = $cookies{'id'};
-#  my %ticket = $tcookie->value;
-  $tcookie->value("");
-  $tcookie->domain($pk->{config}->get_server_attr('cookie_domain'));
-  $tcookie->expires('-5y');
-  $tcookie->bake;
+  my @cookie_domains = split(' ',$pk->{config}->get_server_attr('cookie_domain'));
+  @cookie_domains = (undef) if @cookie_domains == 0;
+  for my $cookie_domain (@cookie_domains){
+    my $tcookie = $cookies{'id'};
+    $tcookie->value("");
+    $tcookie->domain($cookie_domain) if $cookie_domain;
+    $tcookie->expires('-5y');
+    $tcookie->bake;
+  }
 }
 
 # get session_id from cookie
@@ -575,7 +582,6 @@ sub setup_session {
   }
 
   my $is_new_session;
-  my $cookie_domain;
 
   $is_new_session = 1 unless $session_id;
 
@@ -603,12 +609,18 @@ sub setup_session {
   if($is_new_session){
     # set cookie in users browser
     my $session_id = $session{'_session_id'};
-    my $cookie = Apache::Cookie->new($apr,
+    my $expires = $pk->{config}->get_global_attr('session_expires');
+    my @cookie_domains = split(' ',$pk->{config}->get_server_attr('cookie_domain'));
+    @cookie_domains = (undef) if @cookie_domains == 0;
+    for my $cookie_domain (@cookie_domains){
+      my $cookie = Apache::Cookie->new($apr,
 				     -name => 'pkit_session_id',
 				     -value => $session_id,
-				     -domain => $pk->{config}->get_server_attr('cookie_domain'),
 				     -path => "/");
-    $cookie->bake;
+      $cookie->domain($cookie_domain) if $cookie_domain;
+      $cookie->expires($expires) if $expires;
+      $cookie->bake;
+    }
   } else {
     # keep recent sessions recent
     # that is sessions time out if user hasn't viewed in a page 
@@ -929,9 +941,17 @@ for pages that have C<bread_crumb> set to I<yes>.
 Template should contain code that looks like
 
   <PKIT_LOOP NAME="BREAD_CRUMB">
-    <PKIT_UNLESS NAME="__LAST__"><a href="/<tmpl_var name="page">"></PKIT_UNLESS><PKIT_VAR NAME="NAME"><PKIT_UNLESS NAME="__LAST__"></a></PKIT_UNLESS>
+    <PKIT_UNLESS NAME="__LAST__"><a href="/<PKIT_VAR NAME="page">"></PKIT_UNLESS><PKIT_VAR NAME="NAME"><PKIT_UNLESS NAME="__LAST__"></a></PKIT_UNLESS>
     <PKIT_UNLESS NAME="__LAST__"> &gt; </PKIT_UNLESS>
   </PKIT_LOOP>
+
+=item <PKIT_VAR NAME="LAST_CRUMB">
+
+Returns the last crumb (typically the page that the user is currently viewing).
+
+  <PKIT_VAR NAME="LAST_CRUMB">
+
+This is particularly useful in the HTML title bar.
 
 =item <PKIT_VAR NAME="LOGINOUT_LINK">
 
@@ -1010,6 +1030,20 @@ C<pkit_view:print> parameter in the view to true.
 
 =back
 
+=head1 FREQUENTLY ASKED QUESTIONS
+
+Please look in here before you send me an email.
+
+1) I get a segmentation fault when I start the PageKit
+enabled Apache server.
+
+PageKit requires XML::Parser, which is incompatible with the expat
+library included in Apache.  You'll have to configure Apache with 
+C<--disable-rule=expat>.
+
+For more information see http://axkit.org/faq.xml under
+"I install AxKit and Apache segfaults when it starts".
+
 =head1 SEE ALSO
 
 L<Apache::PageKit::Config>,
@@ -1021,7 +1055,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.95
+This document describes Apache::PageKit module version 0.96
 
 =head1 NOTES
 
@@ -1062,13 +1096,22 @@ Add more tests to the test suite.
 
 Make content sharable across pages.
 
-Move Apache::PageKit::Error to seperate distribtuion.
+Move Apache::PageKit::Error to seperate distribtuion, use CGI::Carp?
 
 Add <PKIT_SELFURL_WITHOUT param1 param2> tag.
 
 =head1 AUTHOR
 
 T.J. Mather (tjmather@anidea.com)
+
+=head1 CREDITS
+
+Fixes, Bug Reports, Docs have been generously provided by:
+
+  Stu Pae
+  Chris Burbridge
+
+Thanks!
 
 =head1 COPYRIGHT
 

@@ -14,7 +14,7 @@ PerlSetVar PKIT_SERVER staging
 SetHandler perl-script
 PerlHandler +Apache::PageKit
 <Perl>
-	Apache::PageKit::startup("$pwd/eg");
+	Apache::PageKit->startup("$pwd/eg");
 </Perl>
 PerlInitHandler +Apache::Reload
 
@@ -58,4 +58,4 @@ $dbh->disconnect;
 
 mkdir '/tmp/pkit_sessions', 0777;
 mkdir '/tmp/pkit_sessions_lock', 0777;
-chmod 0777, '/tmp/pkit_sessions', '/tmp/pkit_sessions_lock';
+chmod 0777, '/tmp/pkit_sessions', '/tmp/pkit_sessions_lock', '/tmp/pkit_user';
