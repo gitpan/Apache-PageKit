@@ -1,6 +1,6 @@
 package Apache::PageKit::FormValidator;
 
-# $Id: FormValidator.pm,v 1.2 2000/08/28 20:31:24 tjmather Exp $
+# $Id: FormValidator.pm,v 1.1 2000/08/29 19:01:11 tjmather Exp $
 
 use integer;
 use strict;

@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.2 2000/08/28 20:31:24 tjmather Exp $
+# $Id: View.pm,v 1.1 2000/08/29 19:01:11 tjmather Exp $
 
 use integer;
 use strict;
@@ -139,8 +139,8 @@ sub _apply_param {
   # get params from XML file
   my $param_hashref = $pk->{info}->get_param_hashref;
   while (my ($key, $value) = each %$param_hashref){
-    $template->param($key,$value)
-      if $template->query(name => $key) eq 'VAR';
+    $template->param($key,$value);
+#      if $template->query(name => $key) eq 'VAR';
   }
   foreach my $key ($view->{pk}->{apr}->param){
     $template->param($key,$pk->{apr}->param($key))
@@ -304,7 +304,7 @@ __END__
 
 Apache::PageKit::View - Bridge between Apache::PageKit and HTML::Template
 
-=head1 DESCRIPTION
+=head1 SYNOPSIS
 
 This class is a wrapper class to HTML::Template.  It simplifies the calls to 
 output a new template, stores the parameters to be used in a template, and

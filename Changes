@@ -1,5 +1,9 @@
 Revision history for Perl extension Apache::PageKit.
 
+0.04  Tue Aug 29 13:12:53 2000
+        - Added support for <TMPL_LOOP> XML tag
+        - modified pagekit.org to use <TMPL_LOOP>
+
 0.03  Tue Aug 29 00:13:33 2000
         - Replaced use of Apache::Session with adaption of
 		HTML::Embperl::Session

@@ -17,40 +17,23 @@ To browse the <a href="http://sourceforge.net/cvs/?group_id=9597">CVS</a> or joi
 <p>
 For PageKit services, including commercial support, contact <a href="mailto:pagekit@thoughtstore.com">pagekit@thoughtstore.com</a>.
 <p>
-This site serves as a demo of some of the capabilities of PageKit.  The complete source
+This site serves as a demo of some of the features of PageKit.  The complete source
 code for pagekit.org is located in the eg/ directory of the distribution.
 <p>
 <TMPL_INCLUDE NAME="../Include/begin_cell.tmpl">
 <h2>News</h2>
 <table>
+	<TMPL_LOOP NAME="news">
 	<tr>
 		<td valign="top">
-			<b>August 29th, 2000</b>
+			<b><TMPL_VAR NAME="date"></b>
 		</td>
 		<td>
-			<b>Release of PageKit 0.03</b><br>
-			Replaced use of Apache::Session with adaption of
-			HTML::Embperl::Session
+			<b><TMPL_VAR NAME="title"></b><br>
+			<TMPL_VAR NAME="description">
 		</td>
 	</tr>
-	<tr>
-		<td valign="top">
-			<b>August 28th, 2000</b>
-		</td>
-		<td>
-			<b>Release of PageKit 0.02</b><br>
-			Added XML support for attributes and content
-		</td>
-	</tr>
-	<tr>
-		<td valign="top">
-			<b>August 24th, 2000</b>
-		</td>
-		<td>
-			<b>Release of PageKit 0.01</b><br>
-			Initial Release
-		</td>
-	</tr>
+	</TMPL_LOOP>
 </table>
 <TMPL_INCLUDE NAME="../Include/end_cell.tmpl">
 <p>

@@ -10,6 +10,14 @@
     parent_id = "examples"
     new_credential = "no">
     <TMPL_VAR NAME = "html_title">PageKit.org | Customize</TMPL_VAR>
+    <TMPL_LOOP NAME = "demo_desc">
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "feature">Session Management</TMPL_VAR>
+	<TMPL_VAR NAME = "description">Four colors, link_color, text_color, bgcolor, and mod_color
+	  are set and stored in $pk->{session}.  MyPageKit.pm retrives the values from the session
+	  and sets the corresponding view parameters.</TMPL_VAR>
+      </TMPL_ITEM>
+    </TMPL_LOOP>
   </PAGE>
   <PAGE page_id = "examples"
     view = "std"
@@ -30,6 +38,28 @@
     cache = "normal"
     new_credential = "no">
     <TMPL_VAR NAME = "html_title">Welcome to PageKit.org</TMPL_VAR>
+    <TMPL_LOOP NAME = "news">
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "date">August 29th, 2000</TMPL_VAR>
+	<TMPL_VAR NAME = "title">Release of PageKit 0.04</TMPL_VAR>
+	<TMPL_VAR NAME = "description">Added support for XML &lt;TMPL_LOOP&gt; tag</TMPL_VAR>
+      </TMPL_ITEM>
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "date">August 29th, 2000</TMPL_VAR>
+	<TMPL_VAR NAME = "title">Release of PageKit 0.03</TMPL_VAR>
+	<TMPL_VAR NAME = "description">Replaced use of Apache::Session with adaption of HTML::Embperl::Session</TMPL_VAR>
+      </TMPL_ITEM>
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "date">August 28th, 2000</TMPL_VAR>
+	<TMPL_VAR NAME = "title">Release of PageKit 0.02</TMPL_VAR>
+	<TMPL_VAR NAME = "description">Added XML support for attributes and content</TMPL_VAR>
+      </TMPL_ITEM>
+      <TMPL_ITEM>
+	<TMPL_VAR NAME = "date">August 24th, 2000</TMPL_VAR>
+	<TMPL_VAR NAME = "title">Release of PageKit 0.01</TMPL_VAR>
+	<TMPL_VAR NAME = "description">Initial Release</TMPL_VAR>
+      </TMPL_ITEM>
+    </TMPL_LOOP>
   </PAGE>
   <PAGE page_id = "license"
     view = "std"

@@ -1,11 +1,12 @@
 package Apache::PageKit::Info;
 
-# $Id: Info.pm,v 1.3 2000/08/28 22:46:13 tjmather Exp $
+# $Id: Info.pm,v 1.1 2000/08/29 19:01:11 tjmather Exp $
 
 use integer;
 use strict;
 
-use vars qw($page_id $ATTR_NAME $VAR_NAME $LOOP_NAME %info_hash);
+use vars qw($page_id $ATTR_NAME $VAR_NAME
+	    @LOOP_NAME_STACK @ITEM_HASH_REF_STACK @LOOP_ARRAY_REF_STACK %info_hash);
 
 sub new {
   my ($class) = @_;
@@ -116,6 +117,9 @@ sub page_id_match {
   $page_id_out;
 }
 
+##################################
+# methods for parsing XML file
+
 sub SITE {}
 sub SITE_ {}
 
@@ -169,14 +173,49 @@ sub TMPL_VAR_ {
   $VAR_NAME = undef;
 }
 
-sub Default {
-  my ($p, $string) = @_;
+sub TMPL_LOOP {
+  my ($p, $edtype, %attr) = @_;
+
+  push @LOOP_NAME_STACK, $attr{NAME};
+  push @LOOP_ARRAY_REF_STACK, [];
+  push @ITEM_HASH_REF_STACK, {};
+}
+
+sub TMPL_LOOP_ { 
   my $r = Apache->request;
   my $info = $info_hash{$r->dir_config("PKIT_PAGE_INFO_FILE")};
-  if($ATTR_NAME){
-    $info->{attr}->{$page_id}->{$ATTR_NAME} = $string;
-  } elsif($VAR_NAME){
-    $info->{param}->{$page_id}->{$VAR_NAME} = $string;
+  if(scalar @LOOP_NAME_STACK == 1){
+    # top LOOP element
+    $info->{param}->{$page_id}->{$LOOP_NAME_STACK[0]} = $LOOP_ARRAY_REF_STACK[-1];
+  } else {
+    # nested LOOP element
+    $ITEM_HASH_REF_STACK[-2]->{$LOOP_NAME_STACK[-1]} = $LOOP_ARRAY_REF_STACK[-1];
+  }
+  pop @LOOP_NAME_STACK;
+}
+
+sub TMPL_ITEM {
+  $ITEM_HASH_REF_STACK[-1] = {};
+}
+
+sub TMPL_ITEM_ {
+  push @{$LOOP_ARRAY_REF_STACK[-1]}, $ITEM_HASH_REF_STACK[-1];
+}
+
+sub Default {
+  my ($p, $string) = @_;
+  if(@LOOP_NAME_STACK){
+    if($VAR_NAME){
+      $ITEM_HASH_REF_STACK[-1]->{$VAR_NAME} .= $string;
+    }
+  } else {
+    my $r = Apache->request;
+    my $info = $info_hash{$r->dir_config("PKIT_PAGE_INFO_FILE")};
+    if($ATTR_NAME){
+      $info->{attr}->{$page_id}->{$ATTR_NAME} .= $string;
+    } elsif($VAR_NAME){
+      $info->{param}->{$page_id}->{$VAR_NAME} .= $string;
+    }
   }
 }
 
@@ -186,7 +225,7 @@ sub Default {
 
 Apache::PageKit::Info - Page attributes class
 
-=head1 DESCRIPTION
+=head1 SYNOPSIS
 
 This is class is a wrapper to the page attributes stored in the XML file
 as specified by the Apache C<PKIT_PAGE_INFO_FILE> configuration directive.
@@ -215,6 +254,10 @@ optional, defaults to C<$pk-E<gt>{page_id}>.
 =head1 AUTHOR
 
 T.J. Mather (tjmather@thoughtstore.com)
+
+=head1 BUGS
+
+Embeded <TMPL_LOOP>'s in the XML file have not been tested.
 
 =head1 COPYRIGHT
 

@@ -1,0 +1,43 @@
+<!ELEMENT SITE (PAGE*)>
+<!ELEMENT PAGE (ATTR|VAR|LOOP)*>
+<!ATTLIST PAGE
+        page_id                 ID      #REQUIRED
+        view                    CDATA   #REQUIRED
+        browser_cache           CDATA   #IMPLIED
+        domain                  CDATA   #IMPLIED
+        error_page              CDATA   #IMPLIED
+        error_page_run_code     CDATA   #IMPLIED
+        internal_title          CDATA   #IMPLIED
+        is_popup                CDATA   #IMPLIED
+        is_secure               CDATA   #IMPLIED
+        is_topdomain            CDATA   #IMPLIED
+        nav_title               CDATA   #IMPLIED
+        new_credential          CDATA   #IMPLIED
+        page_id_match           CDATA   #IMPLIED
+        parent_id               CDATA   #IMPLIED
+        popup_width             CDATA   #IMPLIED
+        popup_height            CDATA   #IMPLIED
+        require_login           CDATA   #IMPLIED
+        template_cache          CDATA   #IMPLIED
+        use_nav                 CDATA   #IMPLIED
+        use_template            CDATA   #IMPLIED>
+<!ELEMENT ATTR ANY>
+<!ATTLIST ATTR
+        NAME                    CDATA   #REQUIRED>
+<!ELEMENT TMPL_VAR ANY>
+<!ATTLIST TMPL_VAR
+        NAME                    CDATA   #REQUIRED>
+<!ELEMENT TMPL_LOOP (TMPL_ITEM+)>
+<!ATTLIST TMPL_LOOP
+        NAME                    CDATA   #REQUIRED>
+<!ELEMENT TMPL_ITEM (TMPL_VAR|TMPL_VAR_REF|TMPL_LOOP|TMPL_LOOP_REF)*>
+<!ELEMENT TMPL_VAR_REF EMPTY>
+<!ATTLIST TMPL_VAR_REF
+	NAME			CDATA	#REQUIRED
+	page_id_ref		CDATA	#REQUIRED
+	NAME_REF		CDATA	#IMPLIED>
+<!ELEMENT TMPL_LOOP_REF EMPTY>
+<!ATTLIST TMPL_LOOP_REF
+	NAME			CDATA	#REQUIRED
+	page_id_ref		CDATA	#REQUIRED
+	NAME_REF		CDATA	#IMPLIED>

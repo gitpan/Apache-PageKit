@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.6 2000/08/29 04:37:50 tjmather Exp $
+# $Id: PageKit.pm,v 1.1 2000/08/29 19:02:56 tjmather Exp $
 
 # CPAN Modules required for pagekit
 use Apache::URI ();
@@ -27,7 +27,7 @@ use strict;
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION %info_hash);
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 sub _params_as_string {
   my ($apr) = @_;
@@ -677,7 +677,7 @@ You have to write a module that inherits from Apache::PageKit and provides a han
 for the PerlHandler request phase.  If you wish to support authentication, it must
 include the two methods C<auth_credential> and C<auth_session_key>.
 
-For more information, visit http://www.pagekit.org or
+For more information, visit http://www.pagekit.org/ or
 http://sourceforge.net/projects/pagekit/
 
 =head1 OBJECTS
@@ -1292,7 +1292,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.03
+This document describes Apache::PageKit module version 0.04
 
 =head1 NOTES
 
@@ -1309,6 +1309,8 @@ functionality that is common across dynamic web sites, including session managem
 authorization, form validation, component design, error handling, and content management.
 
 =head1 BUGS
+
+There are currently no scripts in the test suite.
 
 This framework is in alpha stage.  The interface may change in later
 releases.

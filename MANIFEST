@@ -6,6 +6,7 @@ eg/perl/MyPageKit/ModuleCode.pm
 eg/perl/MyPageKit/PageCode.pm
 eg/template/Include/begin_cell.tmpl
 eg/template/Include/end_cell.tmpl
+eg/template/Include/demo_desc.tmpl
 eg/template/Page/customize.tmpl
 eg/template/Page/examples.tmpl
 eg/template/Page/index.tmpl
@@ -18,11 +19,12 @@ INSTALL
 LICENSE
 MANIFEST
 Makefile.PL
-PageKit.pm
-PageKit/Error.pm
-PageKit/Info.pm
-PageKit/FormValidator.pm
-PageKit/Session.pm
-PageKit/View.pm
+lib/Apache/PageKit.pm
+lib/Apache/PageKit/Error.pm
+lib/Apache/PageKit/Info.pm
+lib/Apache/PageKit/FormValidator.pm
+lib/Apache/PageKit/Session.pm
+lib/Apache/PageKit/View.pm
+lib/HTML/FormValidator.pm
 README
 test.pl
