@@ -1,6 +1,6 @@
-package MyPageKit::ModuleCode;
+package MyPageKit::IncludeCode;
 
-# $Id: ModuleCode.pm,v 1.1 2000/12/02 06:41:45 tjmather Exp $
+# $Id: IncludeCode.pm,v 1.1 2000/12/11 16:10:35 tjmather Exp $
 
 use strict;
 
@@ -10,24 +10,24 @@ __END__
 
 =head1 NAME
 
-MyPageKit::ModuleCode - Example Backend Code for modules on the pagekit.org website
+MyPageKit::IncludeCode - Example Backend Code for includes on the pagekit.org website
 
 =head1 DESCRIPTION
 
-This module provides a example of the Model component (Business Logic) for the modules
+This module provides a example of the Model component (Business Logic) for the includes
 of a PageKit website.
 
 It is also the code used for the http://www.pagekit.org/ web site.  It is currently
-empty because there are no modules on the pagekit.org site.
+empty because there is no code associated with includes on the pagekit.org site.
 
 =head1 AUTHOR
 
-T.J. Mather (tjmather@thoughtstore.com)
+T.J. Mather (tjmather@anidea.com)
 
 =head1 COPYRIGHT
 
-Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.  PageKit is a trademark
-of ThoughtStore, Inc.
+Copyright (c) 2000, AnIdea Corp.  All rights Reserved.  PageKit is a trademark
+of AnIdea Corp.
 
 =head1 LICENSE
 

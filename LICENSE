@@ -64,14 +64,14 @@ any previous Modifications. When Governed Code is released as a series of files,
           
 
 1.10. "Original Code" means the "PageKit Application Framework" Source Code as released under this License by
-ThoughtStore. 
+AnIdea. 
 
 1.11 "Patent Claims" means any patent claim(s), now owned or hereafter acquired, including without limitation,
 method, process, and apparatus claims, in any patent Licensable by the grantor of a license thereto. 
 
  
 
-1.12. "ThoughtStore" means ThoughtStore, Inc., a Deleware corporation with offices at 462 Broadway, Suite 520,
+1.12. "AnIdea" means AnIdea, Corp., a Deleware corporation with offices at 462 Broadway, Suite 520,
 New York, NY 10013-2618.
 
  
@@ -96,7 +96,7 @@ or (b) ownership of fifty percent (50%) or more of the outstanding shares or ben
 
  
 
-2.1. Grant from ThoughtStore. ThoughtStore hereby grants You a worldwide, royalty-free, non-exclusive license,
+2.1. Grant from AnIdea. AnIdea hereby grants You a worldwide, royalty-free, non-exclusive license,
 subject to third party intellectual property claims: 
 
  
@@ -157,7 +157,7 @@ Code version remains available even if the Electronic Distribution Mechanism is 
 3.3. Description of Modifications. You must cause all Governed Code to which you contribute to contain a file
 documenting the changes You made to create that Governed Code and the date of any change. You must include a
 prominent statement that the Modification is derived, directly or indirectly, from Original Code provided by
-ThoughtStore and including the name of ThoughtStore in (a) the Source Code, and (b) in any notice in an Executable
+AnIdea and including the name of AnIdea in (a) the Source Code, and (b) in any notice in an Executable
 Code version or related documentation in which You describe the origin or ownership of the Governed Code. 
 
  
@@ -171,7 +171,7 @@ functionality or code (or its utilization under this License), you must include 
 distribution titled "LEGAL" which describes the claim and the party making the claim in sufficient detail that a
 recipient will know whom to contact. If you obtain such knowledge after You make Your Modification available as
 described in Section 3.2, You shall promptly modify the LEGAL file in all copies You make available thereafter and
-shall take other steps (such as notifying ThoughtStore and appropriate mailing lists or newsgroups) reasonably
+shall take other steps (such as notifying AnIdea and appropriate mailing lists or newsgroups) reasonably
 calculated to inform those who received the Governed Code that new knowledge has been obtained. In the event that
 You are a Contributor, You represent that, except as disclosed in the LEGAL file, your Modifications are your original
 creations and, to the best of your knowledge, no third party has any claim (including but not limited to intellectual
@@ -192,10 +192,10 @@ created one or more Modification(s), You may add your name as a Contributor to t
 it is not possible to put such notice in a particular Source Code file due to its structure, then you must include such
 notice in a location (such as a relevant directory file) where a user would be likely to look for such a notice. You may
 choose to offer, and to charge a fee for, warranty, support, indemnity or liability obligations to one or more recipients
-of Governed Code. However, You may do so only on Your own behalf, and not on behalf of ThoughtStore or any
+of Governed Code. However, You may do so only on Your own behalf, and not on behalf of AnIdea or any
 Contributor. You must make it absolutely clear than any such warranty, support, indemnity or liability obligation is
-offered by You alone, and You hereby agree to indemnify ThoughtStore and every Contributor for any liability
-incurred by ThoughtStore or such Contributor as a result of warranty, support, indemnity or liability terms You offer. 
+offered by You alone, and You hereby agree to indemnify AnIdea and every Contributor for any liability
+incurred by AnIdea or such Contributor as a result of warranty, support, indemnity or liability terms You offer. 
 
  
 
@@ -209,8 +209,8 @@ under a license of Your choice, which may contain terms different from this Lice
 compliance with the terms of this License and that the license for the Executable Code version does not attempt to
 limit or alter the recipient's rights in the Source Code version from the rights set forth in this License. If You
 distribute the Executable Code version under a different license You must make it absolutely clear that any terms
-which differ from this License are offered by You alone, not by ThoughtStore or any Contributor. You hereby agree to
-indemnify ThoughtStore and every Contributor for any liability incurred by ThoughtStore or such Contributor as a
+which differ from this License are offered by You alone, not by AnIdea or any Contributor. You hereby agree to
+indemnify AnIdea and every Contributor for any liability incurred by AnIdea or such Contributor as a
 result of any such terms You offer. 
 
  
@@ -237,17 +237,17 @@ able to understand it.
  
 
 5.1. Advertising Materials. All advertising materials mentioning features or use of the Governed Code must display
-the following acknowledgement: "This product includes software developed by ThoughtStore, Inc."
+the following acknowledgement: "This product includes software developed by AnIdea, Corp."
 
  
 
-5.2. Endorsements. The names "PageKit" and "ThoughtStore" must not be used to endorse or promote Contributor
-Versions or Larger Works without the prior written permission of ThoughtStore.
+5.2. Endorsements. The names "PageKit" and "AnIdea" must not be used to endorse or promote Contributor
+Versions or Larger Works without the prior written permission of AnIdea.
 
  
 
 5.3. Product Names. Contributor Versions and Larger Works may not be called "PageKit" nor may the word
-"PageKit" appear in their names without the prior written permission of ThoughtStore.
+"PageKit" appear in their names without the prior written permission of AnIdea.
 
  
 
@@ -255,14 +255,14 @@ Versions or Larger Works without the prior written permission of ThoughtStore.
 
  
 
-6.1. New Versions. ThoughtStore may publish revised and/or new versions of the License from time to time. Each
+6.1. New Versions. AnIdea may publish revised and/or new versions of the License from time to time. Each
 version will be given a distinguishing version number. 
 
  
 
 6.2. Effect of New Versions. Once Governed Code has been published under a particular version of the License, You
 may always continue to use it under the terms of that version. You may also choose to use such Governed Code under
-the terms of any subsequent version of the License published by ThoughtStore. No one other than ThoughtStore has
+the terms of any subsequent version of the License published by AnIdea. No one other than AnIdea has
 the right to modify the terms applicable to Governed Code created under this License. 
 
  
@@ -294,7 +294,7 @@ remain in effect beyond the termination of this License shall survive.
 
  
 
-8.2. If You initiate patent infringement litigation against ThoughtStore or a Contributor (ThoughtStore or the
+8.2. If You initiate patent infringement litigation against AnIdea or a Contributor (AnIdea or the
 Contributor against whom You file such action is referred to as "Participant") alleging that: 
 
  
@@ -382,7 +382,7 @@ its conflict-of-law provisions. The parties submit to personal jurisdiction in N
 that any cause of action arising under or related to this Agreement shall be brought in the Federal Court for the
 Southern District of New York, with venue lying in New York, New York. The losing party shall be responsible for
 costs, including without limitation, court costs and reasonable attorneys' fees and expenses. Notwithstanding anything
-to the contrary herein, ThoughtStore may seek injunctive relief related to a breach of this Agreement in any court of
+to the contrary herein, AnIdea may seek injunctive relief related to a breach of this Agreement in any court of
 competent jurisdiction. The application of the United Nations Convention on Contracts for the International Sale of
 Goods is expressly excluded. Any law or regulation which provides that the language of a contract shall be construed
 against the drafter shall not apply to this License. 
@@ -422,7 +422,7 @@ License.
 
  
 
-This code was initially developed by ThoughtStore, Inc. Portions created by ThoughtStore, Inc. are Copyright (C)
+This code was initially developed by AnIdea, Corp. Portions created by AnIdea, Inc. are Copyright (C)
 2000. All Rights Reserved.
 
  

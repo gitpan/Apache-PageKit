@@ -1,18 +1,19 @@
 <?xml version="1.0" ?>
 <!DOCTYPE pagekit SYSTEM "../Content.dtd">
 <PAGE>
-<TMPL_VAR NAME="html_title"><![CDATA[PageKit.org | Language Localization]]></TMPL_VAR>
-<TMPL_LOOP NAME="demo_desc">
-      <TMPL_ITEM>
-	<TMPL_VAR NAME="feature"><![CDATA[Language Localization]]></TMPL_VAR>
+<NAV_TITLE>Language Localization</NAV_TITLE>
+<CONTENT_VAR NAME="html_title"><![CDATA[PageKit.org | Language Localization]]></CONTENT_VAR>
+<CONTENT_LOOP NAME="demo_desc">
+      <CONTENT_ITEM>
+	<CONTENT_VAR NAME="feature"><![CDATA[Language Localization]]></CONTENT_VAR>
 
-	<TMPL_VAR NAME="description"><![CDATA[The language displayed is based
+	<CONTENT_VAR NAME="description"><![CDATA[The language displayed is based
 	on the
-         user's preference, defaulting to the browser settings.]]></TMPL_VAR>
+         user's preference, defaulting to the browser settings.]]></CONTENT_VAR>
 
-      </TMPL_ITEM>
+      </CONTENT_ITEM>
 
-    </TMPL_LOOP>
-<TMPL_VAR NAME="title" xml:lang="en"><![CDATA[Title in English]]></TMPL_VAR>
-<TMPL_VAR NAME="title" xml:lang="es"><![CDATA[Titulo en Espanol]]></TMPL_VAR>
+    </CONTENT_LOOP>
+<CONTENT_VAR NAME="title" xml:lang="en"><![CDATA[Title in English]]></CONTENT_VAR>
+<CONTENT_VAR NAME="title" xml:lang="es"><![CDATA[Titulo en Espanol]]></CONTENT_VAR>
 </PAGE>

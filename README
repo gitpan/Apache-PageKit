@@ -1,6 +1,107 @@
-PageKit is a set of Perl modules that provides an application framework and uses mod_perl and
-HTML::Template. It employs a Model/View/Content/Controller approach to design, with complete
-separation of Perl from HTML. PageKit includes session management, authentication, form validation,
-sticky HTML forms, multiple views/co-branding, modules and a simple content management system.
+Apache::PageKit
+===============
 
-For more detailed docs, read the perldoc page.
+Status
+------
+Version: 0.90 (Alpha)
+API is subject to change, and should stablize as
+we approach version 1.00 (First Beta Release)
+
+Description
+-----------
+	PageKit is a web applications framework that is based on mod_perl.
+	This framework is distinguished from others such as Embperl and Mason
+	by providing a clear seperation of programming, content and
+	presentation.
+
+	It does this by implementing a Model/View/Content/Controller paradigm:
+		- Model is user supplied Perl classes
+		- View is set of HTML::Templates
+		- Content is set of XML Files
+		- Controller is PageKit
+
+	This allows your programmers, designers and content editors to work
+	independently with clean well-defined interfaces.
+
+	PageKit provides the following features:
+		- Language Localization
+		- Session Management
+		- Input Validation
+		- Sticky HTML Forms
+		- Authentication
+		- Co-branding
+		- Component-based architecture
+		- Automatic Dispatching of URIs
+		- Easy Error Handling
+
+Requirements
+------------
+	- mod_perl
+	- libapreq
+	- Apache::Session 1.5
+	- HTML::FillInForm
+	- HTML::Template 2.2
+	- Mail::Mailer
+	- XML::Parser
+
+Required for make test
+----------------------
+	- DBD::CSV
+	- Digest::MD5
+	- HTTP::Headers
+	- SQL::Statement
+	- Text::CSV_XS
+
+Installation
+------------
+	After installing the requirements, you can use the standard
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+	You will be prompted for the location of your mod_perl server.
+	This will be used to start a running PageKit enabled web server
+	for testing.
+
+Configuration
+-------------
+
+	Configuring PageKit is as easy as adding the following
+	to your httpd.conf
+
+		SetHandler perl-script
+		PerlSetVar PKIT_ROOT /path/to/pagekit/files
+		PerlModule Apache::PageKit 
+		PerlHandler +MyPageKit
+
+	and changing the settings in
+
+		/path/to/pagekit/files/Config/Config.xml
+
+Bugs
+----
+
+Send bug reports and suggestions to tjmather@anidea.com
+
+Copyright
+---------
+
+Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.
+PageKit is a trademark of AnIdea Corporation. 
+
+License
+-------
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+Ricoh Source Code Public License for more details. 
+
+You can redistribute this module and/or modify it only under the
+terms of the Ricoh Source Code Public License. 
+
+You should have received a copy of the Ricoh Source Code Public
+License along with this program; if not, obtain one at
+http://www.pagekit.org/license 

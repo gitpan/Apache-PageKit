@@ -1,6 +1,6 @@
 package MyPageKit;
 
-# $Id: MyPageKit.pm,v 1.3 2000/12/03 20:34:20 tjmather Exp $
+# $Id: MyPageKit.pm,v 1.4 2000/12/11 16:10:35 tjmather Exp $
 
 use strict;
 
@@ -11,7 +11,7 @@ use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use DBI;
 use MyPageKit::PageCode;
-use MyPageKit::ModuleCode;
+use MyPageKit::IncludeCode;
 
 # form profiles for FormValidator
 my $input_profile 

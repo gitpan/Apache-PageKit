@@ -1,9 +1,9 @@
-<PKIT_INCLUDE NAME="top">
-<h1><font color="<TMPL_VAR NAME="link_color">">page</font>kit.org: Website for Apache::PageKit</h1>
+<PKIT_COMPONENT NAME="top">
+<h1><font color="<MODEL_VAR NAME="link_color">">page</font>kit.org: Website for Apache::PageKit</h1>
 
-PageKit<SUP>TM</SUP> is an <a href="http://perl.apache.org">mod_perl</a> based
+PageKit<SUP>TM</SUP> is a <a href="http://perl.apache.org">mod_perl</a> based
 application framework that uses HTML::Template and XML to
-separate the design from the content.  Includes session management,
+separate the presentation, content and code.  Includes session management,
 authentication, form validation, co-branding, and a content
 management system.
 <p>
@@ -19,39 +19,40 @@ For PageKit services, including commercial support, contact <a href="mailto:page
 This site serves as a demo for some of the features of PageKit.  The complete source
 code for pagekit.org is located in the eg/ directory of the distribution.
 <p>
-<PKIT_INCLUDE NAME="begin_cell">
+<PKIT_COMPONENT NAME="begin_cell">
 <h2>News</h2>
 <table>
-	<TMPL_LOOP NAME="news">
+	<CONTENT_LOOP NAME="news">
 	<tr>
 		<td valign="top">
-			<b><TMPL_VAR NAME="date"></b>
+			<b><CONTENT_VAR NAME="date"></b>
 		</td>
 		<td>
-			<b><TMPL_VAR NAME="title"></b><br>
-			<TMPL_VAR NAME="description">
+			<b><CONTENT_VAR NAME="title"></b><br>
+			<CONTENT_VAR NAME="description">
 		</td>
 	</tr>
-	</TMPL_LOOP>
+	</CONTENT_LOOP>
 </table>
-<PKIT_INCLUDE NAME="end_cell">
+<PKIT_COMPONENT NAME="end_cell">
 <p>
-<PKIT_INCLUDE NAME="begin_cell">
+<PKIT_COMPONENT NAME="begin_cell">
 <h2>Examples</h2>
-<PKIT_LINK PAGE="newacct1">New Account Page</PKIT_LINK>
+<a href="newacct1">New Account Page</a>
 <br>
-<PKIT_LINK PAGE="login1">Login Page</PKIT_LINK>
+<a href="login1">Login Page</a>
 <br>
-<PKIT_LINK PAGE="customize">Customize Site Page</PKIT_LINK>
+<a href="customize">Customize Site Page</a>
 <br>
-<PKIT_LINK PAGE="language">Language Localization</PKIT_LINK>
-<PKIT_INCLUDE NAME="end_cell">
+<a href="language">Language Localization</a>
+<PKIT_COMPONENT NAME="end_cell">
 <p>
-<TMPL_IF NAME="PKIT_NETSCAPE">
+<PKIT_IF NAME="NETSCAPE">
 You are running a Netscape Browser
-</TMPL_IF>
+</PKIT_IF>
 
-<TMPL_IF NAME="PKIT_INTERNET_EXPLORER">
+<PKIT_IF NAME="INTERNET_EXPLORER">
 You are running a Microsoft Internet Explorer browser
-</TMPL_IF>
-<PKIT_INCLUDE NAME="bottom">
+</PKIT_IF>
+<PKIT_COMPONENT NAME="bottom">
+

@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.3 2000/12/03 23:20:44 tjmather Exp $
+# $Id: Content.pm,v 1.4 2000/12/23 07:10:38 tjmather Exp $
 
 use strict;
 use XML::Parser ();
@@ -38,6 +38,7 @@ sub parse_all {
 
   $default_lang = $content->{default_lang};
 
+  # clean up old content cache files
   $content->cleanup;
 
   # find files in content_root/xml directory
@@ -81,7 +82,7 @@ sub parse_page {
   $p->parsefile("$content->{content_dir}/xml/$page_id.xml");
 
   if($content->{reload} eq 'yes'){
-    # store information about last modified date of file reloading purposes
+    # store information about last modified date of file for reloading purposes
     $mtime_hashref->{$page_id} = (stat "$content->{content_dir}/xml/$page_id.xml")[9];
   }
 
@@ -94,11 +95,53 @@ sub parse_page {
       # so we store the content in $memory_cache
       $memory_cache->{$page_id}->{$lang} = $PARAM_HASH->{$lang};
     } else {
-      # no memory caching, store in file
-      open CACHE, ">$content->{content_dir}/cache/$page_id.$lang.dat";
-      # use storable to store data and write to cache
-      print CACHE Storable::freeze($PARAM_HASH->{$lang});
-      close CACHE;
+      # just store navigation information (since it is accessed most frequently)
+      $memory_cache->{$page_id}->{$lang}->{pkit_nav_title} =
+	$PARAM_HASH->{$lang}->{pkit_nav_title} if
+	  exists $PARAM_HASH->{$lang}->{pkit_nav_title};
+      # set flag indicating that rest of params are stored in file_cache
+      $memory_cache->{$page_id}->{$lang}->{pkit_file_cache} = 1;
+    }
+    # store in file as well
+    Storable::store $PARAM_HASH->{$lang}, "$content->{content_dir}/cache/$page_id.$lang.dat";
+  }
+}
+
+sub _check_for_reload {
+  my ($content, $page_id) = @_;
+
+  # check to see if content xml file has been updated
+  my $mtime = (stat "$content->{content_dir}/xml/$page_id.xml")[9];
+  if($mtime > $mtime_hashref->{$page_id}){
+    # xml file has been updated, re-parse
+    $content->parse_page($page_id);
+  }
+}
+
+# for optimal results, should be called after get_param_hashref
+sub get_param {
+  my ($content, $page_id, $key) = @_;
+
+  $key = "content:" .$key;
+
+  # first check to see if arrayref has already been requested
+  my $value;
+  if(exists $content->{memory_cache}->{$page_id} &&
+	($value = $content->{memory_cache}->{$page_id}->{$key})){
+    return $value;
+  }
+
+  $content->_check_for_reload($page_id) if $content->{reload} eq 'yes';
+
+  # iterate through available languages
+  for my $lang (reverse @{$content->{lang_arrayref}}){
+    if($value = $memory_cache->{$page_id}->{$lang}->{$key}){
+      # first check server process memory
+      return $value;
+    } elsif (-e "$content->{content_dir}/cache/$page_id.$lang.dat"){
+      # if not in memory, attempt to load from file
+      my $h2 = Storable::retrieve("$content->{content_dir}/cache/$page_id.$lang.dat");
+      return $h2->{$key};
     }
   }
 }
@@ -111,35 +154,26 @@ sub get_param_hashref {
     return $param_hashref;
   }
 
-  if($content->{reload} eq 'yes'){
-    # check to see if content xml file has been updated
-    my $mtime = (stat "$content->{content_dir}/xml/$page_id.xml");
-    if($mtime > $mtime_hashref->{$page_id}){
-      # xml file has been updated, re-parse
-      $content->parse_page($page_id);
-    }
-  }
+  $content->_check_for_reload($page_id) if $content->{reload} eq 'yes';
 
   # iterate through available languages
   my $param_hashref = {};
   for my $lang (reverse @{$content->{lang_arrayref}}){
-    if(my $h = $memory_cache->{$page_id}->{$lang}){
+    if(my $h = $memory_cache->{$page_id}->{$lang} &&
+	not exists $memory_cache->{$page_id}->{$lang}->{pkit_file_cache}){
       # first check server process memory
       while(my ($k, $v) = each %$h){
         $param_hashref->{$k} = $h->{$k};
       }
     } elsif (-e "$content->{content_dir}/cache/$page_id.$lang.dat"){
       # if not in memory, attempt to load from file
-      open CACHE, "$content->{content_dir}/cache/$page_id.$lang.dat";
-      local $/ = undef;
-      my $h2 = Storable::thaw(<CACHE>);
-      close CACHE;
+      my $h2 = Storable::retrieve("$content->{content_dir}/cache/$page_id.$lang.dat");
       while(my ($k, $v) = each %$h2){
         $param_hashref->{$k} = $h2->{$k};
       }
     }
   }
-  # cache for rest of request
+  # cache for rest of request cycle
   $content->{memory_cache}->{$page_id} = $param_hashref;
   return $param_hashref;
 }
@@ -149,7 +183,27 @@ sub PAGE {
   $page_cache = $attr{cache} || 'no';
 }
 
-sub TMPL_VAR {
+sub NAV_TITLE {
+  my ($p, $edtype, %attr) = @_;
+
+  $VAR_NAME = 'pkit_nav_title';
+
+  $xml_lang = $attr{'xml:lang'};
+  # if langauge is not specified, choose default language
+  $xml_lang ||= $default_lang;
+}
+
+sub NAV_TITLE_ {
+  $PARAM_HASH->{$xml_lang}->{"content:". $VAR_NAME} =~ s/^<!\[CDATA\[//g;
+  $PARAM_HASH->{$xml_lang}->{"content:". $VAR_NAME} =~ s/\]\]>$//g;
+  $PARAM_HASH->{$xml_lang}->{"content:". $VAR_NAME} =~ s/\s+/ /g;
+  $xml_lang = undef;
+
+  $VAR_NAME = undef;
+  $VAR_NEW = 1;
+}
+
+sub CONTENT_VAR {
   my ($p, $edtype, %attr) = @_;
 
   $VAR_NAME = $attr{NAME};
@@ -157,19 +211,20 @@ sub TMPL_VAR {
   $xml_lang = $attr{'xml:lang'};
   # if langauge is not specified, choose default language
   $xml_lang ||= $default_lang;
-
 }
 
-sub TMPL_VAR_ {
+sub CONTENT_VAR_ {
 
   if(@LOOP_NAME_STACK){
     if($VAR_NAME){
-      $ITEM_HASH_REF_STACK[-1]->{$VAR_NAME} =~ s/^<!\[CDATA\[//g;
-      $ITEM_HASH_REF_STACK[-1]->{$VAR_NAME} =~ s/\]\]>$//g;
+      $ITEM_HASH_REF_STACK[-1]->{"content:". $VAR_NAME} =~ s/^<!\[CDATA\[//g;
+      $ITEM_HASH_REF_STACK[-1]->{"content:". $VAR_NAME} =~ s/\]\]>$//g;
+      $ITEM_HASH_REF_STACK[-1]->{"content:". $VAR_NAME} =~ s/\s+/ /g;
     }
   } else {
-    $PARAM_HASH->{$xml_lang}->{$VAR_NAME} =~ s/^<!\[CDATA\[//g;
-    $PARAM_HASH->{$xml_lang}->{$VAR_NAME} =~ s/\]\]>$//g;
+    $PARAM_HASH->{$xml_lang}->{"content:". $VAR_NAME} =~ s/^<!\[CDATA\[//g;
+    $PARAM_HASH->{$xml_lang}->{"content:". $VAR_NAME} =~ s/\]\]>$//g;
+    $PARAM_HASH->{$xml_lang}->{"content:". $VAR_NAME} =~ s/\s+/ /g;
     $xml_lang = undef;
   }
 
@@ -177,7 +232,7 @@ sub TMPL_VAR_ {
   $VAR_NEW = 1;
 }
 
-sub TMPL_LOOP {
+sub CONTENT_LOOP {
   my ($p, $edtype, %attr) = @_;
 
   # set language iff top level loop
@@ -192,21 +247,21 @@ sub TMPL_LOOP {
   push @ITEM_HASH_REF_STACK, {};
 }
 
-sub TMPL_LOOP_ {
+sub CONTENT_LOOP_ {
   if(scalar @LOOP_NAME_STACK == 1){
-    $PARAM_HASH->{$xml_lang}->{$LOOP_NAME_STACK[0]} = $LOOP_ARRAY_REF_STACK[-1];
+    $PARAM_HASH->{$xml_lang}->{"content:" . $LOOP_NAME_STACK[0]} = $LOOP_ARRAY_REF_STACK[-1];
   } else {
     # nested LOOP element
-    $ITEM_HASH_REF_STACK[-2]->{$LOOP_NAME_STACK[-1]} = $LOOP_ARRAY_REF_STACK[-1];
+    $ITEM_HASH_REF_STACK[-2]->{"content:" . $LOOP_NAME_STACK[-1]} = $LOOP_ARRAY_REF_STACK[-1];
   }
   pop @LOOP_NAME_STACK;
 }
 
-sub TMPL_ITEM {
+sub CONTENT_ITEM {
   $ITEM_HASH_REF_STACK[-1] = {};
 }
 
-sub TMPL_ITEM_ {
+sub CONTENT_ITEM_ {
   push @{$LOOP_ARRAY_REF_STACK[-1]}, $ITEM_HASH_REF_STACK[-1];
 }
 
@@ -215,14 +270,14 @@ sub Default {
   return unless $VAR_NAME;
   if(@LOOP_NAME_STACK){
     if($VAR_NAME){
-      $ITEM_HASH_REF_STACK[-1]->{$VAR_NAME} .= $string;
+      $ITEM_HASH_REF_STACK[-1]->{"content:" . $VAR_NAME} .= $string;
     }
   } else {
     if($VAR_NEW){
-      $PARAM_HASH->{$xml_lang}->{$VAR_NAME} = $string;
+      $PARAM_HASH->{$xml_lang}->{"content:" . $VAR_NAME} = $string;
       $VAR_NEW = 0;
     } else {
-      $PARAM_HASH->{$xml_lang}->{$VAR_NAME} .= $string;
+      $PARAM_HASH->{$xml_lang}->{"content:" . $VAR_NAME} .= $string;
     }
   }
 }
@@ -292,11 +347,11 @@ The following tags are allowed in the Content XML files:
 
 =item <PAGE>
 
-This tag contains <TMPL_VAR> and <TMPL_LOOP> tags for the content
+This tag contains <CONTENT_VAR> and <CONTENT_LOOP> tags for the content
 of the page specified by <I>id</I>.
 
   <PAGE id="welcome" cache="yes">
-    <TMPL_VAR NAME="title" xml:lang="en">Title in English</TMPL_VAR>
+    <CONTENT_VAR NAME="title" xml:lang="en">Title in English</CONTENT_VAR>
   </PAGE>
 
 If the <I>cache</I> attribute is set to <I>yes</I>, then content will be stored
@@ -305,29 +360,29 @@ is set to <I>default</I>, then the content will be stored in memory for
 the default application.  The default setting for <I>cache</I> is
 <I>no</i>, which stores the content in cache files.
 
-=item <TMPL_VAR>
+=item <CONTENT_VAR>
 
-Corresponds to <TMPL_VAR> tag in HTML::Template file.
+Corresponds to <CONTENT_VAR> tag in HTML::Template file.
 
-  <TMPL_VAR NAME="title" xml:lang="en"><![CDATA[Title in English]]></TMPL_VAR>
-  <TMPL_VAR NAME="title" xml:lang="es"><![CDATA[Titulo en Espanol]]></TMPL_VAR>
+  <CONTENT_VAR NAME="title" xml:lang="en"><![CDATA[Title in English]]></CONTENT_VAR>
+  <CONTENT_VAR NAME="title" xml:lang="es"><![CDATA[Titulo en Espanol]]></CONTENT_VAR>
 
-=item <TMPL_ITEM> and <TMPL_LOOP>
+=item <CONTENT_ITEM> and <CONTENT_LOOP>
 
-Corresponds to <TMPL_LOOP> tag in HTML::Template file.
+Corresponds to <CONTENT_LOOP> tag in HTML::Template file.
 
-  <TMPL_LOOP NAME="news">
-    <TMPL_ITEM>
-      <TMPL_VAR NAME = "date">August 28th, 2000</TMPL_VAR>
-      <TMPL_VAR NAME = "title">Release of PageKit 0.02</TMPL_VAR>
-      <TMPL_VAR NAME = "description">Added XML support for attributes and content</TMPL_VAR>
-    </TMPL_ITEM>
-    <TMPL_ITEM>
-      <TMPL_VAR NAME = "date">August 24th, 2000</TMPL_VAR>
-      <TMPL_VAR NAME = "title">Release of PageKit 0.01</TMPL_VAR>
-      <TMPL_VAR NAME = "description">Initial Release</TMPL_VAR>
-    </TMPL_ITEM>
-  </TMPL_LOOP>
+  <CONTENT_LOOP NAME="news">
+    <CONTENT_ITEM>
+      <CONTENT_VAR NAME = "date">August 28th, 2000</CONTENT_VAR>
+      <CONTENT_VAR NAME = "title">Release of PageKit 0.02</CONTENT_VAR>
+      <CONTENT_VAR NAME = "description">Added XML support for attributes and content</CONTENT_VAR>
+    </CONTENT_ITEM>
+    <CONTENT_ITEM>
+      <CONTENT_VAR NAME = "date">August 24th, 2000</CONTENT_VAR>
+      <CONTENT_VAR NAME = "title">Release of PageKit 0.01</CONTENT_VAR>
+      <CONTENT_VAR NAME = "description">Initial Release</CONTENT_VAR>
+    </CONTENT_ITEM>
+  </CONTENT_LOOP>
 
 This example is from the content file for the front page of the
 pagekit website at http://www.pagekit.org/
@@ -340,7 +395,7 @@ T.J. Mather (tjmather@anidea.com)
 
 =head1 BUGS
 
-Embeded <TMPL_LOOP>'s in the XML file have not been tested.
+Embeded <CONTENT_LOOP>'s in the XML file have not been tested.
 
 =head1 COPYRIGHT
 

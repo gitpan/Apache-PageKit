@@ -1,0 +1,39 @@
+eg/ directory - www.pagekit.org example website
+===============================================
+
+This directory contains the complete working PageKit application
+that is used by the www.pagekit.org website.
+
+It is a good starting point for building your PageKit application
+and is used by 'make test' to test the PageKit installation.
+
+Directory layout
+================
+
+Config/
+This directory contains the configuration files for PageKit.
+
+Config/Config.xml
+Configuration XML file.
+
+Content/
+This directory contains all of the XML content files.
+
+Content/Content.dtd
+Document Type Definition for XML content files
+
+Content/xml/
+Directory containing source XML for Content
+
+Model/
+Contains all of the user provided Perl classes
+
+View/
+This directory contains all of the HTML templates used for the View
+
+View/Default/
+This directory contains the default views.
+
+View/print/
+This directory contains template files that override the templates
+	in "Default" if the view equals "print".

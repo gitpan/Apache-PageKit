@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.2 2000/12/03 20:34:21 tjmather Exp $
+# $Id: Config.pm,v 1.3 2000/12/23 07:10:38 tjmather Exp $
 
 use integer;
 use strict;
@@ -8,12 +8,7 @@ use Apache::PageKit;
 use XML::Parser;
 
 use vars qw($page_id $ATTR_NAME $cur_config
-	$global_attr $server_attr $page_attr $page_id_match $domain $mtime_hashref);
-
-#$global_attr = {};
-#$server_attr = {};
-#$page_attr = {};
-#$mtime_hashref = {};
+	$global_attr $server_attr $page_attr $page_id_match $mtime_hashref);
 
 sub new {
   my $class = shift;
@@ -26,6 +21,11 @@ sub new {
   my $reload = $self->get_server_attr('reload');
   $self->reload if $reload && $reload eq 'yes';
   return $self;
+}
+
+sub get_config_dir {
+  my $config = shift;
+  return $config->{'config_dir'};
 }
 
 # checks to see if we have config data and is up to date, otherwise, load/reload
@@ -43,7 +43,7 @@ sub reload {
 sub parse_xml {
   my ($config) = @_;
 
-  # set global variable so that XML::Parsers handlers can see it
+  # set global variable so that XML::Parser's handlers can see it
   $cur_config = $config;
 
   # delete current init
@@ -54,24 +54,10 @@ sub parse_xml {
 			   ParseParamEnt => 1,
 			   NoLWP => 1);
 
-  $p->setHandlers(Default => \&Default);
   $p->setHandlers(Attlist => \&Attlist);
 
   $p->parsefile("$config->{config_dir}/Config.xml");
-
-  Apache::PageKit->call_plugins($config, 'info_init_handler');
 }
-
-# get rid of and just call template_file_exists
-#sub page_exists {
-#  my ($config, $page_id) = @_;
-#  if (exists $page_attr->{$config->{config_dir}}->{$page_id}){
-#    return 1;
-#  } else {
-#    my $view = $config->{pk}->{view};
-#    return $view->template_file_exists($page_id);
-#  }
-#}
 
 sub get_global_attr {
   my ($config, $key) = @_;
@@ -91,28 +77,6 @@ sub get_page_attr {
   return $page_attr->{$config->{config_dir}}->{$page_id}->{$key};
 }
 
-# optional page_id paramater
-#sub get_param {
-#  my ($config, $key, $page_id) = @_;
-#  return unless $config->{pk};
-#  $page_id ||= $config->{pk}->{page_id};
-#  return unless $config->{param}->{$page_id};
-#  return $config->{param}->{$page_id}->{$key};
-#}
-
-# optional page_id paramater
-#sub get_param_hashref {
-#  my ($config, $page_id) = @_;
-#  return unless $config->{pk};
-#  $page_id ||= $config->{pk}->{page_id};
-#  return $config->{param}->{$page_id};
-#}
-
-sub page_id_by_domain {
-  my ($config, $domain) = @_;
-  return $domain->{$config->{config_dir}}->{$domain};
-}
-
 # used to match pages to regular expressions in the page_id_match column
 sub page_id_match {
   my ($config, $page_id_in) = @_;
@@ -128,18 +92,6 @@ sub page_id_match {
 
 ##################################
 # methods for parsing XML file
-
-#sub SITE {}
-#sub SITE_ {}
-
-# called at begining of <CONTENT> tag in XML file
-#sub CONTENT {
-#  my ($p, $edtype, %attr) = @_;
-#  $page_id = $attr{page_id};
-#}
-
-#sub CONTENT_ {}
-
 # called at <GLOBAL> tag in XML file
 sub GLOBAL {
   my ($p, $edtype, %attr) = @_;
@@ -154,7 +106,7 @@ sub SERVER {
   my ($p, $edtype, %attr) = @_;
 
   my $config = $cur_config;
-  my $server_id = $attr{server_id} || 'Default';
+  my $server_id = $attr{id} || 'Default';
   while (my ($key, $value) = each %attr){
     $server_attr->{$config->{config_dir}}->{$server_id}->{$key} = $value;
   }
@@ -164,44 +116,16 @@ sub SERVER {
 sub PAGE {
   my ($p, $edtype, %attr) = @_;
 
-  $page_id = $attr{page_id};
+  $page_id = $attr{id};
   my $config = $cur_config;
 
-  if(my $sub_domain = $server_attr->{$config->{config_dir}}->{$config->{server}}->{sub_domain} && $attr{domain}){
-    $attr{domain} =~ s/([^.]*)\.([^.]*)$/$sub_domain.$1.$2/;
-  }
-
   while (my ($key, $value) = each %attr){
-    next if $key eq 'page_id';
+    next if $key eq 'id';
     if($key eq 'page_id_match'){
       $page_id_match->{$config->{config_dir}}->{$page_id} = $value;
     } else {
       $page_attr->{$config->{config_dir}}->{$page_id}->{$key} = $value;
-      if($key eq 'is_topdomain' && $value eq 'yes'){
-	$domain->{$config->{config_dir}}->{$attr{domain}} = $page_id;
-      }
     }
-  }
-}
-
-sub PAGE_ {}
-
-# called at the beginning of ATTR tag in XML file
-sub ATTR {
-  my ($p, $edtype, %attr) = @_;
-
-  $ATTR_NAME = $attr{NAME};
-  $page_attr->{$cur_config->{config_dir}}->{$page_id}->{$ATTR_NAME} = "";
-}
-
-sub ATTR_ {
-  $ATTR_NAME = undef;
-}
-
-sub Default {
-  my ($p, $string) = @_;
-  if($ATTR_NAME){
-    $page_attr->{$cur_config->{config_dir}}->{$page_id}->{$ATTR_NAME} .= $string;
   }
 }
 
@@ -209,7 +133,6 @@ sub Attlist {
   my ($p, $elname, $attname, $type, $default, $fixed) = @_;
 
   if($elname eq 'GLOBAL' && $default ne '#IMPLIED'){
-#   print "hi $elname $attname $type $default\n";
     $global_attr->{$cur_config->{config_dir}}->{$attname} ||= $default;
   }
 }
@@ -224,7 +147,7 @@ Apache::PageKit::Config - Reads and provides configuration data.
 
 This is a wrapper class to the global, server and page
 configuration settings stored in the
-pagekit_root/Controller/Config.xml file.
+pagekit_root/Config/Config.xml file.
 
 =head1 METHODS
 
@@ -242,7 +165,7 @@ If server is not specified, defaults to 'Default'.
 
 =item parse_xml
 
-Load settings from pagekit_root/Controller/Config.xml.
+Load settings from pagekit_root/Config/Config.xml.
 
   $config->parse_xml;
 
@@ -260,9 +183,9 @@ Gets the cookie_domain attribute for the server associated with $config.
 
 =item get_page_attr
 
-  $config->get_page_attr($page_id,'use_nav');
+  $config->get_page_attr($page_id,'use_bread_crumb');
 
-Gets the value of the C<use_nav> attribute of C<$page_id>.
+Gets the value of the C<use_bread_crumb> attribute of C<$page_id>.
 
 =back
 
@@ -282,11 +205,6 @@ but their cookies are not enabled.  Defaults to C<login_page>.
 =item default_page
 
 Default page user gets when no page is specified.  Defaults to I<index>.
-
-=item fill_in_form
-
-When set to 1, automatically fills in HTML forms with values from the C<$apr> 
-(L<Apache::Request>) object.  Defaults to 1.
 
 =item include_dispatch_prefix
 
@@ -343,22 +261,18 @@ tag of Config.xml
 Domain for that cookies are issued.  Note that you must have
 at least two periods in the cookie domain.
 
-=item error_handler
-
-Specifies the type of error handling.  I<email> e-mails the
-server administrator, I<display> displays the error on the web page.
-Defaults to I<none>.
-
 =item files_match
 
   files_match = "\.html?$"
 
 Declines requests that match value.
 
-=item page_domain
+=item html_clean_level
 
-If I<yes>, multiple domains are used for the site.  Domains
-can be used to map to pages.  Default is I<no>.
+Sets optimization level for L<HTML::Clean>.  If set to 0, disables use of
+L<HTML::Clean>.  Levels range from 1 to 9.
+Level 1 includes only simple fast optimizations.  Level 9 includes all
+optimizations.  Defaults to level 9.
 
 =item reload
 
@@ -378,17 +292,6 @@ Please send me any comments or suggestions.
 
 Default is I<no>.
 
-=item subdomain
-
-  subdomain = "staging"
-
-This specifies the subdomain under the domain that this particular
-server is running.  Only needs to be set if C<page_domain> is set to I<yes>.
-
-Used in development environments where the hostname is different
-from the production environment.  For example www.mywebsite.com will
-become www.staging.mywebsite.com under staging.
-
 =back
 
 =head2 Page Attributes
@@ -406,10 +309,6 @@ Page ID for this page.
 If set to I<no>, sends an Expires = -1 header to disable client-side
 caching on the browser.
 
-=item domain
-
-The domain name that is associated with the page.
-
 =item error_page
 
 If a submitted form includes invalid data, then this is the page 
@@ -419,22 +318,15 @@ that is displayed.
 
 If set to I<yes>, then page_code on error_page is run.  Defaults to I<no>.
 
+=item fill_in_form
+
+When set to I<yes>, automatically fills in HTML forms with values from the C<$apr> 
+(L<Apache::Request>) object.  If set to I<auto>, fills in HTML forms when it
+detects a <form> tag.  Default is I<auto>.
+
 =item internal_title
 
 Title of page displayed on Content Management System. (Forthcoming)
-
-=item is_popup
-
-If set to I<yes>, links to this page popup a window using javascript.
-
-=item is_secure
-
-If set to I<yes>, links to this page will begin with C<https://>.
-
-=item is_topdomain
-
-If set to I<yes>, page will be the default page for the domain specified
-in the C<domain> field.
 
 =item nav_title
 
@@ -458,14 +350,6 @@ For example, C<^member\/\d*$> matches http://yourdomain.tld/member/4444.
 
 Parent page id - used for navigation bar.
 
-=item popup_width
-
-Width of popup window.  Used when C<is_popup> is set to I<yes>.
-
-=item popup_height
-
-Height of popup window.  Used when C<is_popup> is set to I<yes>.
-
 =item require_login
 
 If set to I<yes>, page requires a login.  If set to I<recent>, page
@@ -478,10 +362,10 @@ If set to I<normal>, enables C<cache> option of L<HTML::Template> for the Page a
 
 If set to I<shared>, enables C<shared_cache> option of L<HTML::Template>.
 
-=item use_nav
+=item use_bread_crumb
 
-If set to I<yes>, creates navigation bar in location specified by
-C<E<lt>TMPL_LOOP NAME="PKIT_NAV"E<gt> E<lt>/TMPL_LOOPE<gt>> in the template.
+If set to I<yes>, creates bread crumb trail in location specified by
+C<E<lt>PKIT_LOOP NAME="BREAD_CRUMB"E<gt> E<lt>/PKIT_LOOPE<gt>> in the template.
 
 =item use_template
 
@@ -489,7 +373,6 @@ If set to I<yes>, uses HTML::Template files.  If set to I<no> page code
 is responsible for sending output.  Default is I<yes>.
 
 =back
-
 
 =head1 AUTHOR
 

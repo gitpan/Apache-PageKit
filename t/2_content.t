@@ -16,5 +16,5 @@ $content->parse_all;
 
 my $param_hashref = $content->get_param_hashref('language');
 
-print "not " unless $param_hashref->{title} eq 'Title in English';
+print "got $param_hashref->{'content:title'}\nnot " unless $param_hashref->{'content:title'} eq 'Title in English';
 print "ok 2\n";

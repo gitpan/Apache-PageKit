@@ -9,7 +9,7 @@ my $pwd = `pwd`;
 chomp($pwd);
 $more_directives = <<END;
 PerlSetVar PKIT_ROOT $pwd/eg
-PerlSetVar PKIT_SERVER production
+PerlSetVar PKIT_SERVER staging
 SetHandler perl-script
 PerlModule Apache::PageKit
 PerlHandler +MyPageKit
@@ -22,6 +22,7 @@ WriteMakefile(
     'NAME'		=> 'Apache::PageKit',
     'AUTHOR'		=> 'T.J. Mather <tjmather\@thoughtstore.com>',
     'VERSION_FROM'	=> 'lib/Apache/PageKit.pm', # finds $VERSION
+    'clean'		=> {FILES => "t/httpd t/error_log eg/Content/cache/*.dat eg/View/pkit_cache/*"},
     'PREREQ_PM'		=> {Apache::URI => 0,
 				Apache::Cookie => 0,
 				Apache::Request => 0,
@@ -31,12 +32,11 @@ WriteMakefile(
 				Digest::MD5 => 0,
 				HTTP::Headers => 0,
 				HTML::FillInForm => 0,
-				HTML::Template => 0,
+				HTML::Template => 2.1,
 				Mail::Mailer => 0,
 				SQL::Statement => 0,
 				Text::CSV_XS => 0,
-				XML::Parser => 0,
-				URI::Escape => 0},
+				XML::Parser => 0},
 );
 
 #unless (-e "/tmp/cvsdb/pkit_user"){

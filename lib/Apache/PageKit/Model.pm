@@ -1,42 +1,30 @@
-package Apache::PageKit::FormValidator;
+package Apache::PageKit::Model;
 
-# $Id: FormValidator.pm,v 1.4 2000/11/20 20:57:44 tjmather Exp $
+# $Id: Model.pm,v 1.1 2000/12/23 07:15:52 tjmather Exp $
 
 use integer;
 use strict;
 use HTML::FormValidator;
 
-#use vars qw( @ISA );
-
-#@ISA = qw( HTML::FormValidator );
-
-#use base "HTML::FormValidator";
-
 sub new {
-  my ($class, $input_profile) = @_;
-  my $self = {};
+  my ($class, $pk) = @_;
+  my $self = {pk => $pk};
   bless $self, $class;
-  $self->{input_profile} = $input_profile;
   return $self;
 }
 
 sub is_error_field {
-  my ($self, $field) = @_;
-  return exists $self->{error_fields}->{$field};
+  my ($model, $field) = @_;
+  return exists $model->{error_fields}->{$field};
 }
 
-sub validate {
-  my ($self, $pk) = @_;
+sub validate_input {
+  my ($model, $input_profile) = @_;
 
-  my $profile = $pk->{page_id};
-
-  # if no input_profile for profile, page doesn't need to validated,
-  # so return valid
-  return 1 unless exists $self->{input_profile}->{$profile};
-
+  my $pk = $model->{pk};
   my $apr = $pk->{apr};
 
-  my $validator = new HTML::FormValidator($self->{input_profile});
+  my $validator = new HTML::FormValidator({default => $input_profile});
 
   # put the data from the Apache::Request into a %fdat hash so HTML::FormValidator can read it
   my %fdat = ();
@@ -47,7 +35,7 @@ sub validate {
   # put Apache::PageKit object in pagekit_object
   $fdat{'pkit_object'} = $pk;
 
-  my ($valids, $missings, $invalids, $unknowns) = $validator->validate(\%fdat, $profile);
+  my ($valids, $missings, $invalids, $unknowns) = $validator->validate(\%fdat, 'default');
   # used to change apply changes from filter to apr
   while (my ($key, $value) = each %$valids){
     $apr->param($key,$value);
@@ -56,25 +44,16 @@ sub validate {
   for my $field (keys %fdat){
     $valids->{$field} ||= "";
   }
-  $self->{error_fields} = {};
+  $model->{error_fields} = {};
   for my $field (@$missings, @$invalids){
-    $self->{error_fields}->{$field} = 1;
-
-    # sets the parameters so that the names of the fields will appear 
-    # _red_ on the html template at the <PKIT_ERRORFONT> tags
-
-    # this sets the font to be red
-    #$view->param("pkit_error:" . $field . ":begin", qq{<font color="#ff0000">});
-
-    # this closes the font tag
-    #$view->param("pkit_error:" . $field . ":end", qq{</font>});
+    $model->{error_fields}->{$field} = 1;
   }
   if(@$invalids || @$missings){
     if(@$invalids){
       foreach my $field (@$invalids){
 	my $value = $fdat{$field};
 	# gets error message for that field which was filled in incorrectly
-	my $msg = $self->{input_profile}->{$profile}->{messages}->{$field};
+	my $msg = $input_profile->{messages}->{$field};
 
 	# substitutes the value the user entered in the error message
 	$msg =~ s/\%\%VALUE\%\%/$value/g;
@@ -91,7 +70,10 @@ sub validate {
     return;
   }
   if ($valids){
+
+    # undocumented, will go away...
     $pk->{fdat} = $valids;
+
     return 1;
   }
 }
@@ -101,18 +83,19 @@ __END__
 
 =head1 NAME
 
-Apache::PageKit::FormValidator - Validates user input based on Apache::Request object
+Apache::PageKit::Model - Form validation.
 
 =head1 DESCRIPTION
 
-This module is a wrapper to L<HTML::FormValidator>.  It validates the form data
+This module contains a wrapper to L<HTML::FormValidator>.
+It validates the form data
 from the L<Apache::Request> object contained in the L<Apache::PageKit> object.
 
 =head1 SYNOPSIS
 
-  $validator = Apache::PageKit::FormValidator->new( $input_profile );
+  $model = Apache::PageKit::Model($pk);
 
-  my $ok = $validator->validate($pk);
+  my $ok = $model->validate_input($input_profile);
 
   if($ok){
     # get validated, filtered form data
@@ -120,13 +103,13 @@ from the L<Apache::Request> object contained in the L<Apache::PageKit> object.
     $fdat = map { $_ => $apr->param($_) } $apr->param;
   } else {
     # not valid, check to see error fields
-    if($validator->is_error_field('name'));
+    if($model->is_error_field('name'));
     $pk->message('You filled your name incorrecty.');
   }
 
 =head1 SEE ALSO
 
-L<Apache::PageKit>, L<Apache::View>, L<HTML::FormValidator>, L<HTML::Template>
+L<Apache::PageKit>, L<HTML::FormValidator>
 
 =head1 AUTHOR
 

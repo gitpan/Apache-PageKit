@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
 <!DOCTYPE pagekit SYSTEM "../Content.dtd">
 <PAGE>
-<TMPL_VAR NAME="html_title"><![CDATA[RICOH SOURCE CODE PUBLIC LICENSE 1.0 - PageKit Application Framework]]></TMPL_VAR>
+<CONTENT_VAR NAME="html_title"><![CDATA[RICOH SOURCE CODE PUBLIC LICENSE 1.0 - PageKit Application Framework]]></CONTENT_VAR>
 </PAGE>

@@ -1,6 +1,6 @@
 package MyPageKit::PageCode;
 
-# $Id: PageCode.pm,v 1.2 2000/12/03 20:34:20 tjmather Exp $
+# $Id: PageCode.pm,v 1.3 2000/12/23 07:08:37 tjmather Exp $
 
 use strict;
 
@@ -22,19 +22,60 @@ sub page_newacct2 {
 
   my $dbh = $pk->{dbh};
   my $apr = $pk->{apr};
+  my $model = $pk->{model};
 
-  # get validated data
-  my $fdat = $pk->{fdat} || warn "no validated data";
+  my $input_profile = {
+		  required => [ qw( pkit_object email login passwd1 passwd2 ) ],
+		  constraints => {
+				  email => "email",
+				  login => { constraint => sub {
+					       my ($new_login, $pk) = @_;
+					       my $dbh = $pk->{dbh};
+					       my $user_id = $pk->{apr}->connection->user;
+					       my $sql_str = "SELECT login FROM pkit_user WHERE user_id=?";
+					       my ($old_login) = $dbh->selectrow_array($sql_str,{},$user_id);
+
+					       # return ok if user didn't change login
+					       # (assumes that login is case-insensitive)
+					       return 1 if lc($old_login) eq lc($new_login);
+
+					       # user changed login, check to make sure it isn't used
+					       $sql_str = "SELECT login FROM pkit_user WHERE login = ?";
+					       # login is used, return false
+					       return 0 if $dbh->selectrow_array($sql_str,{},$new_login);
+					       # login isn't used, return true
+					       return 1;
+					     },
+					     params => [ qw( login pkit_object )]
+					   },
+				  passwd1 => { constraint => sub { return $_[0] eq $_[1]; },
+					       params => [ qw( passwd1 passwd2 ) ]
+					     },
+				  passwd2 => { constraint => sub { return $_[0] eq $_[1]; },
+					       params => [ qw( passwd1 passwd2 ) ]
+					     },
+				 },
+		  messages => {
+			       login => "The login, <b>%%VALUE%%</b>, has already been used.",
+			       email => "The E-mail address, <b>%%VALUE%%</b>, is invalid.",
+			       phone => "The phone number you entered is invalid.",
+			       passwd1 => "The passwords you entered do not match."
+			      },
+		 };
+  # validate user input
+  unless($model->validate_input($input_profile)){
+    $pk->continue('newacct1');
+    return;
+  }
 
   # make up userID
-
   my $user_id = substr(MD5->hexhash(MD5->hexhash(time(). {}. rand(). $$)), 0, 8);
 
   my $sql_str = "INSERT INTO pkit_user (user_id,email,login,passwd) VALUES (?,?,?,?)";
-  $dbh->do($sql_str, {}, $user_id, $fdat->{email}, $fdat->{login}, $fdat->{passwd1});
+  $dbh->do($sql_str, {}, $user_id, $apr->param('email'), $apr->param('login'), $apr->param('passwd1'));
 
-  $apr->param('pkit_credential_0', $fdat->{'login'});
-  $apr->param('pkit_credential_1', $fdat->{'passwd1'});
+  $apr->param('pkit_credential_0', $apr->param('login'));
+  $apr->param('pkit_credential_1', $apr->param('passwd1'));
   $apr->param('pkit_remember', 'on');
 }
 

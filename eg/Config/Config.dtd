@@ -1,0 +1,37 @@
+<!ELEMENT CONFIG (GLOBAL,SERVERS,PAGES)>
+<!ELEMENT GLOBAL EMPTY>
+<!ATTLIST GLOBAL
+	cookies_not_set_page		CDATA	#IMPLIED
+	default_lang			CDATA	"en"
+	default_page			CDATA	"index"
+	html_clean_level		(0|1|2|3|4|5|6|7|8|9)	"9"
+	component_dispatch_prefix	CDATA	"MyPageKit::ComponentCode"
+	login_page			CDATA	"login"
+	not_found_page			CDATA	#IMPLIED
+	page_dispatch_prefix		CDATA	"MyPageKit::PageCode"
+	post_max			CDATA	"100000000"
+	recent_login_timeout		CDATA	"3600"
+	uri_prefix			CDATA	#IMPLIED
+	verify_page			CDATA	#IMPLIED>
+<!ELEMENT SERVERS (SERVER)*>
+<!ELEMENT SERVER EMPTY>
+<!ATTLIST SERVER
+	id			CDATA	"Default"
+	cookie_domain		CDATA	#IMPLIED
+	files_match		CDATA	#IMPLIED
+	reload			(yes|no)	"no"
+	search_engine_headers	(yes|no)	"no">
+<!ELEMENT PAGES (PAGE)*>
+<!ELEMENT PAGE EMPTY>
+<!ATTLIST PAGE
+        id                 ID      #REQUIRED
+        browser_cache           CDATA   #IMPLIED
+	fill_in_form		(yes|auto|no)	"auto"
+        internal_title          CDATA   #IMPLIED
+        new_credential          CDATA   #IMPLIED
+        id_match           CDATA   #IMPLIED
+        parent_id               CDATA   #IMPLIED
+        require_login           CDATA   #IMPLIED
+        template_cache		CDATA   #IMPLIED
+        use_bread_crumb         CDATA   #IMPLIED
+        use_template            CDATA   #IMPLIED>

@@ -1,6 +1,43 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.89  Sun Dec  3 18:27:11 2000
+0.90  
+	- Major changes in API and streamlining of pagekit
+		in preparation for 1.0 beta release.  
+	- Removed seldom used options and replaced others with
+		more user-friendly versions.
+	- Renamed Controller directory to Config directory
+	- Renamed <TMPL_VAR> and <TMPL_LOOP> tags to
+		<MODEL_VAR> and <MODEL_LOOP> for Model Data and
+		<CONTENT_VAR> and <CONTENT_LOOP> for Content Data and
+		<PKIT_VAR> and <PKIT_LOOP> for PageKit Data
+	- Renamed <PKIT_INCLUDE> to <PKIT_COMPONENT> and replaced
+		'include' with 'component' across the framework
+	- Moved and renamed nav_title option from config to 
+		<NAV_TITLE> </NAV_TITLE> in content XML for
+		better foreign language support.
+	- Renamed Apache::PageKit::FormValidator to Apache::PageKit::Model
+		and redesigned class to replace form_validator
+		constructor option with $model->validate_input($hash_ref)
+		method.  Eliminated error_page and error_page_run_code
+		options (user should use $pk->continue
+		in model instead).  This should make the development
+		easier because all the logic is in the Model class instead
+		being scattered across the derived class and configuration.
+	- View templates get pre-parsed using file_cache/cache option of
+		HTML::Template, and the HTML can be optimized by
+		using HTML::Clean if html_clean_level is set to >=1
+	- Changed template_cache option to use yes for cache
+		in HTML::Template and no for file_cache.
+		Got rid of shared_cache, since it is problematic
+		and file_cache is almost as fast.
+	- Moved fill_in_form to page attr from global attr
+	- Removed support for domains, including page_domain,
+		domain, is_topdomain attributes.
+	- Removed page based linking attributes, including
+		support for <PKIT_LINK> and <PKIT_JAVASCRIPT> tags and
+		is_popup, is_secure, popup_width, and popup_height.
+
+0.89  Sun Dec  3 18:27:11 2000 EST
 	- Major changes in API, leading up to 0.9 pre-beta and 1.0 beta release
 	- Created Apache::PageKit::Config, for configuration directives,
 		replacing Apache::PageKit::Info
@@ -15,7 +52,7 @@ Revision history for Perl extension Apache::PageKit.
 	- Used Apache::Test in test suite to test working copy of pagekit.org
 		web site.
 
-0.05  Tue Oct 31 14:12:00 2000
+0.05  Tue Oct 31 14:12:00 2000 EST
 	- Added support for language localization
 	- No longer require that entry in page.xml exist for all pages
 	- Replaced View and Module templates with Include templates
@@ -25,17 +62,17 @@ Revision history for Perl extension Apache::PageKit.
 	- Added $pk->redirect method
 	- Added $pk->continue method
 
-0.04  Tue Aug 29 13:12:53 2000
+0.04  Tue Aug 29 13:12:53 2000 EST
         - Added support for <TMPL_LOOP> XML tag
         - modified pagekit.org to use <TMPL_LOOP>
 
-0.03  Tue Aug 29 00:13:33 2000
+0.03  Tue Aug 29 00:13:33 2000 EST
         - Replaced use of Apache::Session with adaption of
 		HTML::Embperl::Session
 
-0.02  Mon Aug 28 18:44:15 2000
+0.02  Mon Aug 28 18:44:15 2000 EST
 	- Added XML Support for attributes and <TMPL_VAR> Elements
 
-0.01  Thu Aug 24 16:30:34 2000
+0.01  Thu Aug 24 16:30:34 2000 EST
 	- original version; created by h2xs 1.20 with options
 		-X -n Apache::PageKit
