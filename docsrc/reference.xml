@@ -15,7 +15,7 @@ programlisting
 <chapter><?dbhtml filename="reference.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: reference.xml,v 1.49 2002/03/22 19:59:13 borisz Exp $
+$Id: reference.xml,v 1.59 2002/07/31 08:16:39 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Reference</title>
@@ -457,6 +457,16 @@ If set to <emphasis>yes</emphasis>, enables on-line editing tools.
       </para>
       <para>
        If not set then cookie issued for the current domain name.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry id="config.server.cookie_postfix">
+     <term>cookie_postfix</term>
+     <listitem>
+      <para>
+The content of <literal><link linkend="config.server.cookie_postfix">cookie_postfix</link></literal> is appended to <literal>pkit_id</literal>
+and <literal>pkit_session_id</literal>. With this option it is possible to force different names for your cookies.
+Usefull if for some reason your cookies overwrite eachother.
       </para>
      </listitem>
     </varlistentry>
@@ -1092,6 +1102,9 @@ In the example listed above, the request for <literal>http://yourwebsite/pagekit
 get dispatched to the mypage method of the myclass class, and the <filename>View/Default/myclass/mypage.tmpl</filename> template and/or the <filename>Content/myclass/mypage.xml</filename> XML file.
      </para>
      <para>
+     Note: that no session and page_session data is available in this function for reading or writing.
+     </para>
+     <para>
 See also <link linkend="config.global.uri_prefix">uri_prefix</link>.
      </para>
     </refsect1>
@@ -1339,6 +1352,10 @@ This method fetches all of the parameters from the Apache request object,
 returning a reference to a hash containing the parameters as keys, and
 the parameters' values as values.  Note a multivalued parameters
 is returned as a reference to an array.
+     </para>
+     <para>
+Note, that the values in this hash are <emphasis role="bold">readonly</emphasis>. 
+To modify something use $model-><literal>input</literal>( key => $value );.
      </para>
     </refsect1>
    </refentry>
@@ -2309,7 +2326,7 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refnamediv>
       <refname>PKIT_HAVE_MESSAGES</refname>
       <refpurpose>
-       Include the block between <PKIT_HAVE_MESSAGES> and </PKIT_HAVE_MESSAGES> only,
+       Include the block between &lt;PKIT_HAVE_MESSAGES&gt; and &lt;/PKIT_HAVE_MESSAGES&gt; only,
        if one or more messages are avail.
       </refpurpose>
      </refnamediv>
@@ -2330,7 +2347,7 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refsect1>
       <title>Description</title>
       <para>
-        Include the block between <PKIT_HAVE_MESSAGES> and </PKIT_HAVE_MESSAGES> only,
+        Include the block between &lt;PKIT_HAVE_MESSAGES&gt; and &lt;/PKIT_HAVE_MESSAGES&gt; only,
         if one or more messages are avail.
       </para>
      </refsect1>
@@ -2339,7 +2356,7 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refnamediv>
       <refname>PKIT_HAVE_NOT_MESSAGES</refname>
       <refpurpose>
-       Include the block between <PKIT_HAVE_NOT_MESSAGES> and </PKIT_HAVE_NOT_MESSAGES> only,
+       Include the block between &lt;PKIT_HAVE_NOT_MESSAGES&gt; and &lt;/PKIT_HAVE_NOT_MESSAGES&gt; only,
        if no messages are avail.
       </refpurpose>
      </refnamediv>
@@ -2354,7 +2371,7 @@ value of <link linkend="model.api.pkit_auth_session_key">pkit_auth_session_key</
      <refsect1>
       <title>Description</title>
       <para>
-        Include the block between <PKIT_HAVE_NOT_MESSAGES> and </PKIT_HAVE_NOT_MESSAGES> only,
+        Include the block between &lt;PKIT_HAVE_NOT_MESSAGES&gt; and &lt;/PKIT_HAVE_NOT_MESSAGES&gt; only,
         if no messages are avail.
       </para>
      </refsect1>

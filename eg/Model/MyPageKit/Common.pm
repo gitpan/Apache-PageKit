@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.19 2002/01/08 16:45:12 borisz Exp $
+# $Id: Common.pm,v 1.22 2002/08/21 20:21:58 borisz Exp $
 
 use strict;
 
@@ -32,6 +32,9 @@ sub pkit_session_setup {
 
   my %session_setup = (
 		       session_store_class => 'File',
+
+#                      *Win32* user should use session_lock_class => 'Null',
+#                      if 'File' is not working propper.
 		       session_lock_class => 'File',
 		       session_args => {
 #					Handle => $dbh,
@@ -108,11 +111,13 @@ sub pkit_auth_session_key {
 
   my $dbh = $model->dbh;
 
-  my $user_id = $ses_key->{user_id};
+  my $user_id = $ses_key->{user_id} or return;
 
   my $sql_str = "SELECT login, passwd FROM pkit_user WHERE user_id=?";
 
   my ($login, $epasswd) = $dbh->selectrow_array($sql_str,{},$user_id);
+  
+  return unless $login;
 
   # create a new hash and verify that it matches the supplied hash
   # (prevents tampering with the cookie)

@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.74 2002/03/14 14:41:38 borisz Exp $
+# $Id: Model.pm,v 1.82 2002/08/21 20:21:57 borisz Exp $
 
 use integer;
 use strict;
@@ -245,6 +245,15 @@ sub pkit_internal_execute_redirect {
 # currently input_param is just a wrapper around $apr
 sub input {
   my $model = shift;
+  
+  if ( @_ > 1 && exists $model->{pkit_input_hashref} ) {
+    # insert something, we must update the hashref
+    my %params = @_;
+    while ( my ( $key, $value ) = each %params ) {
+      $model->{pkit_input_hashref}->{$key} = $value;
+    }
+  }
+
   if(wantarray){
     # deal with multiple value containing parameters
     my @list = $model->{pkit_pk}->{apr}->param(@_);
@@ -432,6 +441,7 @@ sub pkit_send {
       $apr->send_fd($ref_or_fname);
     } else {
       if ( open SENDFH, "<$ref_or_fname" ) {
+        binmode SENDFH;
         $apr->send_fd(\*SENDFH);
         close SENDFH;
       }

@@ -1,6 +1,6 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.175 2002/03/13 22:41:15 borisz Exp $
+# $Id: PageKit.pm,v 1.206 2002/08/23 09:00:28 borisz Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
@@ -34,7 +34,7 @@ use Apache::PageKit::Edit ();
 use Apache::Constants qw(OK DONE REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = 1.09_01;
+$VERSION = '1.10';
 
 %Apache::PageKit::DefaultMediaMap = (
 				     pdf => 'application/pdf',
@@ -48,8 +48,8 @@ sub startup {
   my $s = Apache->server;
 
   if ( defined $mod_perl::VERSION && $mod_perl::VERSION >= 1.26 ) {
-    $pkit_root = $s->dir_config('PKIT_ROOT')   || $pkit_root || die "PKIT_ROOT is not defined! Put PerlSetVar PKIT_ROOT /your/root/path in your httpd.conf";
-    $server    = $s->dir_config('PKIT_SERVER') || $server    || die "PKIT_SERVER is not defined! Put PerlSetVar PKIT_SERVER servername in your httpd.conf";
+    $pkit_root ||= $s->dir_config('PKIT_ROOT')   || die "PKIT_ROOT is not defined! Put PerlSetVar PKIT_ROOT /your/root/path in your httpd.conf";
+    $server    ||= $s->dir_config('PKIT_SERVER') || die "PKIT_SERVER is not defined! Put PerlSetVar PKIT_SERVER servername in your httpd.conf";
   } else {
     $pkit_root || die 'must specify $pkit_root variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)';
     $server    || die 'must specify $server variable in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)';
@@ -139,6 +139,7 @@ sub handler ($$){
 
   my ($pk, $model, $status_code);
 
+  binmode STDOUT;
   $| = 1;
 
   eval {
@@ -408,10 +409,16 @@ sub prepare_page {
     unless($filename) {{
 
       if ($pk->is_directory($pk->{page_id})) {
-        $pk->{page_id} .= '/' . $model->pkit_get_default_page;
-        last if ($pk->page_exists($pk->{page_id}));
-	$filename = $pk->static_page_exists($pk->{page_id});
-        last if ($filename);
+        # redirect to the directory instead of deliver the page.
+	# otherwise the client gets all links wrong if they are relative.
+	# http://xyz.abc.de/my_dir
+	# we deliver silently http://xyz.abc.de/my_dir/some_default_page
+	# but all relative links on some_default_page get
+	# http://xyz.abc.de/_the_link_ istead of
+	# http://xyz.abc.de/my_dir/_the_link_
+	# so we redirect better ...
+        $apr->headers_out->{Location} = $pk->{page_id} . '/';
+	return REDIRECT;
       }
 
       $pk->{page_id} = $config->uri_match($pk->{page_id})
@@ -494,6 +501,7 @@ sub prepare_page {
 #      my $referer = $apr->header_in('Referer');
 #      $referer =~ s(http://[^/]*/([^?]*).*?)($1);
       $pk->{page_id} = $apr->param('pkit_login_page') || $config->get_global_attr('login_page');
+      $pk->{browser_cache} = 'no';
     }
   }
 
@@ -510,8 +518,9 @@ sub prepare_page {
 	# user is logged in, but has had inactivity period
 
 	# display verify password form
-	$pk->{page_id} = $config->get_global_attr('verify_page') ||
-	  $config->get_global_attr('login_page');
+	$pk->{page_id} = $config->get_global_attr('verify_page') || $config->get_global_attr('login_page');
+	$pk->{browser_cache} = 'no';
+
 	# pkit_done parameter is used to return user to page that they originally requested
 	# after login is finished
 	$output_param_object->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
@@ -528,6 +537,8 @@ sub prepare_page {
       if($config->get_global_attr('cookies_not_set_page')){
 	# display "cookies are not set" error page.
 	$pk->{page_id} = $config->get_global_attr('cookies_not_set_page');
+	$pk->{browser_cache} = 'no';
+
       } else {
 	# display login page with error message
 	$pk->{page_id} = $config->get_global_attr('login_page');
@@ -539,6 +550,8 @@ sub prepare_page {
     if(defined($require_login) && $require_login =~ /^(yes|recent)$/){
       # this page requires that the user has a valid cookie
       $pk->{page_id} = $config->get_global_attr('login_page');
+      # do NOT cache this page other wise we end up on the loginpage instead of the page we want
+      $pk->{browser_cache} = 'no';
       $output_param_object->param("pkit_done",$uri_with_query) unless $apr->param("pkit_done");
       $model->pkit_gettext_message('This page requires a login.');
     }
@@ -597,10 +610,11 @@ sub _send_static_file {
           }
         }
       }
-      # set path_info to '', otherwise Apache tacks it on at the end
-      $apr->path_info('');
-      $apr->filename($filename);
-      return DECLINED;
+  return $pk->{model}->pkit_send($filename, $media_type);
+ #     # set path_info to '', otherwise Apache tacks it on at the end
+ #     $apr->path_info('');
+ #     $apr->filename($filename);
+ #     return DECLINED;
 }
 
 sub _check_gzip {
@@ -611,22 +625,22 @@ sub _check_gzip {
   $pk->{use_gzip} = 'none';
   my $apr = $pk->{apr};
   if ($gzip_output =~ m!^(all|static)$!){
-    if(($apr->header_in("Accept-Encoding") || "") =~ /gzip/){
+    if(($apr->header_in("Accept-Encoding") || '') =~ /gzip/){
       $pk->{use_gzip} = $gzip_output;
     } else {
       my $user_agent = $apr->header_in("User-Agent");
       # this regular expression borrowed from Apache::AxKit::ConfigReader::DoZip
-      if ($user_agent =~ m{
-			   ^Mozilla/
-			   \d+
-			   \.
-			   \d+
-			   [\s\[\]\w\-]+
-			   (
-			    \(X11 |
-			    Macint.+PPC,\sNav
-			   )
-			  }x
+      if ($user_agent && $user_agent =~ m{
+					   ^Mozilla/
+					   \d+
+					   \.
+					   \d+
+					   [\s\[\]\w\-]+
+					   (
+					    \(X11 |
+					    Macint.+PPC,\sNav
+					   )
+					  }x
 	 ) {
 	$pk->{use_gzip} = $gzip_output;
       }
@@ -685,7 +699,7 @@ sub prepare_and_print_view {
   #$apr->no_cache(1) if $apr->param('pkit_logout') || $config->get_page_attr($pk->{page_id},'template_cache') eq 'no';
   # see http://support.microsoft.com/support/kb/articles/Q234/0/67.ASP
   # and http://www.pacificnet.net/~johnr/meta.html
-  my $browser_cache =  $config->get_page_attr($page_id,'browser_cache') || 'yes';
+  my $browser_cache =  $pk->{browser_cache} || $config->get_page_attr($page_id,'browser_cache') || 'yes';
   $apr->header_out('Expires','-1') if $apr->param('pkit_logout') || $browser_cache eq 'no' || $apr->connection->user;
 
   my $default_output_charset = $view->{default_output_charset};
@@ -715,6 +729,7 @@ sub prepare_and_print_view {
     my $fo_file = "$view_cache_dir/$$.fo";
     my $pdf_file = "$view_cache_dir/$$.pdf";
     open FO_TEMPLATE, ">$fo_file" or die "can't open file: $fo_file ($!)";
+    binmode FO_TEMPLATE;
     print FO_TEMPLATE $$output_ref;
     close FO_TEMPLATE;
 
@@ -731,6 +746,7 @@ sub prepare_and_print_view {
     unless ($error_message =~ /^\[ERROR\]:/m){
       local $/;
       open PDF_OUTPUT, "<$pdf_file" or die "can't open file: $pdf_file ($!)";
+      binmode PDF_OUTPUT;
       $$output_ref = <PDF_OUTPUT>;
       close PDF_OUTPUT;
     } else {
@@ -1012,11 +1028,13 @@ sub login {
     untie %auth_session;
   }
 
+  my $pkit_id = 'pkit_id' . ( $config->get_server_attr('cookie_postfix') || '' );
+
   my $cookie_domain_str = $config->get_server_attr('cookie_domain');
   my @cookie_domains = defined($cookie_domain_str) ? split(' ',$cookie_domain_str) : (undef);
   for my $cookie_domain (@cookie_domains){
     my $cookie = Apache::Cookie->new($apr,
-				   -name => 'pkit_id',
+				   -name => $pkit_id,
 				   -value => $ses_key,
 				   -path => "/");
     $cookie->domain($cookie_domain) if $cookie_domain;
@@ -1060,10 +1078,11 @@ sub authenticate {
   my $model = $pk->{model};
 
   my %cookies = Apache::Cookie->fetch;
+  my $cookie_pkit_id = 'pkit_id' . ( $pk->{config}->get_server_attr('cookie_postfix') || '' );
 
-  return unless $cookies{'pkit_id'};
+  return unless $cookies{$cookie_pkit_id};
 
-  my %ticket = $cookies{'pkit_id'}->value;
+  my %ticket = $cookies{$cookie_pkit_id}->value;
 
   # in case pkit_auth_session_key is not defined, but cookie
   # is somehow already set
@@ -1087,13 +1106,18 @@ sub authenticate {
 sub logout {
   my ($pk) = @_;
 
+  my $config = $pk->{config};
   my %cookies = Apache::Cookie->fetch;
 
-  my $logout_kills_session = $pk->{config}->get_global_attr('logout_kills_session') || 'yes';
-  my @cookies_to_kill = ( $cookies{pkit_id} );
-  push @cookies_to_kill, $cookies{pkit_session_id} if $logout_kills_session eq 'yes';
+  my $cookie_postfix = $config->get_server_attr('cookie_postfix') || '';
+  my $pkit_id = 'pkit_id' . $cookie_postfix;
+  my $pkit_session_id = 'pkit_session_id' . $cookie_postfix;
 
-  my $cookie_domain = $pk->{config}->get_server_attr('cookie_domain');
+  my $logout_kills_session = $config->get_global_attr('logout_kills_session') || 'yes';
+  my @cookies_to_kill = ( $cookies{$pkit_id} );
+  push @cookies_to_kill, $cookies{$pkit_session_id} if $logout_kills_session eq 'yes';
+
+  my $cookie_domain = $config->get_server_attr('cookie_domain');
   my @cookie_domains = defined($cookie_domain) ? split(' ',$cookie_domain) : (undef);
 
   for my $tcookie (@cookies_to_kill){
@@ -1126,10 +1150,12 @@ sub setup_session {
 
   my %cookies = Apache::Cookie->fetch;
 
+  my $pkit_session_id = 'pkit_session_id' . ( $config->get_server_attr('cookie_postfix') || '' );
+
   my $session_id;
 
-  if(defined $cookies{'pkit_session_id'}){
-    my $scookie = $cookies{'pkit_session_id'};
+  if(defined $cookies{$pkit_session_id}){
+    my $scookie = $cookies{$pkit_session_id};
     $session_id = $scookie->value;
   }
 
@@ -1189,7 +1215,7 @@ sub setup_session {
     my @cookie_domains = defined($cookie_domain_str) ? split(' ',$cookie_domain_str) : (undef);
     for my $cookie_domain (@cookie_domains){
       my $cookie = Apache::Cookie->new($apr,
-					 -name => 'pkit_session_id',
+					 -name => $pkit_session_id,
 					 -value => "",
 					 -path => "/");
       $cookie->domain($cookie_domain) if $cookie_domain;
@@ -1212,12 +1238,13 @@ sub set_session_cookie {
 
   if(my $session_id = tied(%$session)->getid){
     # something was stored in session
+    my $pkit_session_id = 'pkit_session_id' . ( $pk->{config}->get_server_attr('cookie_postfix') || '' );
     my $expires = $pk->{config}->get_global_attr('session_expires');
     my $cookie_domain_str = $pk->{config}->get_server_attr('cookie_domain');
     my @cookie_domains = defined($cookie_domain_str) ? split(' ',$cookie_domain_str) : (undef);
     for my $cookie_domain (@cookie_domains){
       my $cookie = Apache::Cookie->new($apr,
-				       -name => 'pkit_session_id',
+				       -name => $pkit_session_id,
 				       -value => $session_id,
 				       -path => "/");
       $cookie->domain($cookie_domain) if $cookie_domain;
@@ -1460,6 +1487,8 @@ Fixes, Bug Reports, Docs have been generously provided by:
   David Christian
   Rob Starkey
   Anton Permyakov
+  Gabriel Burca
+  Glenn Morgan
   John Robinson
   Daniel Gardner
   Andy Massey
@@ -1468,7 +1497,6 @@ Fixes, Bug Reports, Docs have been generously provided by:
   John Moose
   Sheldon Hearn
   Vladimir Sekissov
-  Gabriel Burca
   Tomasz Konefal
   Michael Wojcikiewicz
 

@@ -1,7 +1,7 @@
 <chapter><?dbhtml filename="features.html"?>
 <chapterinfo>
 <releaseinfo role="meta">
-$Id: features.xml,v 1.17 2002/03/22 23:12:04 tjmather Exp $
+$Id: features.xml,v 1.19 2002/08/23 09:42:07 borisz Exp $
 </releaseinfo>
 </chapterinfo>
 <title>Overview of Features</title>
@@ -424,7 +424,7 @@ across your Derived Model Classes.
    PageKit takes care of opening and closing sessions.  Note that sessions
    are only created when something is written to session hash.
   </para>
-    <warning>
+  <warning>
    <title>Warning!</title>
    <para>Because of the way Apache::SessionX works, the session only gets saved
     if top level element in the tied hash gets changed.
@@ -489,6 +489,11 @@ If <literal><link linkend="config.page.require_login">require_login</link></lite
 is set to <emphasis>recent</emphasis>, then PageKit requires that session is currently active in the last
 <literal><link linkend="config.global.recent_login_timeout">recent_login_timeout</link></literal>
 seconds.
+  </para>
+  <para>
+  Note, that the pages <literal><link linkend="config.global.default_page">default_page</link></literal>,
+  <literal><link linkend="config.global.verify_page">verify_page</link></literal> and
+  <literal><link linkend="config.global.login_page">login_page</link></literal> can not be protected in any way.
   </para>
  </sect1>
  <sect1><?dbhtml filename="validation.html"?>

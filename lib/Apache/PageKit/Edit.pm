@@ -1,6 +1,6 @@
 package Apache::PageKit::Edit;
 
-# $Id: Edit.pm,v 1.8 2001/12/31 20:05:57 borisz Exp $
+# $Id: Edit.pm,v 1.13 2002/08/21 20:21:57 borisz Exp $
 
 # note that this Model class accesses some of the internals of
 # PageKit and should not be used as an example for writing
@@ -45,12 +45,18 @@ sub open_file {
   $model->output( read_only => 1 ) if ( ! -w $file );
 
   open FILE, "$file" or die $!;
+  binmode FILE;
   local $/ = undef;
 
 # we need to escape HTML tags to avoid </textarea>
 # my $content = Apache::Util::escape_html(<PAGE> || "");
   my $content = <FILE>;
   close FILE;
+
+  # we need to escape all & chars so that for example &nbsp; is
+  # &nbsp; and not ' ' 
+  #<textarea> holds #PCDATA
+  $content =~ s/&/&amp;/g;
 
   $model->output(content => $content);
 }
@@ -71,6 +77,7 @@ sub commit_file {
   my $content = $model->input('content');
 
   open FILE, ">$file" or die $!;
+  binmode FILE;
   print FILE $content;
   close FILE;
 

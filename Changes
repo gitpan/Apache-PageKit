@@ -2,22 +2,59 @@ Revision history for Perl extension Apache::PageKit.
 
 	For more details on migration, see migration/README
 1.10
-	- Fix replace <PKIT_ERRORSTR> even inside pkit_message strings.
+ 	- Add a note to the docs, that some pages can not be protected
+		(Boris Zentner, Rob Starkey)
+	- Fix some links in the eg site to work in a different
+		location (Boris Zentner)
+	- Do not deliver a page direct if the client forget to add a '/'
+		instead redirect to the right place. This is done to get
+		relative links right. (Boris Zentner)
+	- Prepare PageKit for W32 (Boris Zentner)
+	- Avoid changing apr->filename and apr->path_info
 		(Boris Zentner)
-	- Use parameters for Apache::PageKit->startup if we can not 
-		find PKIT_ROOT and or PKIT_SERVER for
+	- Fix warning, when the clients browser did not send a 
+		User-Agent header. (Boris Zentner)
+	- Fix for startup when passed parameter should override
+		PKIT_ROOT and PKIT_SERVER settings (TJ Mather)
+	- Workaround another UTF conversion bug in perl 5.6.1
+		(Boris Zentner, Gabriel Burca)
+	- Fix docs for PKIT_HAVE_MESSAGES and PKIT_HAVE_NOT_MESSAGES
+		(Boris Zentner)
+	- Fix: pkit_edit translate & to &amp; since <textarea> holds
+		#PCDATA, but we want it raw. (Boris Zentner)
+	- Fix warning, when pkit_auth_session_key is called with a session
+		without a user_id or the database can not provide a login
+		or passwd. (Boris Zentner)
+	- Fix: do NOT cache the page, that force us to login (Boris Zentner)
+	- Fix warning, when a pkit_macro tag is used without the same
+		parameter in the pkit_component tag (Boris Zentner)
+	- Fix pkit_input_hashref for the case where you request the hash,
+		change something and request the hash again. In error
+		you get the old value(s) back. (Glenn Morgan)
+	- Fix call pkit_on_error before the session data is saved. 
+		So you can rollback the changes, even if your session
+		data is in the same db with your application.
+		(Boris Zentner)
+	- Fix replace <PKIT_ERRORSTR> even inside pkit_message 
+		strings. (Boris Zentner)
+	- Use parameters for Apache::PageKit->startup if we can not
+		find PKIT_ROOT and or PKIT_SERVER for 
 		mod_perl >= 1.06 (Boris Zentner)
 	- Add patch to use <PKIT_ERRORSPAN> and <PKIT_ERRORFONT>
 		without a name attribute. (Boris Zentner)
 	- Add: component subs are called with component-parameters.
-		See pkit_component_params_hashref (Boris Zentner)
+		See pkit_component_params_hashref
+		(Boris Zentner)
 	! Component code is called inorder from top to the bottom
 		(Boris Zentner)
-	- Fix: bug, where path relative components are not listed as
-		an edit component. (Boris Zentner, Gabriel Burca)
-	- Fix a errormessage is fixed, that report file is out of 
+	- Fix: bug, where path relative components are not listed 
+		as an edit component. (Boris Zentner, Gabriel Burca)
+	- Fix: A errormessage is fixed, that report file is out of
 		the root_dir even if the file is not found.
 		(Boris Zentner, Gabriel Burca)
+	- Add new server option cookie_postfix. To name cookies just for the
+                case, that multiple pkit applications run  in the same
+                apache server. (Boris Zentner, David Raimbault)
 	- Fix: write the session data and destroy the db connection
 		even if an error transpires (Boris Zentner)
 	- Fix: defer delivery of static pages if parameters are attached to

@@ -1,6 +1,6 @@
 package Apache::PageKit::View;
 
-# $Id: View.pm,v 1.87 2002/03/22 23:12:04 tjmather Exp $
+# $Id: View.pm,v 1.102 2002/08/21 20:21:57 borisz Exp $
 
 # we want to extend this module to use different templating packages -
 # Template::ToolKit and HTML::Template
@@ -170,6 +170,7 @@ sub get_static_gzip {
   # is the cache entry valid or changed on disc?
   if(-f "$gzipped_filename"){
     open FH, "<$gzipped_filename" or return undef;
+    binmode FH;
     # read mtime from first line
     chomp($gzip_mtime = <FH>);
 
@@ -249,6 +250,7 @@ sub _create_static_zip {
   my ($view, $filename, $gzipped_filename) = @_;
   local $/ = undef;
   open FH, "<$filename" or return undef;
+  binmode FH;
   my $content = <FH>;
   close FH;
 
@@ -263,6 +265,7 @@ sub _create_static_zip {
   if ($gzipped_content) {
     my $mtime = (stat($filename))[9];
     if ( open GZIP, ">$gzipped_filename" ) {
+      binmode GZIP;
       print GZIP "$mtime\n";
       print GZIP $gzipped_content;
       close GZIP;
@@ -370,8 +373,7 @@ sub _include_components {
     }
 
     my $template_ref = $view->_load_component($page_id, $component_id, $pkit_view, \%params);
-    push @{ $view->{component_ids_arrayref_with_params} }, [ $component_id => \%params ];
-    $$template_ref =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$params{uc($+)}!egi if (keys %params);
+    $$template_ref =~ s!<\s*PKIT_MACRO$key_value_pattern\s*/?>!$params{uc($+)} || ''!egi if (keys %params);
     return $$template_ref;
   }
 }
@@ -420,6 +422,7 @@ sub _load_component {
     $template_ref = $view->{content}->generate_template($page_id, $component_id, $pkit_view, $view->{input_param_object}, $component_params);
   } else {
     open TEMPLATE, "<$template_file" or die "can not read $template_file";
+    binmode TEMPLATE;
     local($/) = undef;
     my $template = <TEMPLATE>;
     close TEMPLATE;
@@ -559,6 +562,7 @@ sub _load_page {
 }
 
 sub _preparse_model_tags {
+  use bytes;
   my ( $view, $html_code_ref ) = @_;
 
   my $exclude_params_set = {};

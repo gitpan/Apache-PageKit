@@ -165,6 +165,11 @@ Setup
 
 	my $dbh = DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
 	$dbh->do("CREATE TABLE pkit_user (user_id CHAR(8), login CHAR(255), email CHAR(255), passwd CHAR(255))");
+	
+	Note for Win32 user: 
+	  On Win32 you should use a session_lock_class => 'Null'
+	  in the eg site if you encount any problems. At least for me
+	  session_lock_class => 'File' is not working.
 
 	For the example application to work on a real database you must
 	create the above table on it as well.

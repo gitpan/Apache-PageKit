@@ -1,6 +1,6 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.41 2002/03/22 23:12:04 tjmather Exp $
+# $Id: Content.pm,v 1.43 2002/08/21 20:21:57 borisz Exp $
 
 use strict;
 
@@ -159,6 +159,7 @@ sub open_uri {
   my $uri = shift;
   my $abs_uri = _rel2abs($uri);
   open XML, "$abs_uri" or die "XML file $abs_uri doesn't exist";
+  binmode XML;
   local($/) = undef;
   my $xml_str = <XML>;
   close XML;

@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.30 2002/03/05 14:13:22 borisz Exp $
+# $Id: Config.pm,v 1.35 2002/08/21 20:21:57 borisz Exp $
 
 use integer;
 use strict;
@@ -64,6 +64,7 @@ sub parse_xml {
   # this open close hack is needed. oherwise XML::LibXML sometimes likes to open with the
   # handlers we set in Content.pm! So we use parse_fh instead of parse_file.
   open CFH, "<$config_dir/Config.xml" or die $!;
+  binmode CFH;
   my $dom  = $parser->parse_fh(\*CFH);
   close CFH;
 
