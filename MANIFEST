@@ -2,14 +2,15 @@ Changes
 LICENSE
 MANIFEST
 Makefile.PL
+lib/Apache/ErrorReport.pm
 lib/Apache/PageKit.pm
 lib/Apache/PageKit/Config.pm
 lib/Apache/PageKit/Content.pm
-lib/Apache/PageKit/Error.pm
 lib/Apache/PageKit/Model.pm
 lib/Apache/PageKit/Session.pm
 lib/Apache/PageKit/View.pm
 lib/HTML/FormValidator.pm
+lib/XML/XPathTemplate.pm
 migration/README
 README
 t/2_content.t

@@ -1,6 +1,6 @@
 package MyPageKit::Common;
 
-# $Id: Common.pm,v 1.5 2001/04/25 15:52:35 tjmather Exp $
+# $Id: Common.pm,v 1.6 2001/05/04 14:50:35 tjmather Exp $
 
 use strict;
 
@@ -17,7 +17,8 @@ use MyPageKit::MyModel;
 sub pkit_dbi_connect {
   # this line should be replaced with a DBI->connect(...) statement
   # for your database
-  return DBI->connect("DBI:CSV:f_dir=/tmp/csvdb");
+  return DBI->connect("DBI:CSV:f_dir=/tmp/csvdb")
+	|| die "$DBI::errstr";
 }
 
 sub pkit_session_setup {

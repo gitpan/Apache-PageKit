@@ -1,4 +1,19 @@
 =============================================================
+Migration from 0.97 to 0.98
+
+1. Apache::PageKit::Error has been renamed to Apache::ErrorReport
+If you use PerlSetVar PKIT_ERROR_HANDLER anywhere in your httpd.conf
+file, you should change it to PerlSetVar ErrorReportHandler
+
+You can do this easily by running:
+
+perl -pi -e 's/PerlSetVar PKIT_ERROR_HANDLER/PerlSetVar ErrorReportHandler/g' httpd.conf
+
+Also if you include Apache::PageKit::Error in your httpd.conf run:
+
+perl -pi -e 's/PerlModule Apache::PageKit::Error/PerlModule Apache::ErrorReport/g' httpd.conf
+
+=============================================================
 Migration from 0.96 to 0.97
 
 1. The DTD for the Config file is now PageKit_Config-0.97.dtd.  You

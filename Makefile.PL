@@ -14,13 +14,13 @@ PerlSetVar PKIT_SERVER staging
 SetHandler perl-script
 PerlHandler +Apache::PageKit
 <Perl>
-	Apache::PageKit->startup("$pwd/eg");
+	Apache::PageKit->startup("$pwd/eg","staging");
 </Perl>
 PerlInitHandler +Apache::Reload
 
 # Error Handling
-PerlModule Apache::PageKit::Error
-PerlSetVar PKIT_ERROR_HANDLER display
+PerlModule Apache::ErrorReport
+PerlSetVar ErrorReportHandler display
 END
 
 Apache::test->write_httpd_conf(%params, include => $more_directives);
@@ -46,6 +46,7 @@ WriteMakefile(
 				SQL::Statement => 0,
 				Text::CSV_XS => 0,
 				XML::Parser => 0,
+				XML::XPath => 0,
 				mod_perl => 1.2401},
 );
 

@@ -1,6 +1,6 @@
 package Apache::PageKit::Config;
 
-# $Id: Config.pm,v 1.13 2001/04/25 22:06:39 tjmather Exp $
+# $Id: Config.pm,v 1.16 2001/05/07 17:34:59 tjmather Exp $
 
 use integer;
 use strict;
@@ -15,6 +15,9 @@ sub new {
   my $self = { @_ };
   unless (-d "$self->{'config_dir'}"){
     die "Config directory $self->{'config_dir'} doesn't exist";
+  }
+  if($self->{'config_dir'} =~ m!/$!){
+    warn "Config directory $self->{'config_dir'} has trailing slash";
   }
   $self->{'server'} ||= 'Default';
   bless $self, $class;
@@ -342,24 +345,11 @@ Page ID for this page.
 If set to I<no>, sends an Expires = -1 header to disable client-side
 caching on the browser.
 
-=item error_page
-
-If a submitted form includes invalid data, then this is the page 
-that is displayed.
-
-=item error_page_run_code
-
-If set to I<yes>, then page_code on error_page is run.  Defaults to I<no>.
-
 =item fill_in_form
 
 When set to I<yes>, automatically fills in HTML forms with values from the C<$apr> 
 (L<Apache::Request>) object.  If set to I<auto>, fills in HTML forms when it
 detects a <form> tag.  Default is I<auto>.
-
-=item internal_title
-
-Title of page displayed on Content Management System. (Forthcoming)
 
 =item new_credential
 

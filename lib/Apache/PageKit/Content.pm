@@ -1,149 +1,178 @@
 package Apache::PageKit::Content;
 
-# $Id: Content.pm,v 1.16 2001/04/25 22:06:39 tjmather Exp $
-
-# How content will work:
-
-# all content paramater names will be XPath queries
-# all content tags will get compiled
-# 1. $template->query is called for every "content:" variable
-# 2. xpath query is evaluated
-
-# HOW will CONTENT_LOOP work?
-
-# new functions:
-
-# Apache::PageKit::Content->new($content_dir, $default_lang);
-# $content->get_languages($content_id);
-# $content->get_xpath_nodeset($content_id, $xpath, [$lang], [$context]);
-#   if lang=default_lang
-#     then no ancestor-or-self node should have node=other_lang with its sister
-#     has a node=lang or node not set
-#   else 
-#     then no ancestor node should have node=other_lang when its sister
-#     has a node=lang
-#### $content->get_xpath_nodeset($content_id, $xpath, [$lang], [$context]);
+# $Id: Content.pm,v 1.21 2001/05/07 17:34:59 tjmather Exp $
 
 use strict;
-use XML::XPath;
 
-sub new {
-  my ($class, @options) = @_;
-  my $self = { @options };
+use vars qw($CONTENT $COMPONENT_ID_DIR $INCLUDE_MTIMES);
+
+sub new($$) {
+  my $class = shift;
+  my $self = { @_ };
   bless $self, $class;
-  $self->{'default_lang'} ||= 'en';
   return $self;
 }
 
-# used by Apache::PageKit::View for caching
-sub get_filename {
-  my ($content, $content_id) = @_;
-  return "$content->{content_dir}/$content_id.xml";
-}
+sub generate_template {
+  my ($content, $type, $page_id, $component_id, $pkit_view, $input_param_obj) = @_;
 
-sub _get_xp {
-  my ($content, $content_id) = @_;
+  use XML::LibXML;
+  use XML::LibXSLT;
 
-  if(exists $content->{xp}->{$content_id}){
-    return $content->{xp}->{$content_id};
-  } else {
-    my $filename = "$content->{content_dir}/$content_id.xml";
-    die "Can't load $filename" unless
-      (-e "$filename");
-    my $xp = XML::XPath->new(filename => "$filename");
+  $CONTENT = $content;
+  ($COMPONENT_ID_DIR = $component_id) =~ s![^/]*$!!;
+  $INCLUDE_MTIMES = $content->{include_mtimes};
 
-    # get default context (root XML element)
-    $content->{root_element_node}->{$content_id} = $xp->findnodes("/*")->[0];
-
-    $content->{xp}->{$content_id} = $xp;
-    return $xp;
+  # XSLT file
+  my $xml_file = "$content->{content_dir}/$component_id.xml";
+  unless(-e "$xml_file"){
+    die "Cannot find xml file $content->{content_dir}/$component_id.xml or
+      template file $pkit_view/$type/$component_id.tmpl";
   }
-}
 
-sub get_languages ($$) {
-  my ($content, $content_id) = @_;
+  my $xml_mtime = (stat($xml_file))[9];
+  $INCLUDE_MTIMES->{$xml_file} = $xml_mtime;
 
-  my $xp = $content->_get_xp($content_id);
-
-  my $nodeset = $xp->find('//*[@xml:lang]');
-
-  my %lang = ();
-
-  for my $node ($nodeset->get_nodelist) {
-    my $lang = $node->getAttribute('xml:lang');
-    $lang{$lang} = 1;
+  my $xp = XML::XPath->new(filename => $xml_file);
+  my @pi_nodes = $xp->findnodes("processing-instruction('xml-stylesheet')");
+  my @stylesheet_hrefs;
+  for my $pi_node (@pi_nodes){
+    my $pi_str = $pi_node->getData;
+    my ($stylesheet_href) = ($pi_str =~ m!href="([^"]*)"!);
+    push @stylesheet_hrefs, $stylesheet_href;
   }
-  my @lang = keys %lang;
-  return \@lang;
-}
 
-sub get_xpath_langs {
-  my ($content, %arg) = @_;
-
-  my $content_id = $arg{content_id};
-  my $xp = $content->_get_xp($content_id);
-
-  my $xpath = $arg{xpath};
-  my $context = $arg{context} || $content->{root_element_node}->{$content_id};
-
-  my $nodeset = $xp->find($xpath, $context);
-
-  my %lang;
-
-  my $return_nodeset = XML::XPath::NodeSet->new;
-
-  for my $node ($nodeset->get_nodelist) {
-    my $nodeset = $xp->find(q{ancestor-or-self::*[@xml:lang]},$node);
-    for my $node ($nodeset->get_nodelist) {
-      my $lang = $node->getAttribute('xml:lang');
-      $lang{$lang} = 1;
+  # for now, just use first stylesheet... we'll add multiple stylesheets later
+  unless ($stylesheet_hrefs[0]){
+    die qq{must specify <?xml-stylesheet href="file.xsl"?> in $xml_file};
+  }
+  my $stylesheet_file = "$content->{view_dir}/$pkit_view/XSL/$stylesheet_hrefs[0]";
+  unless (-e "$stylesheet_file"){
+    $stylesheet_file = "$content->{view_dir}/Default/XSL/$stylesheet_hrefs[0]";
+    unless (-e "$stylesheet_file"){
+      die qq{cannot find $stylesheet_hrefs[0] in $xml_file - looked in $stylesheet_file};
     }
-    $return_nodeset->push($node) if $nodeset->size > 0;
   }
-  my @lang = keys %lang;
-  return \@lang;
+
+  my $stylesheet_mtime = (stat(_))[9];
+  $INCLUDE_MTIMES->{$stylesheet_file} = $stylesheet_mtime;
+
+  # for caching pages including the params info (that way extrenous parameters won't
+  # be taken into account when counting)
+  $xp = XML::XPath->new(filename => "$stylesheet_file");
+  $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id} = {};
+  for my $node ($xp->findnodes(q{xsl:stylesheet/xsl:param})){
+    my $param_name = $node->getAttribute('name');
+    $Apache::PageKit::Content::PAGE_ID_XSL_PARAMS->{$page_id}->{$param_name} = 1;
+  }
+
+  my $parser = XML::LibXML->new(ext_ent_handler => \&open_uri);
+  my $xslt = XML::LibXSLT->new();
+  my $source = $parser->parse_file("$content->{content_dir}/$component_id.xml");
+  my $style_doc = $parser->parse_file($stylesheet_file);
+
+  my $stylesheet = $xslt->parse_stylesheet($style_doc);
+
+  my @params = map { $_, $input_param_obj->param($_) } $input_param_obj->param ;
+
+  my $results = $stylesheet->transform($source, @params);
+
+  my $output = $stylesheet->output_string($results);
+
+  return \$output;
 }
 
-sub get_xpath_nodeset {
-  my ($content, %arg) = @_;
+sub process_template {
+  my ($content, $component_id, $template_ref) = @_;
 
-  my $content_id = $arg{content_id};
-  my $xp = $content->_get_xp($content_id);
-  my $xpath = $arg{xpath};
-  my $lang = $arg{lang};
-  my $context = $arg{context} || $content->{root_element_node}->{$content_id};
+  my $lang_tmpl = {};
+  $INCLUDE_MTIMES = {};
 
-  my $nodeset = $xp->find($xpath, $context);
-  my @nodelist = $nodeset->get_nodelist;
+  if($$template_ref =~ m!<CONTENT_(VAR|LOOP|IF|UNLESS) !i){
+    # XPathTemplate template
 
-  my $return_nodeset = XML::XPath::NodeSet->new;
+    my $xpt = XML::XPathTemplate->new(default_lang => $content->{default_lang},
+					root_dir => $content->{content_dir});
 
-  # pass 1, return node that has matching xml:lang tag
-  for my $node (@nodelist) {
-    my $node_lang = $node->getAttribute('xml:lang');
-    $return_nodeset->push($node) if $node_lang eq $lang ||
-      (!$node_lang && $lang eq $content->{default_lang});
+    $lang_tmpl = $xpt->process_all_lang(xpt_scalarref => $template_ref,
+					xml_filename => "$component_id.xml");
+    my $file_mtimes = $xpt->file_mtimes;
+    while (my ($k, $v) = each %$file_mtimes){
+      $content->{include_mtimes}->{$k} = $v;
+    }
+  } else {
+    $lang_tmpl->{$content->{default_lang}} = $template_ref;
   }
-  return $return_nodeset if $return_nodeset->size > 0;
-
-  # pass 2, return node that has ancestor with matching xml:lang tag
-  for my $node (@nodelist) {
-    my @nodes = $xp->findnodes(qq{ancestor::*[\@xml:lang = "$lang"]},$node);
-    $return_nodeset->push($node) if @nodes;
-  }
-  return $return_nodeset if $return_nodeset->size > 0;
-
-  # pass 3, return nodes in default language (better than all languages)
-  for my $node (@nodelist) {
-    my $node_lang = $node->getAttribute('xml:lang');
-    $return_nodeset->push($node) if $node_lang eq $content->{default_lang} ||
-      !$node_lang;
-  }
-  return $return_nodeset if $return_nodeset->size > 0;
-
-  # pass 4, just return all the nodes
-  # (even thought it's not in the right language)
-  return $nodeset;
+  return $lang_tmpl;
 }
+
+sub rel2abs {
+  my ($rel_uri) = @_;
+  my $content_dir = $CONTENT->{content_dir};
+  if($rel_uri =~ m!^/!){
+    return "$content_dir/$rel_uri";
+  } else {
+    # return relative to component_id_dir
+    my $abs_uri = "$content_dir/$COMPONENT_ID_DIR$rel_uri";
+    while ($abs_uri =~ s![^/]/\.\./!!) {};
+    return $abs_uri;
+  }
+}
+
+sub match_uri {
+  my $uri = shift;
+  return $uri !~ /^\w+:/;
+}
+
+sub open_uri {
+  my $uri = shift;
+  my $abs_uri = &rel2abs($uri);
+  die "$abs_uri doesn't exist" unless (-e $abs_uri);
+  open XML, "$abs_uri";
+  local($/) = undef;
+  my $xml_str = <XML>;
+  close XML;
+  my $mtime = (stat(_))[9];
+  $INCLUDE_MTIMES->{$abs_uri} = $mtime;
+  return $xml_str;
+}
+
+sub read_uri {
+  return substr($_[0], 0, $_[1], "");
+}
+
+sub close_uri {}
+
+# call backs so that we can note the mtimes of dependant files
+XML::LibXML->match_callback(\&match_uri);
+XML::LibXML->open_callback(\&open_uri);
+XML::LibXML->close_callback(\&close_uri);
+XML::LibXML->read_callback(\&read_uri);
 
 1;
+__END__
+
+=head1 NAME
+
+Apache::PageKit::Content - Adaptor to XML::LibXSLT and XML::XPathTemplate
+
+=head1 AUTHOR
+
+T.J. Mather (tjmather@anidea.com)
+
+=head1 COPYRIGHT
+
+Copyright (c) 2000, AnIdea Corporation.  All rights Reserved.  PageKit is
+a trademark of AnIdea Corporation.
+
+=head1 LICENSE
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the Ricoh Source Code Public License for more details.
+
+You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
+
+You should have received a copy of the Ricoh Source Code Public License along with this program; if not, obtain one at http://www.pagekit.org/license
+
+=cut

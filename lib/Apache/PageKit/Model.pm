@@ -1,6 +1,6 @@
 package Apache::PageKit::Model;
 
-# $Id: Model.pm,v 1.23 2001/04/25 21:28:46 tjmather Exp $
+# $Id: Model.pm,v 1.26 2001/05/07 17:34:59 tjmather Exp $
 
 use integer;
 use strict;
@@ -34,7 +34,12 @@ sub pkit_root {
 
 sub pkit_get_orig_uri {
   my $model = shift;
-  return $model->{pkit_pk}->{orig_uri};
+  return $model->{pkit_pk}->{uri_with_query};
+}
+
+sub pkit_get_page_id {
+  my $model = shift;
+  return $model->{pkit_pk}->{page_id};
 }
 
 sub pkit_user {
@@ -135,11 +140,6 @@ sub pkit_internal_redirect {
   $model->{pkit_pk}->{page_id} = $page_id;
 }
 
-sub pkit_get_page_id {
-  my ($model) = @_;
-  return $model->{pkit_pk}->{page_id};
-}
-
 # currently input_param is just a wrapper around $apr
 sub input_param {
   my $model = shift;
@@ -218,6 +218,11 @@ sub pkit_redirect {
   my ($model, $url) = @_;
   my $pk = $model->{pkit_pk};
   my $apr = $pk->{apr};
+  if(my $pkit_message = $model->output_param('pkit_message')){
+    my $add_url = join("", map { "&pkit_" . ($_->{pkit_is_error} ? "error_" : "") . "message=" . Apache::Util::escape_uri($_->{pkit_message}) } @$pkit_message);
+    $add_url =~ s!^&!?! unless $url =~ m/\?/;
+    $url .= $add_url;
+  }
   $apr->headers_out->set(Location => $url);
   $pk->{status_code} = REDIRECT;
 }
@@ -279,6 +284,8 @@ Method in derived class.
   }
 
 =head1 METHODS 
+
+=head2 API to be used in derived classes
 
 The following methods are available to the user as
 Apache::PageKit::Model API.
@@ -380,6 +387,9 @@ To add an error message (typically highlighted in red), use
   $model->pkit_message("You did not fill out the required fields.",
                is_error => 1);
 
+Note that the message is passed along in the URI if you perform a
+redirect using C<pkit_redirect>.
+
 =item pkit_internal_redirect
 
 Resets the page_id. This is usually used "redirect" to different template.
@@ -394,8 +404,11 @@ Redirect to another URL.
 
 Redirects user to the PageKit home page.
 
-Note that this method automically adds the host name, if the url
-does not include C<http://>.
+It is strongly recommend that you use this method on pages where a
+query that changes the state of the application is executed.  Typically
+these are POST queries that update the database.
+
+Note that this passes along the messages set my C<pkit_message> if applicable.
 
 =item pkit_set_errorfont
 
@@ -428,6 +441,10 @@ and returns true if the request parameters are valid.
 
 Gets the original URI requested.
 
+=item pkit_get_page_id
+
+Gets page_id.
+
 =item pkit_get_server_id
 
 Gets the server_id for the server, as specified by the
@@ -449,6 +466,8 @@ httpd.conf file.
   my $pkit_root = $model->pkit_root
 
 =back
+
+=head2 Methods to be defined in your base Model class.
 
 The following methods should be defined in your base module as defined
 by C<model_base_class> in Config.xml:
@@ -488,15 +507,41 @@ the site.
 Code that gets called after the page and component code is executed.
 Note that this is experimental and may change in future releases.
 
+=item pkit_cleanup_code
+
 One use for this is to cleanup any database handlers:
 
-sub pkit_post_common_code {
+sub pkit_cleanup_code {
   my $model = shift;
   my $dbh = $model->dbh;
   $dbh->disconnect;
 }
 
 Although a better solution is to use L<Apache::DBI>.
+
+=item pkit_fixup_uri
+
+Pre-processes the URI so that it will match the page_id's used by PageKit
+to dispatch the model code and find the template and content files.
+
+  sub pkit_fixup_uri {
+    my ($model, $uri) = @_;
+
+    $uri =~ s!^/pagekit!!;
+    return $uri;
+  }
+
+In this example, the request for http://yourwebsite/pagekit/myclass/mypage would
+get dispatched to the mypage method of the myclass class, and the View/Default/myclass/mypage.tmpl template and/or the Content/myclass/mypage.xml XML file.
+
+See also C<uri_prefix> in L<Apache::PageKit::Config>.
+
+=item pkit_get_default_page
+
+If no page is specified, then this subroutine will return the page_id
+of the page that should be displayed.  You only have to provide this
+routine if you wish to override the default method, which simply
+returns the C<default_page> attribute as listed in the C<Config.xml> file.
 
 =item pkit_output_filter
 
@@ -512,13 +557,6 @@ are on a secure page (the only good use of pkit_output_filter that I know of)
       $$output_ref =~ s(http://images.yourdomain.com/)(https://images.yourdomain.com/)g;
     }
   }
-
-=item pkit_get_default_page
-
-If no page is specified, then this subroutine will return the page_id
-of the page that should be displayed.  You only have to provide this
-routine if you wish to override the default method, which simply
-returns the C<default_page> attribute as listed in the C<Config.xml> file.
 
 =back
 

@@ -3,7 +3,7 @@ Apache::PageKit
 
 Status
 ------
-	Version: 0.97 (Alpha)
+	Version: 0.98 (Alpha)
 	API is subject to change, and should stabilize as
 	we approach version 1.00 (First Beta Release)
 
@@ -64,6 +64,7 @@ Recommended
 -----------
 	- Apache::DBI (*strongly* recommended if you use DBI)
 	- Unicode::String (useful for converting accented characters in Content)
+	- XML::LibXSLT (needed if you want to use XSLT tranformations)
 
 Installation
 ------------

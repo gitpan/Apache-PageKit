@@ -1,6 +1,34 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.97
+0.98
+	- Separated out XML Template code in new module,
+		XML::XPathTemplate
+	- update last_activity in session for every hit - 
+		makes sure that recent_login works everytime
+		and overcomes the fact that Apache::Session only
+		does a shallow check of the hash.
+	- Added support for XML::LibXSLT
+	- Fixed bug with pkit_get_orig_uri
+	- Checks for recursive PKIT_COMPONENTS (that is over 100)
+	- When user logs out of a page that requires a login,
+		goes to default_page instead of login_page
+	- Fixed bug with cache when new template was placed in a
+		directory when there was already a corresponding template
+		in the 'Default' directory
+	- Added pkit_cleanup_code hook for Model class (Boris Zentner)
+	- Error code rewritten, since using $SIG{__DIE__} does not
+		play well with eval, and there were problems with the
+		server hanging after a die, when the session wasn't
+		properly deleted.  Die's are now trapped using 'eval'.
+		Also renamed Apache::PageKit::Error to Apache::ErrorReport
+	- pkit_message works when you perform a redirect
+		using $model->pkit_redirect
+	- Fixed bug with use_template is set to 'no'
+	- Fixed bug with XPath queries.
+	- Fixed bug with locating only files in Page dir for
+		preparse_templates
+
+0.97	Wed Apr 25 17:07:31 2001 EST
 	- Login code has been rewritten.  To attempt a login, the
 		pkit_login request parameter must be set.
 		The new_credential configuration option is no longer
@@ -24,7 +52,8 @@ Revision history for Perl extension Apache::PageKit.
 		tags for errors.
 	- Added pkit_root method, gets PageKit root directory
 	- no longer escape pkit_done
-	- works with mod_proxy_add_uri.c apache module, using X-Original-URI header
+	- works with mod_proxy_add_uri.c apache module, using X-Original-URI
+		header
 	- Removed PKIT_LOGINOUT_LINK, this tag was
 		not necessary and cluttered the API,
 		see migration/README for details
@@ -33,7 +62,7 @@ Revision history for Perl extension Apache::PageKit.
 		problem with server options not being
 		loaded properly at startup.
 	- Added pkit_get_session_id
-	- Added pkit_fixup_uri method (META needs docs)
+	- Added pkit_fixup_uri method
 	- Added request_param_in_tmpl global attribute, which
 		supplements request_param_in_tmpl page attribute
 	- Added $model->pkit_output_filter, a hook that can
@@ -44,11 +73,6 @@ Revision history for Perl extension Apache::PageKit.
 		Config.xml file.
 	- Added $model->pkit_get_default_page - put in so that
 		it can be overridden in derived model class
-	- content inside <CONTENT_VAR>, etc tags should be
-		PCDATA, not CDATA - application should escape
-		and unescape data as necessary.
-	- <PKIT_VAR NAME="LOGINOUT_LINK"> now has a forward slash
-		in front of the login link.
 	- if cache_dir is not set, default to the PKIT_ROOT/View/cache
 		and PKIT_ROOT/Content/cache
 	- moved html_clean_level from global section to server section
@@ -63,7 +87,7 @@ Revision history for Perl extension Apache::PageKit.
 		'/' - content cache files are now determined my using
 		a MD5 hash
 
-0.96
+0.96	Fri Feb 02 04:18:22 2001 EST
 	- added $model->pkit_input_hashref method, gets inputs
 		(request params) as a reference to hash
 	- renamed pkit_set_page_id to pkit_internal_redirect
@@ -80,8 +104,6 @@ Revision history for Perl extension Apache::PageKit.
 		multiple domains to it, seperated by spaces
 	- Added $model->pkit_query method which is a wrapper to
 		HTML::Template::query
-	- Added online editing tools for editing View templates
-		using Apache::PageKit::Edit.
 	- Added support for <PKIT_VAR NAME="LAST_CRUMB">
 	- Fixed errors with s/cookie_crumb/bread_crumb/
 	- Added session_expires to control the expire time for

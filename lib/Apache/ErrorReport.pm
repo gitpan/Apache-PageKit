@@ -1,22 +1,22 @@
-package Apache::PageKit::Error;
+package Apache::ErrorReport;
 
-# $Id: Error.pm,v 1.5 2001/01/01 00:38:07 tjmather Exp $
+# $Id: ErrorReport.pm,v 1.2 2001/05/07 17:34:58 tjmather Exp $
 
 use integer;
 use strict;
 
 use Mail::Mailer;
 
-# trap die and warn
+use Carp;
 
-$main::SIG{__WARN__} = \&Apache::PageKit::Error::warn;
-$main::SIG{__DIE__} = \&Apache::PageKit::Error::die;
+# trap warn
+$main::SIG{__WARN__} = \&Apache::ErrorReport::warn;
 
-$Apache::PageKit::Error::in_use = 'yes';
+sub error_message {
+  my ($E, $type) = @_;
 
-sub errorMessage {
-
-  return if $Apache::PageKit::Error::in_use eq 'no';
+  return if defined($Apache::ErrorReport::disable)
+    && $Apache::ErrorReport::disable eq 'yes';
 
   my $r = Apache->request;
 
@@ -24,9 +24,25 @@ sub errorMessage {
 
   return unless $r;
 
-  if($r->dir_config('PKIT_ERROR_HANDLER') eq 'email'){
+  my $stacktrace;
+  if(ref($E) && $E->isa('Error')){
+    # Special handing for derived Error.pm classes
+    $stacktrace = $E->stacktrace;
+  } else {
+#    $stacktrace = "$E\n";
+#    my $i = 0;
+#    while (my ($package, $filename, $line, $subr) = caller($i)){
+#      $stacktrace .= "stack $i: $package $subr line $line\n";
+#      $i++;
+#    }
+    $stacktrace = Carp::longmess($E);
+  }
+
+  if($r->dir_config('ErrorReportHandler') eq 'email'){
 
     my $uri = (split(' ',$r->the_request))[1];
+
+    # include request parameters in POST requests
     $uri .= '?' . $r->notes('query_string') if $uri !~ /\?/;
 
     my $userID = $r->connection->user;
@@ -42,41 +58,28 @@ $uri
 userID: $userID  host: $host  remote_host: $remote_host  referer: $referer
 handler: $current_callback
 
-$_[0]
-
+$stacktrace
 END
-    my $i = 0;
-    while (my ($package, $filename, $line, $subr) = caller($i)){
-      $message .= "stack $i: $package $subr line $line\n";
-      $i++;
-    }
+
     my $mailer = new Mail::Mailer;
     $mailer->open({To => $s->server_admin,
 		   Subject => "Website $_[1]"
 		  });
     print $mailer $message;
     $mailer->close;
-  } elsif ($r->dir_config('PKIT_ERROR_HANDLER') eq 'display') {
+  } elsif ($r->dir_config('ErrorReportHandler') eq 'display') {
     my $color = $_[1] eq 'WARN' ? 'blue' : 'red';
-    my $message = $_[0];
-    $message =~ s/</&lt;/g;
-    $message =~ s/>/&gt;/g;
-    print qq{<pre><font color="$color">$_[1]: $message};
-    my $i = 0;
-    while (my ($package, $filename, $line, $subr) = caller($i)){
-      print "stack $i: $package $subr line $line\n";
-      $i++;
-    }
-    print qq{</font></pre><br>};
+    $stacktrace = Apache::Util::escape_html($stacktrace);
+    print qq{<pre><font color="$color">$_[1]: $stacktrace</font></pre><br>};
   }
 }
 
 sub warn {
-  &errorMessage($_[0],"WARN");
+  &error_message($_[0],"WARN");
 }
 
-sub die {
-  &errorMessage($_[0],"FATAL");
+sub fatal {
+  &error_message($_[0],"FATAL");
 }
 
 1;
@@ -85,29 +88,42 @@ __END__
 
 =head1 NAME
 
-Apache::PageKit::Error - Error Handling under mod_perl
+Apache::ErrorReport - Error Reporting under mod_perl
 
 =head1 SYNOPSIS
 
 In your Apache configuration file:
 
-  PerlModule Apache::PageKit::Error
-  PerlSetVar PKIT_ERROR_HANDLER email
+  PerlModule Apache::ErrorReport
+  PerlSetVar ErrorReportHandler email
+
+In your perl code
+
+  eval {
+    &foo($bar);
+  };
+  if($@){
+    Apache::ErrorReport::fatal($@);
+  }
 
 =head1 DESCRIPTION
 
-Redirects warnings and fatal errors to screen or e-mail by using
-C<__WARN__> and C<__DIE__> signal handlers.  Includes detailed information
+Reports warnings and fatal errors to screen or e-mail.
+Includes detailed information
 including error message, call stack, uri, host, remote host, remote user,
-referrer, and handler.
+referrer, and Apache handler.
 
-If C<PKIT_ERROR_HANDLER> is set to I<display>, errors will be
-displayed on the screen for easy debugging.  This should be used in a development
+If C<ErrorReportHandler> is set to I<display>, errors will be
+displayed on the screen for easy debugging.
+This should be used in a development
 environment only.
 
-If C<PKIT_ERROR_HANDLER> is set to I<email>, errors will be e-mailed to the site
+If C<ErrorReportHandler> is set to I<email>, errors will be e-mailed to the site
 adminstrator as specified in the Apache C<ServerAdmin> configuration directive.
 This should be used on a production site.
+
+This modules uses $SIG{__WARN__} to display warning messages and
+C<fatal> to display fatal messages.
 
 =head1 AUTHOR
 

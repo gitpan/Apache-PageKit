@@ -1,9 +1,11 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.45 2001/04/25 21:29:42 tjmather Exp $
+# $Id: PageKit.pm,v 1.58 2001/05/07 17:34:58 tjmather Exp $
 
 # required for UNIVERSAL->can
 require 5.005;
+
+use strict;
 
 # CPAN Modules required for pagekit
 use Apache::URI ();
@@ -17,24 +19,26 @@ use HTML::Template ();
 use Mail::Mailer ();
 use XML::Parser ();
 
+$| = 1;
+
 # PageKit modules
 use Apache::PageKit::View ();
+use Apache::PageKit::Content ();
 use Apache::PageKit::Model ();
 use Apache::PageKit::Session ();
-use Apache::PageKit::Content ();
 use Apache::PageKit::Config ();
-
-use strict;
 
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION);
-$VERSION = '0.97';
+$VERSION = '0.98';
 
 # typically called when Apache is first loaded, from <Perl> section
 # in httpd.conf file
-sub startup {
+sub startup ($$$) {
   my ($class, $pkit_root, $server) = @_;
+
+  die 'must specify $server in startup.  Usage: Apache::PageKit->startup($pkit_root, $server)' unless $server;
 
   my $s = Apache->server;
 
@@ -88,24 +92,50 @@ sub startup {
 # object oriented method call, see Eagle p.65
 sub handler ($$){
   my $class = shift;
-  my $pk = $class->new;
-  my $model = $pk->{model};
-  my $apr = $pk->{apr};
-  my $view = $pk->{view};
-  $model->pkit_common_code if $model->can('pkit_common_code');
-  my $status_code = $pk->prepare_page;
-  if ($status_code eq OK){
-    $pk->open_view;
-    for my $component_id (@{$view->{record}->{component_ids}}){
-      $pk->component_code($component_id);
+
+  my ($pk, $status_code);
+
+  eval {
+    $pk = $class->new;
+    my $model = $pk->{model};
+    my $apr = $pk->{apr};
+    my $view = $pk->{view};
+    my $config = $pk->{config};
+    $status_code = $pk->prepare_page;
+    my $use_template = $config->get_page_attr($pk->{page_id},'use_template');
+    if ($status_code eq OK && $use_template ne 'no'){
+      $pk->open_view;
+      for my $component_id (@{$view->{record}->{component_ids}}){
+	$pk->component_code($component_id);
+      }
+      $model->pkit_post_common_code if $model->can('pkit_post_common_code');
+      $pk->prepare_and_print_view;
     }
-    $model->pkit_post_common_code if $model->can('pkit_post_common_code');
-    $pk->prepare_and_print_view;
+  };
+  if($@){
+    if($pk){
+      $pk->fatal_error($@);
+    } else {
+      if(exists $INC{'Apache/ErrorReport.pm'}){
+	Apache::ErrorReport::fatal($@);
+      }
+      die $@;
+    }
   }
 
-  # save session
   delete $pk->{session};
   return $status_code;
+}
+
+sub fatal_error {
+  my ($pk, $error) = @_;
+  delete $pk->{session};
+  my $model = $pk->{model};
+  $model->pkit_cleanup_code if $model->can('pkit_cleanup_code');
+  if(exists $INC{'Apache/ErrorReport.pm'}){
+    Apache::ErrorReport::fatal($error);
+  }
+  die $error;
 }
 
 sub _params_as_string {
@@ -150,7 +180,6 @@ sub prepare_page {
   if($model->can('pkit_fixup_uri')){
     $uri = $model->pkit_fixup_uri($uri);
   }
-
   $pk->{page_id} = $uri;
 
   # get rid of leading forward slash
@@ -161,16 +190,16 @@ sub prepare_page {
 
   # get default page if there is no page specified in url
   if($pk->{page_id} eq ''){
-    $pk->{orig_uri} = $uri;
     $pk->{page_id} = $model->pkit_get_default_page;
   }
 
   # redirect "not found" pages
   unless ($pk->page_exists($pk->{page_id})){
-    $pk->{orig_uri} = $uri;
     $pk->{page_id} = $config->uri_match($pk->{page_id})
-      || $config->get_global_attr('not_found_page')
-      || $model->pkit_get_default_page;
+      || $config->get_global_attr('not_found_page');
+    unless($pk->{page_id}){
+      $pk->{page_id} = $model->pkit_get_default_page;
+    }
   }
 
   # $pk->authenticate sets pkit_user in apr, which applications rely on
@@ -187,6 +216,7 @@ sub prepare_page {
     $host = $apr->headers_in->{'Host'};
     $uri_with_query = 'http://' . $host . $uri;
   }
+  $pk->{uri_with_query} = $uri_with_query;
   my $pkit_selfurl;
   my $query_string = _params_as_string($apr);
   if($query_string){
@@ -233,10 +263,10 @@ sub prepare_page {
     # goto home page when user logouts (if from page that requires login) 
     my $add_message = "";
     if ($config->get_page_attr($pk->{page_id},'require_login') =~ m!^(yes|recent)$!){
-      $pk->{page_id} = $config->get_global_attr('login_page');
+      $pk->{page_id} = $config->get_global_attr('default_page');
       $add_message = "You can log back in again below:";
     }
-    $model->pkit_message("You have successfully logged out.  $add_message");
+    $model->pkit_message("You have successfully logged out.");
   } else {
     $auth_user = $pk->authenticate;
   }
@@ -280,10 +310,24 @@ sub prepare_page {
     }
   }
 
+  $model->pkit_common_code if $model->can('pkit_common_code');
+
   # run the page code!
   my $status_code = $pk->page_code;
   $status_code ||= $pk->{status_code};
   return $status_code if $status_code eq REDIRECT;
+
+  # add pkit_message from previous page, if that pagekit did a pkit_redirect
+  if(my @pkit_message = $apr->param('pkit_message')){
+    for my $message (@pkit_message){
+      $model->pkit_message($message);
+    }
+  }
+  if(my @pkit_error_message = $apr->param('pkit_error_message')){
+    for my $message (@pkit_error_message){
+      $model->pkit_message($message, is_error => 1);
+    }
+  }
 
   # deal with different views
   if(my $pkit_view = $apr->param('pkit_view')){
@@ -311,12 +355,14 @@ sub open_view {
     $session->{'pkit_lang'} = $lang if $session;
   } elsif ($session){
     $lang = $session->{'pkit_lang'} if exists $session->{'pkit_lang'};
-  } else {
-    $lang = substr($apr->header_in('Accept-Language'),0,2);
   }
+  $lang ||= substr($apr->header_in('Accept-Language'),0,2);
+
+  # TEMP only, until fix problems with localization in content
+  $view->param("PKIT_LANG_$lang" => 1);
 
   # open template file
-  $view->open_template($page_id, $pkit_view, $lang);
+  $view->open_view($page_id, $pkit_view, $lang);
 }
 
 sub prepare_and_print_view {
@@ -340,7 +386,7 @@ sub prepare_and_print_view {
   }
 
   # set up page template and run component code
-  my $output_ref = $view->fill_in_template;
+  my $output_ref = $view->fill_in_view;
 
   # set expires to now so prevent caching
   #$apr->no_cache(1) if $apr->param('pkit_logout') || $config->get_page_attr($pk->{page_id},'template_cache') eq 'no';
@@ -361,6 +407,7 @@ sub prepare_and_print_view {
 
 sub new {
   my $class = shift;
+
   my $r = Apache->request;
   my $self = {@_};
 
@@ -374,7 +421,7 @@ sub new {
   my $server = $r->dir_config('PKIT_SERVER');
   my $config = $self->{config} = Apache::PageKit::Config->new(config_dir => $config_dir,
 						 server => $server);
-  $self->{apr} = Apache::Request->new($r, POST_MAX => $self->{config}->get_global_attr('post_max'));
+  my $apr = $self->{apr} = Apache::Request->new($r, POST_MAX => $self->{config}->get_global_attr('post_max'));
   my $model_base_class = $self->{config}->get_global_attr('model_base_class');
   my $model = $self->{model} = $model_base_class->new;
 
@@ -402,6 +449,7 @@ sub new {
 					     default_lang => $default_lang,
 					     reload => $reload,
 					     html_clean_level => $html_clean_level,
+					     input_param_obj => $apr,
 					     can_edit => $can_edit,
 					    );
 
@@ -430,7 +478,11 @@ sub page_code {
   my $pk = shift;
   my $perl_sub = $pk->page_sub;
   no strict 'refs';
-  return $pk->call_model_code($perl_sub) if $perl_sub;
+  if ($perl_sub){
+    return $pk->call_model_code($perl_sub);
+  } else {
+    return 1;
+  }
 }
 
 sub component_code {
@@ -448,7 +500,11 @@ sub component_code {
   no strict 'refs';
   my $perl_sub = $model_dispatch_prefix . '::' . $component_id;
 
-  $pk->call_model_code($perl_sub) if defined &{$perl_sub};
+  if (defined &{$perl_sub}){
+    return $pk->call_model_code($perl_sub);
+  } else {
+    return 1;
+  }
 }
 
 # calls code from user module in Model
@@ -473,7 +529,11 @@ sub login {
   my $model = $pk->{model};
 
   my $remember = $apr->param('pkit_remember');
-  my $done = $apr->param('pkit_done') || $model->pkit_get_default_page;
+  my $done = $apr->param('pkit_done');
+
+  unless($done){
+    $model->pkit_get_default_page;
+  }
 
   my $ses_key = $model->pkit_auth_credential;
 
@@ -569,6 +629,7 @@ sub setup_session {
   my $ss = $model->pkit_session_setup;
 
   unless($ss->{session_store_class} && $ss->{session_lock_class}){
+    print "failed to set up session";
     $pk->{session} = {};
     return;
   }
@@ -631,9 +692,9 @@ sub setup_session {
     # in recent_login_timeout seconds
     my $now = time();
 
-    $session{last_activity} = $now
-      if $session{last_activity} && 
-	$session{last_activity} + $config->get_global_attr('recent_login_timeout') >= $now;
+    $session{last_activity} = $now;
+#      if $session{last_activity} && 
+#	$session{last_activity} + $config->get_global_attr('recent_login_timeout') >= $now;
   }
 
   # save for logging purposes (warning, undocumented and might go away)
@@ -651,6 +712,10 @@ sub page_exists{
 
   # check to see if perl subroutine for page exists
   return 1 if $pk->page_sub;
+
+  # check to see if content file exists
+  my $pkit_root = $pk->{apr}->dir_config('PKIT_ROOT');
+  return 1 if "$pkit_root/Content/$page_id.xml";
 }
 
 sub _get_content_file {
@@ -668,7 +733,7 @@ __END__
 
 =head1 NAME
 
-Apache::PageKit - Application framework using mod_perl and HTML::Template
+Apache::PageKit - MVCC web framework using mod_perl, XML and HTML::Template
 
 =head1 SYNOPSIS
 
@@ -803,21 +868,24 @@ any Perl, while programmers can edit the Perl code with having to deal with any 
 
 =item Seperation of Content from Design with XML
 
-By using the C<E<lt>CONTENT_VARE<gt>> and C<E<lt>CONTENT_LOOPE<gt>> elements,
-you can autofill the corresponding C<E<lt>CONTENT_VARE<gt>>
-and C<E<lt>CONTENT_LOOPE<gt>> tags in the template.
+Content can be stored in XML files and the Design can be stored in HTML
+template files or in XSL style sheets.
 
-This is an easy way of using XML with HTML::Template that doesn't require
-the use of stylesheets.
+Content can be associated with HTML template files by using the
+L<XML::XPathTemplate> module.
+
+If you need a more powerful solution for managing large amounts of data,
+PageKit also has support for XSLT transformations using the L<XML::LibXSLT>
+module.
 
 =item Page based attributes
 
 The attributes of each Page are stored in the Config/Config.xml file.
-This makes it easy to change Pages across the site.  L<Apache::PageKit::Config>
-provides a wrapper around this XML file.
+This makes it easy to change attributes of pages across the site.
+L<Apache::PageKit::Config> provides a wrapper around this XML file.
 
 For example, to require a login for
-a page, all you have to do is change the  C<require_login> attribute of the
+a page, all you have to do is change the C<require_login> attribute of the
 XML C<E<lt>PAGEE<gt>> tag to I<yes>, instead
 of modifying the Perl code or moving the script to a protected directory.
 
@@ -875,7 +943,7 @@ time a component is used by adding a I<component_id> method to the Model.
 =item Language Localization
 
 You may specify language properties by the C<xml:lang> attribute
-for <CONTENT_VAR> and <CONTENT_LOOP> tags in the XML content files.
+for tags in the XML content files.
 
 The language displayed is based on the
 user's preference, defaulting to the browser settings.
@@ -884,21 +952,9 @@ user's preference, defaulting to the browser settings.
 
 =head1 METHODS
 
-The following methods are available to the user as Apache::PageKit API.
+The following method is available to the user as Apache::PageKit API.
 
 =over 4
-
-=item prepare_page
-
-This executes all of the back-end business logic need for preparing the page, including
-executing the page and component code.
-
-=item prepare_and_print_view
-
-This fills in the view template with all of the data from the back-end,
-then prints it.
-
-=item startup
 
 This function should be called at server startup from your httpd.conf file:
 
@@ -928,12 +984,8 @@ See the L<HTML::Template> manpage for description of these tags.
 Calls the component code (if applicable) and includes the template for
 the component I<component_id>.
 
-Note that components get dynamically loaded at runtime.  For example you
-can do the following:
-
-  <MODEL_LOOP NAME="foo">
-    <PKIT_COMPONENT NAME="<MODEL_VAR NAME="bar">">
-  </MODEL_LOOP>
+Note that the components are loaded at compile time, and the component_id
+cannot be set dynamically at runtime.
 
 =item <PKIT_ERRORFONT NAME="FIELD_NAME"> </PKIT_ERRORFONT>
 
@@ -995,11 +1047,6 @@ I<Content-type> is one of I<application/x-www-form-urlencoded> or I<multipart/fo
 
 =over 4
 
-=item pkit_credential_#
-
-Login data, typically userid/login/email (pkit_credential_0) and
-password (pkit_credential_1).
-
 =item pkit_done
 
 The page to return to after the user has finished logging in or creating a new account.
@@ -1060,7 +1107,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.97
+This document describes Apache::PageKit module version 0.98
 
 =head1 NOTES
 
@@ -1092,16 +1139,17 @@ mailing list at http://lists.sourceforge.net/mailman/listinfo/pagekit-users
 
 =head1 TODO
 
+Support Template-Toolkit templates as well as HTML::Template templates.
+
+Support for exposing Model objects using XML-RPC and/or SOAP.
+
+Gzipped output.
+
+Support for multiple transformations with stylesheets, and for filters.
+
 Associate sessions with authenticated user ID.
 
-Add web based editing tools allowing authorized user to edit
-View, Content and Configuration files
-
 Add more tests to the test suite.
-
-Make content sharable across pages.
-
-Move Apache::PageKit::Error to seperate distribtuion, use CGI::Carp?
 
 =head1 AUTHOR
 
