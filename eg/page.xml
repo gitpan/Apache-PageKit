@@ -27,6 +27,7 @@
     is_popup = "no"
     nav_title = "Home"
     require_login = "no"
+    cache = "normal"
     new_credential = "no">
     <TMPL_VAR NAME = "html_title">Welcome to PageKit.org</TMPL_VAR>
   </PAGE>

@@ -1,6 +1,6 @@
 package MyPageKit;
 
-# $Id: MyPageKit.pm,v 1.2 2000/08/28 20:31:24 tjmather Exp $
+# $Id: MyPageKit.pm,v 1.3 2000/08/29 04:18:31 tjmather Exp $
 
 use strict;
 
@@ -64,7 +64,8 @@ sub handler {
 			  module_dispatch_prefix => 'MyPageKit::ModuleCode',
 			  uri_prefix => 'pagekit/',
 			  view_cache => 'normal',
-			  session_handler_class => 'Apache::Session::MySQL',
+			  session_store_class => 'MySQL',
+			  session_lock_class => 'MySQL',
 			  dbh => $dbh,
 			  session_args => {
 					   Handle => $dbh,
@@ -86,7 +87,7 @@ sub handler {
   $view->param(mod_color => $session->{'mod_color'} || 'ffffff');
   # end EXAMPLE code
 
-  $pk->prepare_view;  
+  $pk->prepare_view;
   $pk->print_view;
 
   return $status_code;
@@ -155,37 +156,3 @@ sub auth_session_key {
 }
 
 1;
-
-__END__
-
-=head1 NAME
-
-MyPageKit - Example subclass for pagekit.org website
-
-=head1 DESCRIPTION
-
-This is included to provide a example of a Apache::PageKit subclass.
-
-It is also the code behind the http://www.pagekit.org/ web site.
-
-It is a good starting point for building your own subclass.
-
-=head1 AUTHOR
-
-T.J. Mather (tjmather@thoughtstore.com)
-
-=head1 COPYRIGHT
-
-Copyright (c) 2000, ThoughtStore, Inc.  All rights Reserved.  PageKit is a trademark
-of ThoughtStore, Inc.
-
-=head1 LICENSE
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
-without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-See the Ricoh Source Code Public License for more details.
-
-You can redistribute this module and/or modify it only under the terms of the Ricoh Source Code Public License.
-
-You should have received a copy of the Ricoh Source Code Public License along with this program;
-if not, obtain one at http://www.pagekit.org/license

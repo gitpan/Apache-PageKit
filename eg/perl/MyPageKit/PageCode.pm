@@ -1,6 +1,6 @@
 package MyPageKit::PageCode;
 
-# $Id: PageCode.pm,v 1.2 2000/08/28 20:31:24 tjmather Exp $
+# $Id: PageCode.pm,v 1.3 2000/08/29 04:18:31 tjmather Exp $
 
 use strict;
 
@@ -38,7 +38,7 @@ __END__
 
 =head1 NAME
 
-MyPageKit::PageKit - Example Backend Code for pagekit.org website
+MyPageKit::PageCode - Example Backend Code for pagekit.org website
 
 =head1 DESCRIPTION
 

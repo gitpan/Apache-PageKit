@@ -22,6 +22,7 @@ PageKit.pm
 PageKit/Error.pm
 PageKit/Info.pm
 PageKit/FormValidator.pm
+PageKit/Session.pm
 PageKit/View.pm
 README
 test.pl

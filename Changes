@@ -1,7 +1,11 @@
 Revision history for Perl extension Apache::PageKit.
 
-0.02
-	Added XML Support for attributes and <TMPL_VAR> Elements
+0.03  Tue Aug 29 00:13:33 2000
+        - Replaced use of Apache::Session with adaption of
+		HTML::Embperl::Session
+
+0.02  Mon Aug 28 18:44:15 2000
+	- Added XML Support for attributes and <TMPL_VAR> Elements
 
 0.01  Thu Aug 24 16:30:34 2000
 	- original version; created by h2xs 1.20 with options

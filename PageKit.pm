@@ -1,12 +1,11 @@
 package Apache::PageKit;
 
-# $Id: PageKit.pm,v 1.3 2000/08/28 20:30:43 tjmather Exp $
+# $Id: PageKit.pm,v 1.6 2000/08/29 04:37:50 tjmather Exp $
 
 # CPAN Modules required for pagekit
 use Apache::URI ();
 use Apache::Cookie ();
 use Apache::Request ();
-use Apache::Session ();
 use Apache::Util ();
 use HTML::FillInForm ();
 use HTML::FormValidator ();
@@ -21,13 +20,14 @@ use Apache::PageKit::Info ();
 use Apache::PageKit::View ();
 use Apache::PageKit::Error ();
 use Apache::PageKit::FormValidator ();
+use Apache::PageKit::Session ();
 
 use strict;
 
 use Apache::Constants qw(OK REDIRECT DECLINED);
 
 use vars qw($VERSION %info_hash);
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 sub _params_as_string {
   my ($apr) = @_;
@@ -334,7 +334,7 @@ sub new {
   $self->{view} = Apache::PageKit::View->new($self);
 
   # session handling
-  if(my $session_handler = $self->{session_handler_class}){
+  if($self->{session_lock_class} && $self->{session_store_class}){
     $self->setup_session;
   }
 
@@ -496,7 +496,7 @@ sub message {
 sub setup_session {
   my ($pk) = @_;
 
-  unless(exists $pk->{session_handler_class}){
+  unless(exists $pk->{session_lock_class} && exists $pk->{session_store_class}){
     $pk->{session} = {};
     return;
   }
@@ -530,21 +530,20 @@ sub setup_session {
   # set up session handler class
   my %session;
 
-  my $session_handler_class = $pk->{session_handler_class};
-  
-  eval "require $session_handler_class";
-  die $@ if ($@);
-  
-  eval {
-    # avoid errors when old sessions have been deleted from database
+  my $session_lock_class = $pk->{session_lock_class};
+  my $session_store_class = $pk->{session_store_class};
+
+  {
     local $Apache::PageKit::Error::in_use = 'no';
-    tie %session, $session_handler_class, $session_id, $pk->{session_args};
-  };
-  if($@){
-    # session expired, create new session 
-    tie %session, $session_handler_class, undef, $pk->{session_args};
-    $cookie_domain = $apr->dir_config('PKIT_COOKIE_DOMAIN');
-    $is_new_session = 1;
+    tie %session, 'Apache::PageKit::Session', $session_id,
+    {
+     Lock => $session_lock_class,
+     Store => $session_store_class,
+     Generate => 'MD5',
+     Serialize => 'Storable',
+     create_unknown => 1,
+     %{$pk->{session_args}}
+    };
   }
 
   $pk->{session} = \%session;
@@ -571,8 +570,6 @@ sub setup_session {
 
   # save for logging purposes
   $apr->notes(pkit_session_id => $session_id);
-
-#  $pk->{view}->param('last_activity',$session{last_activity} . " " . $session{_session_id});
 
   return $session_id;
 }
@@ -619,7 +616,8 @@ Perl Module that inherits from Apache::PageKit:
 			      module_dispatch_prefix => 'MyPageKit::ModuleCode',
 			      dbh => $dbh,
 			      form_validator_input_profile => $input_profile,
-			      session_handler_class => 'Apache::Session::MySQL',
+			      session_lock_class => 'MySQL',
+			      session_store_class => 'MySQL',
 			      session_args => {
 					       Handle => $dbh,
 					       LockHandle => $dbh,
@@ -699,7 +697,7 @@ of pages making up the the application.
 
 =item $pk->{session}
 
-A reference to a hash tied to L<Apache::Session>.
+A reference to a hash tied to L<Apache::PageKit::Session>.
 
 =item $pk->{validator}
 
@@ -775,7 +773,7 @@ environment, as specified in the Apache C<ServerAdmin> configuration directive.
 
 =item Session Management
 
-Provides easy access to a hash tied to L<Apache::Session>.
+Provides easy access to a hash tied to L<Apache::PageKit::Session>.
 
 =item Authentication
 
@@ -828,16 +826,17 @@ The following methods are available to the user as Apache::PageKit API.
 
 Constructor object.
 
-  $pk = Apache::PageKit->new(
-			     page_dispatch_prefix => 'MyPageKit::PageCode',
-			     module_dispatch_prefix => 'MyPageKit::ModuleCode',
-                             dbh => $dbh,
-			     session_handler_class => 'Apache::Session::MySQL',
-			     session_args => {
-					      Handle => $dbh,
-					      LockHandle => $dbh,
-                                             },
-			    );
+  $pk = __PACKAGE__->new(
+			 page_dispatch_prefix => 'MyPageKit::PageCode',
+			 module_dispatch_prefix => 'MyPageKit::ModuleCode',
+			 dbh => $dbh,
+			 session_lock_manager => 'MySQL',
+			 session_object_store => 'MySQL',
+			 session_args => {
+					  Handle => $dbh,
+					  LockHandle => $dbh,
+					 },
+			);
 
 Each option is accessible from the object's
 hash.  For example C<$dbh> is acessible from C<$pk-E<gt>{dbh}>.
@@ -1040,12 +1039,16 @@ set to I<recent>.  Defaults to 3600 (1 hour).
 
 =item session_args
 
-Reference to an hash containing options for the C<session_handler_class>.
+Reference to an hash containing options for the C<session_lock_class> and
+C<session_store_class>.
 
-=item session_handler_class
+=item session_lock_class
 
-The subclass of L<Apache::Session> that should be used for
-session handler.
+The lock manager class that should be used for L<Apache::Session> session handling.
+
+=item session_store_class
+
+The object store class that should be used for L<Apache::Session> session handling.
 
 =item uri_prefix
 
@@ -1289,7 +1292,7 @@ L<HTML::FormValidator>
 
 =head1 VERSION
 
-This document describes Apache::PageKit module version 0.02
+This document describes Apache::PageKit module version 0.03
 
 =head1 NOTES
 
